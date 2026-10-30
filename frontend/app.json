@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "Mume",
+    "slug": "mume-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0F172A"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mume.app",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Mume needs microphone access for hands-free wake word detection and voice replies."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0F172A"
+      },
+      "package": "com.mume.app",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.INTERNET",
+        "android.permission.VIBRATE"
+      ]
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "scheme": "mume",
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "name": "mume-frontend",
+  "version": "1.0.0",
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.48.1",
+    "expo": "~52.0.28",
+    "expo-constants": "~17.0.4",
+    "expo-haptics": "~14.0.0",
+    "expo-linking": "~7.0.4",
+    "expo-router": "~4.0.16",
+    "expo-safe-area-context": "4.12.0",
+    "expo-speech": "~13.0.0",
+    "expo-status-bar": "~2.0.0",
+    "react": "18.3.1",
+    "react-native": "0.76.6",
+    "react-native-safe-area-context": "4.12.0",
+    "react-native-screens": "~4.4.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@types/react": "~18.3.12",
+    "typescript": "^5.3.3"
+  },
+  "private": true
+}
