@@ -1,5 +1,6 @@
-# mume-app
-Mume = Muse + Messenger. Manage Business Page Messenger without opening Messenger. A voice-first AI assistant for small businesses worldwide. Talk hands-free, Mume checks your Page inbox, drafts replies, and only sends after you confirm. English-first. Powered by Muse Spark, Muse Voice, Muse Image, and SAM 3.1.
+# Mume
+
+**Mume = Muse + Messenger. Manage Business Page Messenger without opening Messenger.**
 
 > ## 🏆 Highlight Entry - Meta Global AI Developer Hackathon
 > **Project:** Mume
@@ -120,6 +121,36 @@ mume/
 - **Muse Wonder** (stretch) - Frontier reasoning. $4 in / $20 out per 1M tokens.
 - **Muse Glimmer 30B** (optional offline) - FREE, Apache 2.0 open-weight, runs on laptop single GPU.
 - **Muse Code** - Used to build Mume faster. CLI free, tokens billed.
+
+---
+
+## Cross-Platform Mobile Responsiveness and Ergonomics Directive (CPMRED) - MANDATORY
+
+**Directive ID:** CPMRED-001 | **Status:** STRICT
+
+**Goal:** Guarantee optimal one-handed comfortability, device responsiveness, and future-ready iOS adaptability while shipping Android-first.
+
+**One-Handed Comfort:**
+- All primary CTAs in bottom 40% thumb zone (natural reach)
+- WakeWordButton fixed bottom-center 72dp, 72px safe margin
+- Min tap target 48x48dp (Android) / 44x44pt (iOS ready), 8dp spacing
+- 80% of flows completable via voice only (Hey Mume -> Yes) to reduce thumb travel
+- One-Handed Test: Link Page -> Check Update -> Approve must work with one thumb, no grip shift
+
+**Device Responsiveness:**
+- NO fixed px heights, use flex / % / useWindowDimensions
+- `react-native-safe-area-context` for notches, gesture bar, Dynamic Island (future iOS)
+- 60 FPS mandatory via `react-native-reanimated` (UI thread)
+- Support: 320dp (5.5" low-end) to 600dp (tablet) to 1024dp (foldable open)
+- Low-end target: 2GB RAM, Adreno 306, cold start < 2.5s
+
+**Future iOS Adaptability:**
+- No Android-only modules, use `Platform.select` + Expo modules only (`expo-av`, `expo-haptics`, `expo-speech`, `expo-secure-store`)
+- Expo Managed + EAS Build, no bare native code — enables `eas build -p ios` from Windows
+- `app.json` already contains `bundleIdentifier: com.mume.app` + both Android + iOS permission strings (`NSMicrophoneUsageDescription`, etc.)
+- Icons via cross-platform Ionicons, SafeAreaView everywhere
+
+See full strict directive + compliance checklist in [PLAN.md](./PLAN.md#cross-platform-mobile-responsiveness-and-ergonomics-directive-cpmred---mandatory).
 
 ---
 

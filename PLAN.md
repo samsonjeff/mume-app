@@ -1,5 +1,14 @@
-# mume-app - PLAN
-Mume = Muse + Messenger. Manage Business Page Messenger without opening Messenger. A voice-first AI assistant for small businesses worldwide. Talk hands-free, Mume checks your Page inbox, drafts replies, and only sends after you confirm. English-first. Powered by Muse Spark, Muse Voice, Muse Image, and SAM 3.1.
+# Mume - PLAN
+
+Mume = Muse + Messenger. Manage Business Page Messenger without opening Messenger.
+
+> ## 🏆 Highlight Entry - Meta Global AI Developer Hackathon
+> **Project:** Mume
+> **Track:** Indie Developer
+> **Themes:** Build for Your World (primary) + Push the Frontier
+> **Tagline:** Mume = Muse + Messenger. Manage Business Page Messenger without opening Messenger.
+> **Pitch:** Voice-first Page OS for sari-sari store owners who can't type while working. Hands-free, wake-word assistant that checks your Facebook Page, drafts replies, and asks for confirmation before sending.
+> **Event:** 10 days, Oct 26 - Nov 4 | PH Time: Oct 27, 1:00 AM – Nov 5, 10:00 AM (GMT+8 / PHT) | $1M Prize Pool | Built with Meta Model API + Muse Code + Open Weights
 
 > Voice-first, hands-free assistant for Facebook Page owners.
 > You talk, Mume checks your Page, drafts replies, and asks for confirmation before sending.
@@ -50,6 +59,92 @@ mume/
 - Muse Wonder (optional / stretch) - Frontier reasoning for hardest tasks. $4 in / $20 out per 1M tokens.
 - Muse Glimmer 30B (optional / offline) - FREE, Apache 2.0 open-weight, runs on laptop single GPU. Offline draft mode. Not for phone.
 - Muse Code - Terminal coding agent used to build Mume faster. CLI free, tokens billed.
+
+## Cross-Platform Mobile Responsiveness and Ergonomics Directive (CPMRED) - MANDATORY
+
+> **Directive ID:** CPMRED-001
+> **Status:** STRICT - All UI/frontend must comply. No exceptions for hackathon demo.
+> **Goal:** Guarantee optimal one-handed comfortability, device responsiveness, and future-ready iOS adaptability while shipping Android-first on Windows.
+
+### 1. Objective
+Mume must be usable with one hand while the other hand is carrying goods, cooking, or packing. It must work on a 5.5" low-end Android phone (720p) AND a 6.7" flagship AND future iPhone, without layout breaks.
+
+### 2. One-Handed Comfortability - Non-Negotiable
+
+**Thumb Zone Rule (Critical):**
+- All primary actions MUST live in bottom 40% of screen (natural thumb reach for right and left hand).
+- `WakeWordButton` (main action) is fixed bottom-center, 72dp, within 72px safe margin from bottom edge.
+- `PendingActionCard` Approve / Edit buttons are bottom-aligned, min height 48dp, min width 48% each.
+- No critical button in top 25% (hard to reach one-handed).
+
+**Ergonomic Targets:**
+- Tap target: Min 48x48dp (Android) / 44x44pt (iOS ready)
+- Spacing: Min 8dp between tappables to prevent mis-tap while walking
+- Hold-to-Talk alternative: Wake word is primary, but manual tap must also be bottom-reachable
+- Voice-first reduces thumb travel: 80% of flows completable via voice only (Hey Mume -> Yes)
+
+**One-Handed Test:** Tester must complete: Link Page -> Check Update -> Approve Price using only thumb of one hand, without shifting grip. If grip shifts, redesign.
+
+### 3. Device Responsiveness - Strict
+
+**Layout System:**
+- NO fixed px heights for containers. Use `flex`, `%`, `Dimensions`, `useWindowDimensions`.
+- Use `react-native-safe-area-context` for notches, status bar, gesture bar, Dynamic Island (future iOS).
+- Use `react-native-responsive-screen` or `%-based` + `PixelRatio` for font scaling.
+- Support: 320dp width (small Android) to 600dp (tablet) to 1024dp (foldable open).
+
+**Performance / Responsiveness:**
+- 60 FPS mandatory: All animations via `react-native-reanimated` (UI thread), not JS thread.
+- Low-end Android (2GB RAM, Adreno 306): Cold start < 2.5s, VoiceWave < 16ms frame budget
+- Images: `expo-image` with `contentFit`, cache, max 1080p, WebP
+- No layout jank: Skeleton loaders for SAM and Image generation, not blank screens
+
+**Device Matrix (Must Pass):**
+- Small: 5.5" 720x1280 320dpi (e.g., entry-level PH Android)
+- Medium: 6.3" 1080x2400 420dpi (current dev device)
+- Large: 6.7" 1440x3200 520dpi
+- Foldable: Folded 6.2" / Unfolded 7.6" (Expo flex must reflow, no crash)
+- Future iOS: iPhone SE (4.7"), iPhone 15/16 (6.1" + Dynamic Island), iPhone Pro Max (6.7")
+
+### 4. Future-Ready iOS Adaptability - Build Now, Ship Later
+
+We are Android-first (Windows dev), but code MUST be iOS-ready without rewrite.
+
+**Rules:**
+- No Android-only native modules. If a lib says `android only`, find cross-platform alternative or wrap with `Platform.select`.
+- Use Expo Managed + EAS Build: No bare native code for MVP. This guarantees iOS build will work from Windows via cloud.
+- All native APIs via Expo modules: `expo-av`, `expo-haptics`, `expo-speech`, `expo-secure-store` (not `AsyncStorage` for tokens)
+- Safe Area: Use `SafeAreaView` from `react-native-safe-area-context` everywhere. Test with `insets.top` for Dynamic Island / notch.
+- Icons: SF Symbols compatible names where possible, or cross-platform `Ionicons`
+- Permissions: Declare both Android + iOS permission strings in `app.json` now, even if Android only. Example: `NSMicrophoneUsageDescription` for future iOS.
+- TestFlight Ready: `app.json` must already contain `bundleIdentifier` `com.mume.app` and `buildNumber` increment strategy
+
+**iOS Build Path (No Mac Needed):**
+- `eas build -p ios` -> cloud builds IPA -> TestFlight
+- Keep `expo` SDK latest to avoid iOS breaking changes
+
+### 5. Implementation Rules
+
+- **Component Library:** All components from `components/` must accept `style` prop and be responsive
+- **No hardcoded top-bar actions:** Move to bottom sheet / bottom tabs
+- **Typography:** Use `allowFontScaling: true` + `maxFontSizeMultiplier: 1.3` for accessibility, but layout must not break at 130%
+- **Accessibility:** TalkBack / VoiceOver labels on all buttons: "Wake Mume, double tap and speak"
+- **Dark Mode Only for MVP:** High contrast, outdoor visibility, but design tokens must support light mode later via `colors` object
+
+### 6. Compliance Checklist (Must Pass Before Demo)
+
+- [ ] All primary CTAs in bottom 40% thumb zone
+- [ ] Min tap target 48x48dp tested on small device
+- [ ] No fixed px container heights, only flex / %
+- [ ] SafeAreaView used on all screens, tested with notch / gesture bar
+- [ ] 60 FPS VoiceWave on low-end device (profiled)
+- [ ] WakeWordButton reachable with one thumb, no grip shift
+- [ ] PendingActionCard Approve reachable with thumb
+- [ ] No Android-only modules, `Platform.select` used where needed
+- [ ] `app.json` contains both Android + iOS permissions
+- [ ] Works in portrait + landscape (landscape must not break, can letterbox)
+- [ ] Works on foldable folded/unfolded (Expo flex reflow)
+- [ ] Future iOS EAS build passes `eas build -p ios --dry-run` without errors
 
 ## MVP Features
 
@@ -220,8 +315,8 @@ pending_actions (id, conversation_id, draft_reply, suggested_price, status) -- w
 
 ## Pitch Line
 
-> "Voice-first Page OS for sari-sari store owners who can't type while working."
 > Mume = Muse + Messenger. Manage Business Page Messenger without opening Messenger.
+> Voice-first Page OS for sari-sari store owners who can't type while working.
 
 ## What Is NOT In MVP
 
