@@ -55,6 +55,14 @@ function createApp(env = process.env) {
     res.json({ status: 'ok' });
   });
 
+  app.get('/privacy', (_req, res) => {
+    res.type('html').send(`<!DOCTYPE html><html><head><title>Privacy Policy - Mume</title></head><body style="font-family:sans-serif;padding:24px;max-width:600px;margin:auto;"><h2>Privacy Policy for Mume</h2><p>Mume accesses Facebook Page messaging solely to assist authorized Page administrators in viewing customer inquiries and drafting confirmed responses. No customer information is sold or transferred to third parties.</p><p>For inquiries, contact support.</p></body></html>`);
+  });
+
+  app.get('/data-deletion', (_req, res) => {
+    res.type('html').send(`<!DOCTYPE html><html><head><title>Data Deletion - Mume</title></head><body style="font-family:sans-serif;padding:24px;max-width:600px;margin:auto;"><h2>User Data Deletion Instructions</h2><p>To request deletion of your Page connection data, unlink your Page inside the Mume mobile application or email support with your Facebook Page ID.</p></body></html>`);
+  });
+
   // Facebook webhook verification handshake on /webhook
   app.get('/webhook', handleWebhookVerification);
 
