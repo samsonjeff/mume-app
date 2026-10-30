@@ -15,6 +15,7 @@ const {
  */
 function createApp(env = process.env) {
   const app = express();
+  app.set('trust proxy', true);
 
   // Capture rawBody for Meta webhook signature verification
   app.use(
@@ -137,13 +138,21 @@ function createApp(env = process.env) {
     next();
   });
 
+  const getCallbackUrl = (req) => {
+    const proto = req.get('x-forwarded-proto') || req.protocol || 'http';
+    const host = req.get('host') || 'localhost:3000';
+    const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
+    const safeProto = isLocal ? proto : 'https';
+    return `${safeProto}://${host}/auth/facebook/callback`;
+  };
+
   // 1. GET /auth/facebook/url -> Returns OAuth URL for frontend
   app.get('/auth/facebook/url', (req, res) => {
     const appId = env.FB_APP_ID;
     if (!appId) {
       return res.status(500).json({ error: 'FB_APP_ID not configured on server' });
     }
-    const defaultRedirect = `${req.protocol}://${req.get('host')}/auth/facebook/callback`;
+    const defaultRedirect = getCallbackUrl(req);
     const redirectUri = req.query.redirect_uri || defaultRedirect;
     const url = getFacebookLoginUrl({ appId, redirectUri });
     res.json({ url });
@@ -162,7 +171,7 @@ function createApp(env = process.env) {
     try {
       const appId = env.FB_APP_ID;
       const appSecret = env.FB_APP_SECRET;
-      const redirectUri = `${req.protocol}://${req.get('host')}/auth/facebook/callback`;
+      const redirectUri = req.query.redirect_uri || getCallbackUrl(req);
 
       if (!appId || !appSecret) {
         return res.status(500).json({ error: 'FB_APP_ID or FB_APP_SECRET missing on server' });
