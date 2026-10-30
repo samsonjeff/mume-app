@@ -150,3 +150,4 @@ create policy "Users update own pending_actions" on public.pending_actions for a
     where conversations.id = pending_actions.conversation_id and pages.user_id = auth.uid()
   )
 );
+

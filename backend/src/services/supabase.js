@@ -22,3 +22,4 @@ function getSupabaseClient(env = process.env) {
 }
 
 module.exports = { getSupabaseClient };
+
