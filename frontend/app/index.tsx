@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { StyleSheet, Text, View, Pressable, ScrollView, RefreshControl } from 'react-native';
+import { StyleSheet, Text, View, Pressable, ScrollView, RefreshControl, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { THEME } from '../constants/theme';
@@ -68,7 +68,7 @@ export default function HomeScreen() {
         {/* Top Bar Status */}
         <View style={styles.headerRow}>
           <View>
-            <Text style={styles.brandTitle}>Mume</Text>
+            <Image source={require('../assets/mume-logo-white.png')} style={styles.brandLogo} resizeMode="contain" accessibilityRole="image" accessibilityLabel="Mume" />
             <Text style={styles.brandSubtitle}>Voice-first Page OS</Text>
           </View>
           <InboxBadge count={unreadCount} onPress={() => loadLinkedPages()} />
@@ -145,6 +145,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
   },
+  brandLogo: { width: 120, height: 120, marginVertical: -36, marginLeft: -12 }, // square PNG has ~30% vertical padding
   brandTitle: {
     color: THEME.colors.text,
     fontSize: 26,
