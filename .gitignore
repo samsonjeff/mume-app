@@ -5,9 +5,8 @@ node_modules/
 npm-debug.log*
 .DS_Store
 .superpowers/
-.env.*
-!.env.example
-node_modules/
-npm-debug.log*
-.DS_Store
-.superpowers/
+
+# Local agent skills & configs
+skills/
+.agents/
+**/SKILLS.md
