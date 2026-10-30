@@ -354,7 +354,7 @@ backend/
 
 ## Roadmap
 
-- [ ] Phase 1: Setup + Login (Day 1-2)
+- [x] Phase 1: Setup + Login (Day 1-2)
 - [ ] Phase 2: Voice - Wake Word + Transcribe + TTS (Day 3-4)
 - [ ] Phase 3: Spark Brain - Orchestration + Knowledge Base (Day 5-6)
 - [ ] Phase 4: SAM + Image Price Card (Day 7-8)

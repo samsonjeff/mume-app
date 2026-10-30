@@ -250,11 +250,11 @@ pending_actions (id, conversation_id, draft_reply, suggested_price, status) -- w
 ## Plan
 
 ### Phase 1: Setup + Login (Day 1-2)
-- [ ] Scaffold monorepo: frontend + backend
-- [ ] Supabase project + tables above + Auth
-- [ ] Facebook App in Meta for Developers, add Page permissions
-- [ ] Facebook Login + Link Page flow working
-- [ ] Test Graph API: read inbox + comments
+- [x] Scaffold monorepo: frontend + backend
+- [x] Supabase project + tables above + Auth
+- [x] Facebook App in Meta for Developers, add Page permissions
+- [x] Facebook Login + Link Page flow working
+- [x] Test Graph API: read inbox + comments
 
 ### Phase 2: Voice (Day 3-4)
 - [ ] Porcupine wake word "Mume" / "Hey Mume" working on-device
