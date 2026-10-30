@@ -8,8 +8,25 @@ function createApp(env = process.env) {
   const app = express();
   app.use(express.json());
 
-  // Health check - Render pings this, and it's a quick "is it alive?" in the browser.
-  app.get('/', (_req, res) => {
+  const handleWebhookVerification = (req, res) => {
+    const mode = req.query['hub.mode'];
+    const token = req.query['hub.verify_token'];
+    const challenge = req.query['hub.challenge'];
+    const expected = (env.FB_VERIFY_TOKEN || '').trim();
+
+    if (mode === 'subscribe' && expected && (token || '').trim() === expected) {
+      console.log('[webhook-verify] Verified challenge:', challenge);
+      return res.status(200).send(String(challenge ?? ''));
+    }
+    console.warn('[webhook-verify] Failed verification. mode:', mode, 'token:', token);
+    return res.sendStatus(403);
+  };
+
+  // Health check & fallback webhook verification at root path
+  app.get('/', (req, res) => {
+    if (req.query['hub.mode'] === 'subscribe') {
+      return handleWebhookVerification(req, res);
+    }
     res.json({ name: 'mume-backend', status: 'ok' });
   });
 
@@ -17,26 +34,21 @@ function createApp(env = process.env) {
     res.json({ status: 'ok' });
   });
 
-  // Facebook webhook verification handshake.
-  // Meta calls GET /webhook?hub.mode=subscribe&hub.verify_token=...&hub.challenge=...
-  // and expects the raw challenge echoed back when the token matches FB_VERIFY_TOKEN.
-  app.get('/webhook', (req, res) => {
-    const mode = req.query['hub.mode'];
-    const token = req.query['hub.verify_token'];
-    const challenge = req.query['hub.challenge'];
-    const expected = env.FB_VERIFY_TOKEN;
-
-    if (mode === 'subscribe' && expected && token === expected) {
-      return res.status(200).type('text/plain').send(String(challenge ?? ''));
-    }
-    return res.sendStatus(403);
-  });
+  // Facebook webhook verification handshake on /webhook
+  app.get('/webhook', handleWebhookVerification);
 
   // Facebook webhook events (new messages, comments, etc.).
-  // Meta requires a fast 200; real processing comes in later phases.
   app.post('/webhook', (req, res) => {
     console.log('[webhook] event:', JSON.stringify(req.body));
     res.sendStatus(200);
+  });
+
+  app.post('/', (req, res, next) => {
+    if (req.body && req.body.object) {
+      console.log('[webhook] event at /:', JSON.stringify(req.body));
+      return res.sendStatus(200);
+    }
+    next();
   });
 
   // Facebook Login OAuth redirect target ("Valid OAuth Redirect URI" in Meta App settings).

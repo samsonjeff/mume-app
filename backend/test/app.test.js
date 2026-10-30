@@ -22,6 +22,14 @@ test('GET / returns ok', async () => {
   assert.deepEqual(await res.json(), { name: 'mume-backend', status: 'ok' });
 });
 
+test('GET / echoes challenge if webhook parameters sent to root', async () => {
+  const res = await fetch(
+    `${base}/?hub.mode=subscribe&hub.verify_token=secret-token&hub.challenge=9999`
+  );
+  assert.equal(res.status, 200);
+  assert.equal(await res.text(), '9999');
+});
+
 test('GET /webhook echoes challenge when verify token matches', async () => {
   const res = await fetch(
     `${base}/webhook?hub.mode=subscribe&hub.verify_token=secret-token&hub.challenge=12345`
