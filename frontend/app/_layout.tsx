@@ -29,8 +29,7 @@ export default function RootLayout() {
         <Stack.Screen
           name="index"
           options={{
-            headerTitle: () => <MumeLogo height={28} width={96} />,
-            headerShadowVisible: false,
+            headerShown: false,
           }}
         />
         <Stack.Screen

@@ -17,6 +17,7 @@ import { THEME } from '../constants/theme';
 import { WakeWordButton } from '../components/WakeWordButton';
 import { VoiceWave } from '../components/VoiceWave';
 import { AppIcon } from '../components/AppIcon';
+import { MumeLogo } from '../components/MumeLogo';
 import { api, LinkedPage } from '../lib/api';
 import { supabase } from '../lib/supabase';
 
@@ -162,14 +163,16 @@ export default function HomeScreen() {
       {/* 1. App Header / Connected Facebook Page Row */}
       <View style={styles.headerRow} accessibilityRole="header">
         <View style={styles.brandRow}>
+          <MumeLogo width={78} height={24} />
+          <View style={styles.brandDivider} />
           <Text style={styles.brandSubtitle} numberOfLines={1}>
-            {activePageTitle}
+            {activeTab === 'settings' ? 'Settings' : activePageTitle}
           </Text>
         </View>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Open settings profile"
-          onPress={() => setActiveTab('settings')}
+          onPress={() => setActiveTab(activeTab === 'settings' ? 'today' : 'settings')}
           style={styles.profileBadge}
         >
           <Text style={styles.profileBadgeText}>{userInitials}</Text>
@@ -604,6 +607,13 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: THEME.colors.text,
     fontWeight: '700',
+    flexShrink: 1,
+  },
+  brandDivider: {
+    width: 1,
+    height: 16,
+    backgroundColor: THEME.colors.cardBorder,
+    marginHorizontal: 10,
   },
   profileBadge: {
     width: 38,
