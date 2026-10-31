@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { THEME } from '../constants/theme';
 import { WakeWordButton } from '../components/WakeWordButton';
 import { VoiceWave } from '../components/VoiceWave';
+import { AppIcon } from '../components/AppIcon';
 import { api, LinkedPage } from '../lib/api';
 import { supabase } from '../lib/supabase';
 
@@ -177,7 +178,7 @@ export default function HomeScreen() {
             {/* Summary Card */}
             <Pressable style={styles.summaryCard} onPress={() => setActiveTab('inbox')}>
               <View style={styles.summaryIconContainer}>
-                <Text style={styles.summaryIconText}>💬</Text>
+                <AppIcon name="message-circle" size={22} color={THEME.colors.primary} />
               </View>
               <View style={styles.summaryCopy}>
                 <Text style={styles.summaryTitle}>2 new messages</Text>
@@ -185,7 +186,7 @@ export default function HomeScreen() {
                   {isApproved ? 'All inquiries handled' : '1 needs your approval'}
                 </Text>
               </View>
-              <Text style={styles.chevronText}>›</Text>
+              <AppIcon name="chevron-right" size={20} color={THEME.colors.textMuted} />
             </Pressable>
 
             {/* Section Heading */}
@@ -221,7 +222,7 @@ export default function HomeScreen() {
 
                 <View style={styles.draftBlock}>
                   <View style={styles.draftLabelRow}>
-                    <Text style={styles.draftIconText}>✨</Text>
+                    <AppIcon name="bot" size={16} color={THEME.colors.primary} />
                     <Text style={styles.draftLabelText}>Mume’s suggested reply</Text>
                   </View>
 
@@ -249,9 +250,12 @@ export default function HomeScreen() {
                     style={styles.secondaryButton}
                     onPress={() => setEditingPrice((v) => !v)}
                   >
-                    <Text style={styles.secondaryButtonText}>
-                      {editingPrice ? 'Done editing' : 'Edit'}
-                    </Text>
+                    <View style={styles.buttonInnerRow}>
+                      <AppIcon name="edit" size={15} color={THEME.colors.text} />
+                      <Text style={styles.secondaryButtonText}>
+                        {editingPrice ? 'Done' : 'Edit'}
+                      </Text>
+                    </View>
                   </Pressable>
 
                   <Pressable
@@ -259,15 +263,20 @@ export default function HomeScreen() {
                     style={styles.primaryButton}
                     onPress={handleApprove}
                   >
-                    <Text style={styles.primaryButtonText}>Approve & send ✓</Text>
+                    <View style={styles.buttonInnerRow}>
+                      <Text style={styles.primaryButtonText}>Approve & send</Text>
+                      <AppIcon name="check" size={16} color="#FFFFFF" strokeWidth={2.5} />
+                    </View>
                   </Pressable>
                 </View>
 
-                <Text style={styles.safetyNote}>🔒 Nothing is sent without your approval.</Text>
+                <Text style={styles.safetyNote}>Nothing is sent without your approval.</Text>
               </View>
             ) : (
               <View style={styles.emptyCard}>
-                <Text style={styles.emptyCardIcon}>✓</Text>
+                <View style={styles.emptyCheckBadge}>
+                  <AppIcon name="check" size={28} color={THEME.colors.speaking} strokeWidth={2.5} />
+                </View>
                 <Text style={styles.emptyCardTitle}>All Caught Up!</Text>
                 <Text style={styles.emptyCardSubtitle}>
                   Reply confirmed and dispatched to Maria via Meta Graph API.
@@ -450,7 +459,7 @@ export default function HomeScreen() {
           {voiceState === 'thinking' && (
             <View style={styles.voiceStatusContentRow}>
               <Text style={styles.voiceStatusTitle}>Checking your page…</Text>
-              <Text style={styles.sparkEmoji}>✨</Text>
+              <AppIcon name="bot" size={16} color={THEME.colors.obsidian} />
             </View>
           )}
         </View>
@@ -462,23 +471,35 @@ export default function HomeScreen() {
         />
       </View>
 
-      {/* 4. Bottom 4-Tab Navigation */}
+      {/* 4. Bottom 4-Tab Navigation with Local SVG Assets */}
       <nav style={styles.bottomNav}>
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel="Today Tab"
           style={[styles.tabButton, activeTab === 'today' && styles.tabButtonActive]}
           onPress={() => setActiveTab('today')}
         >
-          <Text style={styles.tabIcon}>🏠</Text>
+          <AppIcon
+            name="home"
+            size={22}
+            color={activeTab === 'today' ? THEME.colors.primary : THEME.colors.textMuted}
+            strokeWidth={activeTab === 'today' ? 2.3 : 1.8}
+          />
           <Text style={[styles.tabLabel, activeTab === 'today' && styles.tabLabelActive]}>Today</Text>
         </Pressable>
 
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel="Inbox Tab"
           style={[styles.tabButton, activeTab === 'inbox' && styles.tabButtonActive]}
           onPress={() => setActiveTab('inbox')}
         >
-          <Text style={styles.tabIcon}>💬</Text>
+          <AppIcon
+            name="message-circle"
+            size={22}
+            color={activeTab === 'inbox' ? THEME.colors.primary : THEME.colors.textMuted}
+            strokeWidth={activeTab === 'inbox' ? 2.3 : 1.8}
+          />
           <Text style={[styles.tabLabel, activeTab === 'inbox' && styles.tabLabelActive]}>Inbox</Text>
         </Pressable>
 
@@ -487,19 +508,31 @@ export default function HomeScreen() {
 
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel="Catalog Tab"
           style={[styles.tabButton, activeTab === 'catalog' && styles.tabButtonActive]}
           onPress={() => setActiveTab('catalog')}
         >
-          <Text style={styles.tabIcon}>📦</Text>
+          <AppIcon
+            name="folder"
+            size={22}
+            color={activeTab === 'catalog' ? THEME.colors.primary : THEME.colors.textMuted}
+            strokeWidth={activeTab === 'catalog' ? 2.3 : 1.8}
+          />
           <Text style={[styles.tabLabel, activeTab === 'catalog' && styles.tabLabelActive]}>Catalog</Text>
         </Pressable>
 
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel="Settings Tab"
           style={[styles.tabButton, activeTab === 'settings' && styles.tabButtonActive]}
           onPress={() => setActiveTab('settings')}
         >
-          <Text style={styles.tabIcon}>⚙️</Text>
+          <AppIcon
+            name="wrench"
+            size={22}
+            color={activeTab === 'settings' ? THEME.colors.primary : THEME.colors.textMuted}
+            strokeWidth={activeTab === 'settings' ? 2.3 : 1.8}
+          />
           <Text style={[styles.tabLabel, activeTab === 'settings' && styles.tabLabelActive]}>Settings</Text>
         </Pressable>
       </nav>
@@ -507,7 +540,7 @@ export default function HomeScreen() {
       {/* 5. Animated Success Toast */}
       {sentToast && (
         <View style={styles.toast}>
-          <Text style={styles.toastIcon}>✓</Text>
+          <AppIcon name="check" size={18} color="#FFFFFF" strokeWidth={2.5} />
           <Text style={styles.toastText}>Reply sent to Maria A.</Text>
         </View>
       )}
@@ -837,10 +870,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: THEME.colors.cardBorder,
   },
-  emptyCardIcon: {
-    fontSize: 36,
-    color: THEME.colors.speaking,
-    marginBottom: 10,
+  buttonInnerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  emptyCheckBadge: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(0, 185, 92, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
   },
   emptyCardTitle: {
     color: THEME.colors.text,

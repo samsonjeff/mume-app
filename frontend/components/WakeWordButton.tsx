@@ -1,7 +1,8 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { THEME } from '../constants/theme';
+import { AppIcon } from './AppIcon';
 
 interface WakeWordButtonProps {
   isListening?: boolean;
@@ -102,7 +103,12 @@ export const WakeWordButton: React.FC<WakeWordButtonProps> = ({
           onPress={handlePress}
           style={[styles.button, { backgroundColor: getBackgroundColor() }]}
         >
-          <Text style={styles.iconText}>{isThinking ? '✨' : '🎙️'}</Text>
+          <AppIcon
+            name={isThinking ? 'bot' : isListening ? 'mic-audio-lines' : 'mic'}
+            size={28}
+            color="#FFFFFF"
+            strokeWidth={2.2}
+          />
         </Pressable>
       </Animated.View>
     </View>

@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, Pressable, ScrollView, Linking, TextInput, Acti
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { THEME } from '../constants/theme';
+import { AppIcon } from '../components/AppIcon';
 import { api, LinkedPage } from '../lib/api';
 
 export default function LinkPageScreen() {
@@ -88,8 +89,11 @@ export default function LinkPageScreen() {
           ) : pages.length > 0 ? (
             pages.map((p) => (
               <View key={p.id} style={styles.pageItem}>
-                <View>
-                  <Text style={styles.pageItemName}>✓ {p.page_name}</Text>
+                <View style={styles.pageItemInfo}>
+                  <View style={styles.pageItemTitleRow}>
+                    <AppIcon name="check" size={16} color={THEME.colors.speaking} strokeWidth={2.5} />
+                    <Text style={styles.pageItemName}>{p.page_name}</Text>
+                  </View>
                   <Text style={styles.pageItemId}>ID: {p.fb_page_id}</Text>
                 </View>
                 <Text style={styles.tag}>Active</Text>
@@ -228,6 +232,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 8,
+  },
+  pageItemInfo: {
+    flex: 1,
+  },
+  pageItemTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   pageItemName: {
     color: THEME.colors.text,
