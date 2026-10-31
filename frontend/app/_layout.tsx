@@ -19,6 +19,9 @@ export default function RootLayout() {
           },
           contentStyle: {
             backgroundColor: THEME.colors.bg,
+            maxWidth: 480,
+            width: '100%',
+            alignSelf: 'center',
           },
         }}
       >
