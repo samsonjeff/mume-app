@@ -313,3 +313,4 @@ export const AppIcon: React.FC<AppIconProps> = ({
 };
 
 export default AppIcon;
+
