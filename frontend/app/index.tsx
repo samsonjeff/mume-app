@@ -6,7 +6,6 @@ import {
   Pressable,
   ScrollView,
   RefreshControl,
-  Image,
   TextInput,
   ActivityIndicator,
   Animated,
@@ -143,22 +142,12 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
-      {/* 1. App Header */}
+      {/* 1. App Header / Connected Facebook Page Row */}
       <header style={styles.headerRow}>
         <View style={styles.brandRow}>
-          <Image
-            source={require('../assets/mume-logo.png')}
-            style={styles.brandLogo}
-            resizeMode="contain"
-            accessibilityRole="image"
-            accessibilityLabel="Mume"
-          />
-          <View style={styles.brandCopy}>
-            <Text style={styles.brandTitle}>Mume</Text>
-            <Text style={styles.brandSubtitle} numberOfLines={1}>
-              {activePageTitle}
-            </Text>
-          </View>
+          <Text style={styles.brandSubtitle} numberOfLines={1}>
+            {activePageTitle}
+          </Text>
         </View>
         <View style={styles.profileBadge}>
           <Text style={styles.profileBadgeText}>AN</Text>
@@ -544,25 +533,12 @@ const styles = StyleSheet.create({
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
     flex: 1,
-  },
-  brandLogo: {
-    width: 44,
-    height: 44,
-  },
-  brandCopy: {
-    flex: 1,
-  },
-  brandTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: THEME.colors.text,
   },
   brandSubtitle: {
-    fontSize: 12,
-    color: THEME.colors.textMuted,
-    fontWeight: '500',
+    fontSize: 15,
+    color: THEME.colors.text,
+    fontWeight: '700',
   },
   profileBadge: {
     width: 38,

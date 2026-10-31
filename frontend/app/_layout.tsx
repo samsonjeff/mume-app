@@ -3,6 +3,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { THEME } from '../constants/theme';
+import { MumeLogo } from '../components/MumeLogo';
 
 export default function RootLayout() {
   return (
@@ -28,7 +29,7 @@ export default function RootLayout() {
         <Stack.Screen
           name="index"
           options={{
-            title: 'Mume',
+            headerTitle: () => <MumeLogo height={28} width={96} />,
             headerShadowVisible: false,
           }}
         />
