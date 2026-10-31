@@ -10,6 +10,11 @@ import chevronRightSvg from '../assets/chevron-right.svg';
 import dollarSignSvg from '../assets/dollar-sign.svg';
 import editSvg from '../assets/edit.svg';
 import folderSvg from '../assets/folder.svg';
+import homeSvg from '../assets/home.svg';
+import messageCircleSvg from '../assets/message-circle.svg';
+import wrenchSvg from '../assets/wrench.svg';
+import xSvg from '../assets/x.svg';
+import mumeBlackSvg from '../assets/mume-black.svg';
 
 export type VerifiedIconName =
   | 'audio-waveform'
@@ -20,9 +25,14 @@ export type VerifiedIconName =
   | 'chevron-right'
   | 'dollar-sign'
   | 'edit'
-  | 'folder';
+  | 'folder'
+  | 'home'
+  | 'message-circle'
+  | 'wrench'
+  | 'x'
+  | 'mume-black';
 
-export type MissingIconName = 'settings' | 'wrench' | 'home' | 'meta-facebook';
+export type MissingIconName = 'settings' | 'menu' | 'meta-facebook';
 
 export type IconName = VerifiedIconName | MissingIconName;
 
@@ -36,6 +46,11 @@ const VERIFIED_ASSETS: Record<VerifiedIconName, string> = {
   'dollar-sign': dollarSignSvg,
   edit: editSvg,
   folder: folderSvg,
+  home: homeSvg,
+  'message-circle': messageCircleSvg,
+  wrench: wrenchSvg,
+  x: xSvg,
+  'mume-black': mumeBlackSvg,
 };
 
 interface IconProps {
@@ -61,29 +76,39 @@ export const Icon: React.FC<IconProps> = ({
   style,
 }) => {
   // Missing asset handler: standard styled text placeholder
-  if (name === 'home') {
+  if (name === 'settings') {
     return (
-      <span
-        role="img"
-        aria-label={accessibilityLabel || 'Home (Pending SVG)'}
-        className={`inline-flex items-center justify-center font-bold text-xs px-1 py-0.5 rounded border border-current text-current select-none ${className}`}
-        style={{ minWidth: size, height: size, fontSize: Math.max(10, size * 0.45), ...style }}
-      >
-        Home
-      </span>
+      <img
+        src={wrenchSvg}
+        alt={accessibilityLabel || 'Settings'}
+        width={size}
+        height={size}
+        className={`inline-block shrink-0 object-contain ${className}`}
+        style={{ width: size, height: size, ...style }}
+        aria-hidden={!accessibilityLabel}
+      />
     );
   }
 
-  if (name === 'settings' || name === 'wrench') {
+  if (name === 'menu') {
     return (
-      <span
-        role="img"
-        aria-label={accessibilityLabel || 'Settings (Pending SVG)'}
-        className={`inline-flex items-center justify-center font-bold text-xs px-1 py-0.5 rounded border border-current text-current select-none ${className}`}
-        style={{ minWidth: size, height: size, fontSize: Math.max(10, size * 0.45), ...style }}
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={`inline-block shrink-0 ${className}`}
+        style={{ width: size, height: size, ...style }}
+        aria-label={accessibilityLabel || 'Menu'}
       >
-        Settings
-      </span>
+        <line x1="4" y1="6" x2="20" y2="6" />
+        <line x1="4" y1="12" x2="20" y2="12" />
+        <line x1="4" y1="18" x2="20" y2="18" />
+      </svg>
     );
   }
 

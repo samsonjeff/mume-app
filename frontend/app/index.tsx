@@ -31,6 +31,7 @@ type VoiceState = 'idle' | 'listening' | 'thinking';
 
 export default function HomeScreen() {
   const [activeTab, setActiveTab] = useState<Tab>('today');
+  const [menuOpen, setMenuOpen] = useState(false);
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
   const [userName, setUserName] = useState<string>('Jefferson');
   const [pages, setPages] = useState<LinkedPage[]>([]);
@@ -164,7 +165,7 @@ export default function HomeScreen() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Main menu"
-          onPress={() => setActiveTab(activeTab === 'today' ? 'inbox' : 'today')}
+          onPress={() => setMenuOpen(true)}
           style={styles.menuIconButton}
         >
           <AppIcon name="menu" size={20} color={THEME.colors.text} />
@@ -173,13 +174,19 @@ export default function HomeScreen() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Page Switcher & Model Pill"
-          onPress={() => setActiveTab('settings')}
+          onPress={() => setMenuOpen(true)}
           style={styles.geminiModelPill}
         >
           <AppIcon name="sparkles" size={14} color={THEME.colors.primary} />
           <Text style={styles.geminiPillTitle}>Mume</Text>
           <Text style={styles.geminiPillSubtitle} numberOfLines={1}>
-            {activeTab === 'settings' ? 'Settings' : activePageTitle}
+            {activeTab === 'settings'
+              ? 'Settings'
+              : activeTab === 'inbox'
+              ? 'Inbox'
+              : activeTab === 'catalog'
+              ? 'Catalog'
+              : activePageTitle}
           </Text>
           <AppIcon name="chevron-down" size={13} color={THEME.colors.textMuted} />
         </Pressable>
@@ -585,68 +592,251 @@ export default function HomeScreen() {
         </Text>
       </View>
 
-      {/* 4. Bottom 4-Tab Navigation */}
-      <View style={styles.bottomNav} accessibilityRole="menubar">
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Today Tab"
-          style={[styles.tabButton, activeTab === 'today' && styles.tabButtonActive]}
-          onPress={() => setActiveTab('today')}
-        >
-          <AppIcon
-            name="home"
-            size={22}
-            color={activeTab === 'today' ? THEME.colors.primary : THEME.colors.textMuted}
-            strokeWidth={activeTab === 'today' ? 2.3 : 1.8}
+      {/* 4. Slide-Out Side Navigation Drawer */}
+      {menuOpen && (
+        <View style={styles.drawerOverlay} pointerEvents="box-none">
+          <Pressable
+            style={styles.drawerBackdrop}
+            accessibilityRole="button"
+            accessibilityLabel="Close navigation menu"
+            onPress={() => setMenuOpen(false)}
           />
-          <Text style={[styles.tabLabel, activeTab === 'today' && styles.tabLabelActive]}>Today</Text>
-        </Pressable>
+          <View style={styles.drawerPanel}>
+            {/* Drawer Header */}
+            <View style={styles.drawerHeader}>
+              <View style={styles.drawerBrandRow}>
+                <MumeLogo width={84} height={28} color={THEME.colors.obsidian} />
+                <View style={styles.drawerStatusPill}>
+                  <View style={styles.drawerStatusDot} />
+                  <Text style={styles.drawerStatusText}>Live</Text>
+                </View>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Close menu"
+                onPress={() => setMenuOpen(false)}
+                style={styles.drawerCloseButton}
+              >
+                <AppIcon name="x" size={20} color={THEME.colors.text} />
+              </Pressable>
+            </View>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Inbox Tab"
-          style={[styles.tabButton, activeTab === 'inbox' && styles.tabButtonActive]}
-          onPress={() => setActiveTab('inbox')}
-        >
-          <AppIcon
-            name="message-circle"
-            size={22}
-            color={activeTab === 'inbox' ? THEME.colors.primary : THEME.colors.textMuted}
-            strokeWidth={activeTab === 'inbox' ? 2.3 : 1.8}
-          />
-          <Text style={[styles.tabLabel, activeTab === 'inbox' && styles.tabLabelActive]}>Inbox</Text>
-        </Pressable>
+            {/* Store Card in Drawer */}
+            <View style={styles.drawerStoreCard}>
+              <Text style={styles.drawerStoreName} numberOfLines={1}>
+                {activePageTitle}
+              </Text>
+              <Text style={styles.drawerStoreMeta}>
+                Messenger AI Assistant · Meta Synced
+              </Text>
+            </View>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Catalog Tab"
-          style={[styles.tabButton, activeTab === 'catalog' && styles.tabButtonActive]}
-          onPress={() => setActiveTab('catalog')}
-        >
-          <AppIcon
-            name="folder"
-            size={22}
-            color={activeTab === 'catalog' ? THEME.colors.primary : THEME.colors.textMuted}
-            strokeWidth={activeTab === 'catalog' ? 2.3 : 1.8}
-          />
-          <Text style={[styles.tabLabel, activeTab === 'catalog' && styles.tabLabelActive]}>Catalog</Text>
-        </Pressable>
+            {/* Navigation Options List */}
+            <View style={styles.drawerNavSection}>
+              <Text style={styles.drawerSectionLabel}>NAVIGATION</Text>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Settings Tab"
-          style={[styles.tabButton, activeTab === 'settings' && styles.tabButtonActive]}
-          onPress={() => setActiveTab('settings')}
-        >
-          <AppIcon
-            name="wrench"
-            size={22}
-            color={activeTab === 'settings' ? THEME.colors.primary : THEME.colors.textMuted}
-            strokeWidth={activeTab === 'settings' ? 2.3 : 1.8}
-          />
-          <Text style={[styles.tabLabel, activeTab === 'settings' && styles.tabLabelActive]}>Settings</Text>
-        </Pressable>
-      </View>
+              {/* 1. Today */}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Today Tab"
+                style={[
+                  styles.drawerNavItem,
+                  activeTab === 'today' && styles.drawerNavItemActive,
+                ]}
+                onPress={() => {
+                  setActiveTab('today');
+                  setMenuOpen(false);
+                }}
+              >
+                <View
+                  style={[
+                    styles.drawerNavIconWrap,
+                    activeTab === 'today' && styles.drawerNavIconWrapActive,
+                  ]}
+                >
+                  <AppIcon
+                    name="home"
+                    size={20}
+                    color={activeTab === 'today' ? THEME.colors.primary : THEME.colors.text}
+                    strokeWidth={activeTab === 'today' ? 2.3 : 1.8}
+                  />
+                </View>
+                <View style={styles.drawerNavCopy}>
+                  <Text
+                    style={[
+                      styles.drawerNavTitle,
+                      activeTab === 'today' && styles.drawerNavTitleActive,
+                    ]}
+                  >
+                    Today
+                  </Text>
+                  <Text style={styles.drawerNavSubtitle}>Overview & action items</Text>
+                </View>
+                {activeTab === 'today' && (
+                  <View style={styles.drawerActiveIndicator} />
+                )}
+              </Pressable>
+
+              {/* 2. Inbox */}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Inbox Tab"
+                style={[
+                  styles.drawerNavItem,
+                  activeTab === 'inbox' && styles.drawerNavItemActive,
+                ]}
+                onPress={() => {
+                  setActiveTab('inbox');
+                  setMenuOpen(false);
+                }}
+              >
+                <View
+                  style={[
+                    styles.drawerNavIconWrap,
+                    activeTab === 'inbox' && styles.drawerNavIconWrapActive,
+                  ]}
+                >
+                  <AppIcon
+                    name="message-circle"
+                    size={20}
+                    color={activeTab === 'inbox' ? THEME.colors.primary : THEME.colors.text}
+                    strokeWidth={activeTab === 'inbox' ? 2.3 : 1.8}
+                  />
+                </View>
+                <View style={styles.drawerNavCopy}>
+                  <Text
+                    style={[
+                      styles.drawerNavTitle,
+                      activeTab === 'inbox' && styles.drawerNavTitleActive,
+                    ]}
+                  >
+                    Inbox
+                  </Text>
+                  <Text style={styles.drawerNavSubtitle}>Customer inquiries</Text>
+                </View>
+                <View style={styles.drawerBadge}>
+                  <Text style={styles.drawerBadgeText}>{unreadCount}</Text>
+                </View>
+              </Pressable>
+
+              {/* 3. Catalog */}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Catalog Tab"
+                style={[
+                  styles.drawerNavItem,
+                  activeTab === 'catalog' && styles.drawerNavItemActive,
+                ]}
+                onPress={() => {
+                  setActiveTab('catalog');
+                  setMenuOpen(false);
+                }}
+              >
+                <View
+                  style={[
+                    styles.drawerNavIconWrap,
+                    activeTab === 'catalog' && styles.drawerNavIconWrapActive,
+                  ]}
+                >
+                  <AppIcon
+                    name="folder"
+                    size={20}
+                    color={activeTab === 'catalog' ? THEME.colors.primary : THEME.colors.text}
+                    strokeWidth={activeTab === 'catalog' ? 2.3 : 1.8}
+                  />
+                </View>
+                <View style={styles.drawerNavCopy}>
+                  <Text
+                    style={[
+                      styles.drawerNavTitle,
+                      activeTab === 'catalog' && styles.drawerNavTitleActive,
+                    ]}
+                  >
+                    Catalog
+                  </Text>
+                  <Text style={styles.drawerNavSubtitle}>Products & prices</Text>
+                </View>
+                <View style={styles.drawerBadgeSecondary}>
+                  <Text style={styles.drawerBadgeTextSecondary}>3</Text>
+                </View>
+              </Pressable>
+
+              {/* 4. Settings */}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Settings Tab"
+                style={[
+                  styles.drawerNavItem,
+                  activeTab === 'settings' && styles.drawerNavItemActive,
+                ]}
+                onPress={() => {
+                  setActiveTab('settings');
+                  setMenuOpen(false);
+                }}
+              >
+                <View
+                  style={[
+                    styles.drawerNavIconWrap,
+                    activeTab === 'settings' && styles.drawerNavIconWrapActive,
+                  ]}
+                >
+                  <AppIcon
+                    name="wrench"
+                    size={20}
+                    color={activeTab === 'settings' ? THEME.colors.primary : THEME.colors.text}
+                    strokeWidth={activeTab === 'settings' ? 2.3 : 1.8}
+                  />
+                </View>
+                <View style={styles.drawerNavCopy}>
+                  <Text
+                    style={[
+                      styles.drawerNavTitle,
+                      activeTab === 'settings' && styles.drawerNavTitleActive,
+                    ]}
+                  >
+                    Settings
+                  </Text>
+                  <Text style={styles.drawerNavSubtitle}>Meta token & OAuth</Text>
+                </View>
+                {activeTab === 'settings' && (
+                  <View style={styles.drawerActiveIndicator} />
+                )}
+              </Pressable>
+            </View>
+
+            {/* Safety badge note in Drawer */}
+            <View style={styles.drawerSafetyNotice}>
+              <AppIcon name="check" size={14} color={THEME.colors.speaking} />
+              <Text style={styles.drawerSafetyText}>
+                Human-in-the-loop: Nothing sent without approval
+              </Text>
+            </View>
+
+            {/* Spacer */}
+            <View style={{ flex: 1 }} />
+
+            {/* Drawer Footer User Profile */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="User profile and settings"
+              style={styles.drawerUserFooter}
+              onPress={() => {
+                setActiveTab('settings');
+                setMenuOpen(false);
+              }}
+            >
+              <View style={styles.drawerUserAvatar}>
+                <Text style={styles.drawerUserAvatarText}>{userInitials}</Text>
+              </View>
+              <View style={styles.drawerUserCopy}>
+                <Text style={styles.drawerUserName}>{userName}</Text>
+                <Text style={styles.drawerUserRole}>Store Owner · Admin</Text>
+              </View>
+              <AppIcon name="chevron-right" size={16} color={THEME.colors.textMuted} />
+            </Pressable>
+          </View>
+        </View>
+      )}
 
       {/* 5. Animated Success Toast */}
       {sentToast && (
@@ -722,7 +912,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 170,
+    paddingBottom: 110,
   },
   screenContainer: {
     width: '100%',
@@ -1255,7 +1445,7 @@ const styles = StyleSheet.create({
   },
   geminiInputDockContainer: {
     position: 'absolute',
-    bottom: 64,
+    bottom: 12,
     left: 0,
     right: 0,
     alignItems: 'center',
@@ -1336,42 +1526,226 @@ const styles = StyleSheet.create({
     marginTop: 5,
     fontWeight: '500',
   },
-  bottomNav: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 60,
-    backgroundColor: THEME.colors.card,
-    borderTopWidth: 1,
-    borderTopColor: THEME.colors.cardBorder,
+  // Side Menu Drawer Styles
+  drawerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 100,
+    elevation: 20,
+    flexDirection: 'row',
+  },
+  drawerBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(18, 19, 23, 0.45)',
+  },
+  drawerPanel: {
+    width: 300,
+    maxWidth: '84%',
+    height: '100%',
+    backgroundColor: THEME.colors.surface,
+    paddingTop: 16,
+    paddingBottom: 24,
+    paddingHorizontal: 16,
+    borderRightWidth: 1,
+    borderRightColor: THEME.colors.cardBorder,
+    shadowColor: '#000000',
+    shadowOffset: { width: 4, height: 0 },
+    shadowOpacity: 0.16,
+    shadowRadius: 18,
+    elevation: 24,
+  },
+  drawerHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-around',
-    paddingHorizontal: 8,
+    justifyContent: 'space-between',
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: THEME.colors.cardBorder,
   },
-  tabButton: {
-    flex: 1,
+  drawerBrandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  drawerStatusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(32, 185, 107, 0.1)',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  drawerStatusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: THEME.colors.speaking,
+  },
+  drawerStatusText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: THEME.colors.speaking,
+  },
+  drawerCloseButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: THEME.colors.cardElevated,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 48,
   },
-  tabButtonActive: {
-    opacity: 1,
+  drawerStoreCard: {
+    marginTop: 14,
+    padding: 12,
+    backgroundColor: THEME.colors.cardElevated,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: THEME.colors.cardBorder,
   },
-  tabLabel: {
+  drawerStoreName: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: THEME.colors.text,
+  },
+  drawerStoreMeta: {
+    fontSize: 11,
+    color: THEME.colors.textMuted,
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  drawerNavSection: {
+    marginTop: 18,
+    gap: 6,
+  },
+  drawerSectionLabel: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: THEME.colors.textMuted,
+    letterSpacing: 0.8,
+    marginBottom: 4,
+    paddingHorizontal: 4,
+  },
+  drawerNavItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: 'transparent',
+  },
+  drawerNavItemActive: {
+    backgroundColor: THEME.colors.cardElevated,
+  },
+  drawerNavIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: THEME.colors.cardElevated,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  drawerNavIconWrapActive: {
+    backgroundColor: THEME.colors.primaryTint,
+  },
+  drawerNavCopy: {
+    flex: 1,
+  },
+  drawerNavTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: THEME.colors.text,
+  },
+  drawerNavTitleActive: {
+    fontWeight: '800',
+    color: THEME.colors.primary,
+  },
+  drawerNavSubtitle: {
+    fontSize: 11,
+    color: THEME.colors.textMuted,
+    marginTop: 1,
+  },
+  drawerActiveIndicator: {
+    width: 4,
+    height: 16,
+    borderRadius: 2,
+    backgroundColor: THEME.colors.primary,
+  },
+  drawerBadge: {
+    backgroundColor: THEME.colors.primary,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  drawerBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  drawerBadgeSecondary: {
+    backgroundColor: THEME.colors.cardBorder,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  drawerBadgeTextSecondary: {
     color: THEME.colors.textMuted,
     fontSize: 11,
-    fontWeight: '600',
-    marginTop: 2,
+    fontWeight: '700',
   },
-  tabLabelActive: {
-    color: THEME.colors.text,
+  drawerSafetyNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 18,
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: 'rgba(32, 185, 107, 0.08)',
+  },
+  drawerSafetyText: {
+    flex: 1,
+    fontSize: 10.5,
+    color: THEME.colors.speaking,
+    fontWeight: '600',
+  },
+  drawerUserFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: THEME.colors.cardBorder,
+    gap: 10,
+  },
+  drawerUserAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: THEME.colors.cardElevated,
+    borderWidth: 1,
+    borderColor: THEME.colors.cardBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  drawerUserAvatarText: {
+    fontSize: 13,
     fontWeight: '800',
+    color: THEME.colors.text,
+  },
+  drawerUserCopy: {
+    flex: 1,
+  },
+  drawerUserName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: THEME.colors.text,
+  },
+  drawerUserRole: {
+    fontSize: 11,
+    color: THEME.colors.textMuted,
   },
   toast: {
     position: 'absolute',
-    bottom: 120,
+    bottom: 80,
     alignSelf: 'center',
     backgroundColor: THEME.colors.text,
     borderRadius: 24,

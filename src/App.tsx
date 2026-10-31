@@ -193,6 +193,7 @@ function CatalogScreen() {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('home');
+  const [menuOpen, setMenuOpen] = useState(false);
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
   const [userName, setUserName] = useState<string>('Jefferson');
   const [sent, setSent] = useState(false);
@@ -218,14 +219,15 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <main className="phone-stage max-w-[412px] min-w-[360px] mx-auto border-x border-[var(--line)] shadow-2xl">
+      <main className="phone-stage max-w-[412px] min-w-[360px] mx-auto border-x border-[var(--line)] shadow-2xl relative">
         {/* Dynamic Top Header */}
         <Header
-          title={activeTab === 'settings' ? 'Settings' : 'Mume'}
+          title={activeTab === 'settings' ? 'Settings' : activeTab === 'inbox' ? 'Inbox' : activeTab === 'catalog' ? 'Catalog' : 'Mume'}
           subtitle="Santa Ana Sari-Sari Store"
           showBack={activeTab !== 'home'}
           userInitials={userInitials}
           onBack={() => setActiveTab('home')}
+          onMenuClick={() => setMenuOpen(true)}
           onProfileClick={() => setActiveTab('settings')}
         />
 
@@ -306,50 +308,144 @@ export default function App() {
           </div>
         )}
 
-        {/* Bottom Navigation with Exact Tab Mapping & Minimum 48x48dp Targets */}
-        <nav className="bottom-nav" aria-label="Main navigation">
-          <button
-            type="button"
-            aria-current={activeTab === 'home' ? 'page' : undefined}
-            className={`tab-button min-h-[48px] min-w-[48px] ${activeTab === 'home' ? 'active' : ''}`}
-            onClick={() => setActiveTab('home')}
-          >
-            <Icon name="home" size={20} />
-            <span>Today</span>
-          </button>
+        {/* Slide-out Menu Drawer containing all navigation options */}
+        {menuOpen && (
+          <div className="drawer-overlay" role="dialog" aria-modal="true" aria-label="Main menu">
+            <div
+              className="drawer-backdrop"
+              onClick={() => setMenuOpen(false)}
+              aria-hidden="true"
+            />
+            <div className="drawer-panel">
+              {/* Drawer Header */}
+              <div className="drawer-header">
+                <div className="drawer-brand">
+                  <Icon name="mume-black" size={24} />
+                  <span className="drawer-live-badge">
+                    <i className="status-dot" />
+                    Live
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="drawer-close-btn"
+                  onClick={() => setMenuOpen(false)}
+                  aria-label="Close menu"
+                >
+                  <Icon name="x" size={18} />
+                </button>
+              </div>
 
-          <button
-            type="button"
-            aria-current={activeTab === 'inbox' ? 'page' : undefined}
-            className={`tab-button min-h-[48px] min-w-[48px] ${activeTab === 'inbox' ? 'active' : ''}`}
-            onClick={() => setActiveTab('inbox')}
-          >
-            <Icon name="bookmark" size={20} />
-            <span>Inbox</span>
-          </button>
+              {/* Store details */}
+              <div className="drawer-store-card">
+                <strong>Santa Ana Sari-Sari Store</strong>
+                <span>Messenger AI Assistant · Meta Synced</span>
+              </div>
 
-          <div className="nav-spacer" aria-hidden="true" />
+              {/* Options Navigation */}
+              <div className="drawer-nav">
+                <span className="drawer-section-heading">NAVIGATION</span>
 
-          <button
-            type="button"
-            aria-current={activeTab === 'catalog' ? 'page' : undefined}
-            className={`tab-button min-h-[48px] min-w-[48px] ${activeTab === 'catalog' ? 'active' : ''}`}
-            onClick={() => setActiveTab('catalog')}
-          >
-            <Icon name="folder" size={20} />
-            <span>Catalog</span>
-          </button>
+                <button
+                  type="button"
+                  className={`drawer-nav-item ${activeTab === 'home' ? 'active' : ''}`}
+                  onClick={() => {
+                    setActiveTab('home');
+                    setMenuOpen(false);
+                  }}
+                >
+                  <span className="drawer-icon-wrap">
+                    <Icon name="home" size={18} />
+                  </span>
+                  <div className="drawer-nav-copy">
+                    <strong>Today</strong>
+                    <span>Overview & action items</span>
+                  </div>
+                  {activeTab === 'home' && <i className="drawer-active-bar" />}
+                </button>
 
-          <button
-            type="button"
-            aria-current={activeTab === 'settings' ? 'page' : undefined}
-            className={`tab-button min-h-[48px] min-w-[48px] ${activeTab === 'settings' ? 'active' : ''}`}
-            onClick={() => setActiveTab('settings')}
-          >
-            <Icon name="settings" size={20} />
-            <span>Settings</span>
-          </button>
-        </nav>
+                <button
+                  type="button"
+                  className={`drawer-nav-item ${activeTab === 'inbox' ? 'active' : ''}`}
+                  onClick={() => {
+                    setActiveTab('inbox');
+                    setMenuOpen(false);
+                  }}
+                >
+                  <span className="drawer-icon-wrap">
+                    <Icon name="bookmark" size={18} />
+                  </span>
+                  <div className="drawer-nav-copy">
+                    <strong>Inbox</strong>
+                    <span>Customer inquiries</span>
+                  </div>
+                  <span className="drawer-badge">2</span>
+                </button>
+
+                <button
+                  type="button"
+                  className={`drawer-nav-item ${activeTab === 'catalog' ? 'active' : ''}`}
+                  onClick={() => {
+                    setActiveTab('catalog');
+                    setMenuOpen(false);
+                  }}
+                >
+                  <span className="drawer-icon-wrap">
+                    <Icon name="folder" size={18} />
+                  </span>
+                  <div className="drawer-nav-copy">
+                    <strong>Catalog</strong>
+                    <span>Products & prices</span>
+                  </div>
+                  <span className="drawer-badge-secondary">3</span>
+                </button>
+
+                <button
+                  type="button"
+                  className={`drawer-nav-item ${activeTab === 'settings' ? 'active' : ''}`}
+                  onClick={() => {
+                    setActiveTab('settings');
+                    setMenuOpen(false);
+                  }}
+                >
+                  <span className="drawer-icon-wrap">
+                    <Icon name="wrench" size={18} />
+                  </span>
+                  <div className="drawer-nav-copy">
+                    <strong>Settings</strong>
+                    <span>Meta token & configuration</span>
+                  </div>
+                  {activeTab === 'settings' && <i className="drawer-active-bar" />}
+                </button>
+              </div>
+
+              {/* Safe Automation Note */}
+              <div className="drawer-safety-note">
+                <Icon name="check" size={14} />
+                <span>Nothing sent to customers without approval</span>
+              </div>
+
+              <div className="flex-1" />
+
+              {/* User Profile Footer */}
+              <button
+                type="button"
+                className="drawer-user-footer"
+                onClick={() => {
+                  setActiveTab('settings');
+                  setMenuOpen(false);
+                }}
+              >
+                <span className="avatar drawer-avatar">{userInitials}</span>
+                <div className="drawer-user-copy">
+                  <strong>{userName}</strong>
+                  <span>Store Owner · Admin</span>
+                </div>
+                <Icon name="chevron-right" size={16} />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Approval Confirmation Toast */}
         {sent && (

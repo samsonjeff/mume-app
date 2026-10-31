@@ -8,6 +8,7 @@ interface HeaderProps {
   showBack?: boolean;
   userInitials?: string;
   onBack?: () => void;
+  onMenuClick?: () => void;
   onProfileClick?: () => void;
 }
 
@@ -17,6 +18,7 @@ export const Header: React.FC<HeaderProps> = ({
   showBack = false,
   userInitials = 'JS',
   onBack,
+  onMenuClick,
   onProfileClick,
 }) => {
   return (
@@ -33,17 +35,17 @@ export const Header: React.FC<HeaderProps> = ({
       ) : (
         <button
           type="button"
-          onClick={onProfileClick}
-          aria-label="Open menu"
+          onClick={onMenuClick || onProfileClick}
+          aria-label="Main menu"
           className="menu-button"
         >
-          <span className="text-base font-bold">☰</span>
+          <Icon name="menu" size={20} />
         </button>
       )}
 
       <div
         className="model-pill cursor-pointer"
-        onClick={onProfileClick}
+        onClick={onMenuClick || onProfileClick}
         role="button"
         tabIndex={0}
         aria-label="Store details & mode"
