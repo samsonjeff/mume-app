@@ -12,8 +12,9 @@ import {
   Animated,
   Linking,
   Image,
+  Modal,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { THEME } from '../constants/theme';
 import { VoiceWave } from '../components/VoiceWave';
 import { AppIcon } from '../components/AppIcon';
@@ -31,6 +32,7 @@ type Tab = 'today' | 'inbox' | 'catalog' | 'settings';
 type VoiceState = 'idle' | 'listening' | 'thinking';
 
 export default function HomeScreen() {
+  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<Tab>('today');
   const [menuOpen, setMenuOpen] = useState(false);
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
@@ -191,607 +193,628 @@ export default function HomeScreen() {
           contentContainerStyle={styles.scrollContent}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={THEME.colors.primary} />}
         >
-          {activeTab === 'today' && (
-            <View style={styles.screenContainer}>
-              {/* Zero-State Hero Section (Gemini Layout Style) */}
-              <View style={styles.geminiZeroStateContainer}>
-                <Text style={styles.geminiHeroTitle}>
-                  Hello, {userName.trim().split(/\s+/)[0] || userName}
-                </Text>
-                <Text style={styles.geminiHeroSubtitle}>
-                  Where should we start with {activePageTitle}?
-                </Text>
-              </View>
+        {activeTab === 'today' && (
+          <View style={styles.screenContainer}>
+            {/* Zero-State Hero Section (Gemini Layout Style) */}
+            <View style={styles.geminiZeroStateContainer}>
+              <Text style={styles.geminiHeroTitle}>
+                Hello, {userName.trim().split(/\s+/)[0] || userName}
+              </Text>
+              <Text style={styles.geminiHeroSubtitle}>
+                Where should we start with {activePageTitle}?
+              </Text>
+            </View>
 
-              {/* Quick Action Suggestion Chips (Gemini Prompt Starters) */}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.geminiChipsScroll}
+            {/* Quick Action Suggestion Chips (Gemini Prompt Starters) */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.geminiChipsScroll}
+            >
+              <Pressable
+                style={styles.geminiChip}
+                onPress={() => setActiveTab('inbox')}
               >
-                <Pressable
-                  style={styles.geminiChip}
-                  onPress={() => setActiveTab('inbox')}
-                >
-                  <AppIcon name="message-circle" size={14} color={THEME.colors.primary} />
-                  <Text style={styles.geminiChipText}>Maria's inquiry (₱120)</Text>
-                </Pressable>
-
-                <Pressable
-                  style={styles.geminiChip}
-                  onPress={() => setActiveTab('catalog')}
-                >
-                  <AppIcon name="folder" size={14} color={THEME.colors.primary} />
-                  <Text style={styles.geminiChipText}>Fruit catalog (3 items)</Text>
-                </Pressable>
-
-                <Pressable
-                  style={styles.geminiChip}
-                  onPress={() => setActiveTab('settings')}
-                >
-                  <AppIcon name="check" size={14} color={THEME.colors.speaking} />
-                  <Text style={styles.geminiChipText}>Page live & encrypted</Text>
-                </Pressable>
-              </ScrollView>
-
-              {/* Summary Card */}
-              <Pressable style={styles.summaryCard} onPress={() => setActiveTab('inbox')}>
-                <View style={styles.summaryIconContainer}>
-                  <AppIcon name="message-circle" size={22} color={THEME.colors.primary} />
-                </View>
-                <View style={styles.summaryCopy}>
-                  <Text style={styles.summaryTitle}>2 new messages</Text>
-                  <Text style={styles.summarySubtitle}>
-                    {isApproved ? 'All inquiries handled' : '1 needs your approval'}
-                  </Text>
-                </View>
-                <AppIcon name="chevron-right" size={20} color={THEME.colors.textMuted} />
+                <AppIcon name="message-circle" size={14} color={THEME.colors.primary} />
+                <Text style={styles.geminiChipText}>Maria's inquiry (₱120)</Text>
               </Pressable>
 
-              {/* Section Heading */}
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionHeading}>Ready for you</Text>
-                <Text style={styles.sectionBadge}>{isApproved ? '0 actions' : '1 action'}</Text>
+              <Pressable
+                style={styles.geminiChip}
+                onPress={() => setActiveTab('catalog')}
+              >
+                <AppIcon name="folder" size={14} color={THEME.colors.primary} />
+                <Text style={styles.geminiChipText}>Fruit catalog (3 items)</Text>
+              </Pressable>
+
+              <Pressable
+                style={styles.geminiChip}
+                onPress={() => setActiveTab('settings')}
+              >
+                <AppIcon name="check" size={14} color={THEME.colors.speaking} />
+                <Text style={styles.geminiChipText}>Page live & encrypted</Text>
+              </Pressable>
+            </ScrollView>
+
+            {/* Summary Card */}
+            <Pressable style={styles.summaryCard} onPress={() => setActiveTab('inbox')}>
+              <View style={styles.summaryIconContainer}>
+                <AppIcon name="message-circle" size={22} color={THEME.colors.primary} />
               </View>
+              <View style={styles.summaryCopy}>
+                <Text style={styles.summaryTitle}>2 new messages</Text>
+                <Text style={styles.summarySubtitle}>
+                  {isApproved ? 'All inquiries handled' : '1 needs your approval'}
+                </Text>
+              </View>
+              <AppIcon name="chevron-right" size={20} color={THEME.colors.textMuted} />
+            </Pressable>
 
-              {/* Pending Action Card */}
-              {!isApproved ? (
-                <View style={styles.approvalCard}>
-                  <View style={styles.cardTopline}>
-                    <View style={styles.eyebrow}>
-                      <View style={styles.statusDotAmber} />
-                      <Text style={styles.eyebrowText}>Needs your approval</Text>
-                    </View>
-                    <Text style={styles.timeLabel}>now</Text>
+            {/* Section Heading */}
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionHeading}>Ready for you</Text>
+              <Text style={styles.sectionBadge}>{isApproved ? '0 actions' : '1 action'}</Text>
+            </View>
+
+            {/* Pending Action Card */}
+            {!isApproved ? (
+              <View style={styles.approvalCard}>
+                <View style={styles.cardTopline}>
+                  <View style={styles.eyebrow}>
+                    <View style={styles.statusDotAmber} />
+                    <Text style={styles.eyebrowText}>Needs your approval</Text>
+                  </View>
+                  <Text style={styles.timeLabel}>now</Text>
+                </View>
+
+                <View style={styles.customerRow}>
+                  <View style={styles.avatar}>
+                    <Text style={styles.avatarText}>MA</Text>
+                  </View>
+                  <View>
+                    <Text style={styles.customerName}>Maria A.</Text>
+                    <Text style={styles.customerContext}>Messenger · Price inquiry</Text>
+                  </View>
+                </View>
+
+                <View style={styles.messageBubble}>
+                  <Text style={styles.messageBubbleText}>“Hi po, how much ang red apples?”</Text>
+                </View>
+
+                <View style={styles.draftBlock}>
+                  <View style={styles.draftLabelRow}>
+                    <AppIcon name="bot" size={16} color={THEME.colors.primary} />
+                    <Text style={styles.draftLabelText}>Mume’s suggested reply</Text>
                   </View>
 
-                  <View style={styles.customerRow}>
-                    <View style={styles.avatar}>
-                      <Text style={styles.avatarText}>MA</Text>
+                  {editingPrice ? (
+                    <View style={styles.priceEditor}>
+                      <Text style={styles.priceEditorLabel}>Update price</Text>
+                      <TextInput
+                        autoFocus
+                        style={styles.priceInput}
+                        value={price}
+                        onChangeText={setPrice}
+                      />
                     </View>
-                    <View>
-                      <Text style={styles.customerName}>Maria A.</Text>
-                      <Text style={styles.customerContext}>Messenger · Price inquiry</Text>
-                    </View>
-                  </View>
+                  ) : (
+                    <Text style={styles.draftText}>
+                      Hi po! Our red apples are{' '}
+                      <Text style={styles.draftPriceHighlight}>{price}</Text>. Fresh delivery today.
+                    </Text>
+                  )}
+                </View>
 
-                  <View style={styles.messageBubble}>
-                    <Text style={styles.messageBubbleText}>“Hi po, how much ang red apples?”</Text>
-                  </View>
-
-                  <View style={styles.draftBlock}>
-                    <View style={styles.draftLabelRow}>
-                      <AppIcon name="bot" size={16} color={THEME.colors.primary} />
-                      <Text style={styles.draftLabelText}>Mume’s suggested reply</Text>
-                    </View>
-
-                    {editingPrice ? (
-                      <View style={styles.priceEditor}>
-                        <Text style={styles.priceEditorLabel}>Update price</Text>
-                        <TextInput
-                          autoFocus
-                          style={styles.priceInput}
-                          value={price}
-                          onChangeText={setPrice}
-                        />
-                      </View>
-                    ) : (
-                      <Text style={styles.draftText}>
-                        Hi po! Our red apples are{' '}
-                        <Text style={styles.draftPriceHighlight}>{price}</Text>. Fresh delivery today.
+                <View style={styles.approvalActions}>
+                  <Pressable
+                    accessibilityRole="button"
+                    style={styles.secondaryButton}
+                    onPress={() => setEditingPrice((v) => !v)}
+                  >
+                    <View style={styles.buttonInnerRow}>
+                      <AppIcon name="edit" size={15} color={THEME.colors.text} />
+                      <Text style={styles.secondaryButtonText}>
+                        {editingPrice ? 'Done' : 'Edit'}
                       </Text>
-                    )}
+                    </View>
+                  </Pressable>
+
+                  <Pressable
+                    accessibilityRole="button"
+                    style={styles.primaryButton}
+                    onPress={handleApprove}
+                  >
+                    <View style={styles.buttonInnerRow}>
+                      <Text style={styles.primaryButtonText}>Approve & send</Text>
+                      <AppIcon name="check" size={16} color="#FFFFFF" strokeWidth={2.5} />
+                    </View>
+                  </Pressable>
+                </View>
+
+                <Text style={styles.safetyNote}>Nothing is sent without your approval.</Text>
+              </View>
+            ) : (
+              <View style={styles.emptyCard}>
+                <View style={styles.emptyCheckBadge}>
+                  <AppIcon name="check" size={28} color={THEME.colors.speaking} strokeWidth={2.5} />
+                </View>
+                <Text style={styles.emptyCardTitle}>All Caught Up!</Text>
+                <Text style={styles.emptyCardSubtitle}>
+                  Reply confirmed and dispatched to Maria via Meta Graph API.
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {activeTab === 'inbox' && (
+          <View style={styles.screenContainer}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionHeading}>Inbox</Text>
+              <Text style={styles.sectionBadge}>2 unread</Text>
+            </View>
+
+            {[
+              { id: '1', initials: 'MA', name: 'Maria A.', message: 'Hi po, how much ang red apples?', time: 'now', unread: true },
+              { id: '2', initials: 'JL', name: 'Jun L.', message: 'Available pa po ang mango?', time: '8m', unread: true },
+              { id: '3', initials: 'RS', name: 'Rica S.', message: 'Thank you po!', time: '1h', unread: false },
+            ].map((convo) => (
+              <Pressable key={convo.id} style={styles.conversationCard}>
+                <View style={styles.conversationAvatar}>
+                  <Text style={styles.conversationAvatarText}>{convo.initials}</Text>
+                </View>
+                <View style={styles.conversationCopy}>
+                  <Text style={styles.conversationName}>{convo.name}</Text>
+                  <Text style={styles.conversationMessage} numberOfLines={1}>
+                    {convo.message}
+                  </Text>
+                </View>
+                <View style={styles.conversationMeta}>
+                  <Text style={styles.conversationTime}>{convo.time}</Text>
+                  {convo.unread && <View style={styles.unreadDot} />}
+                </View>
+              </Pressable>
+            ))}
+          </View>
+        )}
+
+        {activeTab === 'catalog' && (
+          <View style={styles.screenContainer}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionHeading}>Catalog</Text>
+              <Text style={styles.sectionBadge}>3 products</Text>
+            </View>
+
+            <View style={styles.catalogGrid}>
+              {[
+                { name: 'Red apples', price: '₱120 / kg', stock: 'In stock', isStock: true, image: FRUIT_IMAGES.apple },
+                { name: 'Carabao mango', price: '₱180 / kg', stock: 'In stock', isStock: true, image: FRUIT_IMAGES.mango },
+                { name: 'Lakatan banana', price: '₱85 / kg', stock: 'Low stock', isStock: false, image: FRUIT_IMAGES.banana },
+              ].map((item) => (
+                <View key={item.name} style={styles.productCard}>
+                  <Image source={item.image} style={styles.productImage} resizeMode="cover" />
+                  <Text style={styles.productName}>{item.name}</Text>
+                  <Text style={styles.productPrice}>{item.price}</Text>
+                  <View style={[styles.stockPill, item.isStock ? styles.stockIn : styles.stockLow]}>
+                    <Text style={styles.stockPillText}>{item.stock}</Text>
                   </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
 
-                  <View style={styles.approvalActions}>
-                    <Pressable
-                      accessibilityRole="button"
-                      style={styles.secondaryButton}
-                      onPress={() => setEditingPrice((v) => !v)}
-                    >
-                      <View style={styles.buttonInnerRow}>
-                        <AppIcon name="edit" size={15} color={THEME.colors.text} />
-                        <Text style={styles.secondaryButtonText}>
-                          {editingPrice ? 'Done' : 'Edit'}
-                        </Text>
-                      </View>
-                    </Pressable>
+        {activeTab === 'settings' && (
+          <View style={styles.screenContainer}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionHeading}>Settings & Linking</Text>
+              <Text style={styles.sectionBadge}>v1.0.0</Text>
+            </View>
 
-                    <Pressable
-                      accessibilityRole="button"
-                      style={styles.primaryButton}
-                      onPress={handleApprove}
-                    >
-                      <View style={styles.buttonInnerRow}>
-                        <Text style={styles.primaryButtonText}>Approve & send</Text>
-                        <AppIcon name="check" size={16} color="#FFFFFF" strokeWidth={2.5} />
-                      </View>
-                    </Pressable>
+            {/* Connected Facebook Page Status */}
+            <View style={styles.settingsCard}>
+              <Text style={styles.settingsCardTitle}>CONNECTED FACEBOOK PAGE</Text>
+              {loading ? (
+                <ActivityIndicator color={THEME.colors.primary} />
+              ) : linkedPage ? (
+                <View>
+                  <View style={styles.pageBadgeRow}>
+                    <Text style={styles.statusDotGreen}>●</Text>
+                    <Text style={styles.pageName}>{linkedPage.page_name}</Text>
                   </View>
-
-                  <Text style={styles.safetyNote}>Nothing is sent without your approval.</Text>
+                  <Text style={styles.pageDetails}>Page ID: {linkedPage.fb_page_id}</Text>
+                  <View style={styles.secureTag}>
+                    <Text style={styles.secureTagText}>🔒 AES-256 Encrypted Token</Text>
+                  </View>
                 </View>
               ) : (
-                <View style={styles.emptyCard}>
-                  <View style={styles.emptyCheckBadge}>
-                    <AppIcon name="check" size={28} color={THEME.colors.speaking} strokeWidth={2.5} />
-                  </View>
-                  <Text style={styles.emptyCardTitle}>All Caught Up!</Text>
-                  <Text style={styles.emptyCardSubtitle}>
-                    Reply confirmed and dispatched to Maria via Meta Graph API.
+                <View>
+                  <Text style={styles.cardValueMuted}>No Business Page linked yet.</Text>
+                  <Text style={styles.cardHelp}>
+                    Connect your Facebook Page to allow Mume to read inquiries and draft replies.
                   </Text>
                 </View>
               )}
             </View>
-          )}
 
-          {activeTab === 'inbox' && (
-            <View style={styles.screenContainer}>
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionHeading}>Inbox</Text>
-                <Text style={styles.sectionBadge}>2 unread</Text>
-              </View>
-
-              {[
-                { id: '1', initials: 'MA', name: 'Maria A.', message: 'Hi po, how much ang red apples?', time: 'now', unread: true },
-                { id: '2', initials: 'JL', name: 'Jun L.', message: 'Available pa po ang mango?', time: '8m', unread: true },
-                { id: '3', initials: 'RS', name: 'Rica S.', message: 'Thank you po!', time: '1h', unread: false },
-              ].map((convo) => (
-                <Pressable key={convo.id} style={styles.conversationCard}>
-                  <View style={styles.conversationAvatar}>
-                    <Text style={styles.conversationAvatarText}>{convo.initials}</Text>
-                  </View>
-                  <View style={styles.conversationCopy}>
-                    <Text style={styles.conversationName}>{convo.name}</Text>
-                    <Text style={styles.conversationMessage} numberOfLines={1}>
-                      {convo.message}
-                    </Text>
-                  </View>
-                  <View style={styles.conversationMeta}>
-                    <Text style={styles.conversationTime}>{convo.time}</Text>
-                    {convo.unread && <View style={styles.unreadDot} />}
-                  </View>
-                </Pressable>
-              ))}
-            </View>
-          )}
-
-          {activeTab === 'catalog' && (
-            <View style={styles.screenContainer}>
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionHeading}>Catalog</Text>
-                <Text style={styles.sectionBadge}>3 products</Text>
-              </View>
-
-              <View style={styles.catalogGrid}>
-                {[
-                  { name: 'Red apples', price: '₱120 / kg', stock: 'In stock', isStock: true, image: FRUIT_IMAGES.apple },
-                  { name: 'Carabao mango', price: '₱180 / kg', stock: 'In stock', isStock: true, image: FRUIT_IMAGES.mango },
-                  { name: 'Lakatan banana', price: '₱85 / kg', stock: 'Low stock', isStock: false, image: FRUIT_IMAGES.banana },
-                ].map((item) => (
-                  <View key={item.name} style={styles.productCard}>
-                    <Image source={item.image} style={styles.productImage} resizeMode="cover" />
-                    <Text style={styles.productName}>{item.name}</Text>
-                    <Text style={styles.productPrice}>{item.price}</Text>
-                    <View style={[styles.stockPill, item.isStock ? styles.stockIn : styles.stockLow]}>
-                      <Text style={styles.stockPillText}>{item.stock}</Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            </View>
-          )}
-
-          {activeTab === 'settings' && (
-            <View style={styles.screenContainer}>
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionHeading}>Settings & Linking</Text>
-                <Text style={styles.sectionBadge}>v1.0.0</Text>
-              </View>
-
-              {/* Connected Facebook Page Status */}
-              <View style={styles.settingsCard}>
-                <Text style={styles.settingsCardTitle}>CONNECTED FACEBOOK PAGE</Text>
-                {loading ? (
-                  <ActivityIndicator color={THEME.colors.primary} />
-                ) : linkedPage ? (
-                  <View>
-                    <View style={styles.pageBadgeRow}>
-                      <Text style={styles.statusDotGreen}>●</Text>
-                      <Text style={styles.pageName}>{linkedPage.page_name}</Text>
-                    </View>
-                    <Text style={styles.pageDetails}>Page ID: {linkedPage.fb_page_id}</Text>
-                    <View style={styles.secureTag}>
-                      <Text style={styles.secureTagText}>🔒 AES-256 Encrypted Token</Text>
-                    </View>
-                  </View>
+            {/* Method 1: Facebook Login OAuth */}
+            <View style={styles.settingsCard}>
+              <Text style={styles.settingsCardTitle}>METHOD 1: OFFICIAL FACEBOOK LOGIN</Text>
+              <Pressable
+                accessibilityRole="button"
+                style={styles.fbButton}
+                onPress={handleOAuthLogin}
+                disabled={submittingLink}
+              >
+                {submittingLink ? (
+                  <ActivityIndicator color="#FFFFFF" />
                 ) : (
-                  <View>
-                    <Text style={styles.cardValueMuted}>No Business Page linked yet.</Text>
-                    <Text style={styles.cardHelp}>
-                      Connect your Facebook Page to allow Mume to read inquiries and draft replies.
-                    </Text>
-                  </View>
+                  <Text style={styles.fbButtonText}>Connect via Facebook OAuth</Text>
                 )}
-              </View>
-
-              {/* Method 1: Facebook Login OAuth */}
-              <View style={styles.settingsCard}>
-                <Text style={styles.settingsCardTitle}>METHOD 1: OFFICIAL FACEBOOK LOGIN</Text>
-                <Pressable
-                  accessibilityRole="button"
-                  style={styles.fbButton}
-                  onPress={handleOAuthLogin}
-                  disabled={submittingLink}
-                >
-                  {submittingLink ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                  ) : (
-                    <Text style={styles.fbButtonText}>Connect via Facebook OAuth</Text>
-                  )}
-                </Pressable>
-              </View>
-
-              {/* Method 2: Direct Page Token (Dev) */}
-              <View style={styles.settingsCard}>
-                <Text style={styles.settingsCardTitle}>METHOD 2: DIRECT PAGE TOKEN (DEV)</Text>
-                <Text style={styles.inputLabel}>Page ID</Text>
-                <TextInput
-                  style={styles.input}
-                  value={fbPageId}
-                  onChangeText={setFbPageId}
-                  placeholder="1447275391796820"
-                  placeholderTextColor={THEME.colors.textMuted}
-                />
-                <Text style={styles.inputLabel}>Page Name</Text>
-                <TextInput
-                  style={styles.input}
-                  value={pageName}
-                  onChangeText={setPageName}
-                  placeholder="Mume Fresh - Fruit Store"
-                  placeholderTextColor={THEME.colors.textMuted}
-                />
-                <Text style={styles.inputLabel}>Page Access Token</Text>
-                <TextInput
-                  style={[styles.input, styles.tokenInput]}
-                  value={pageAccessToken}
-                  onChangeText={setPageAccessToken}
-                  placeholder="Paste EAAG... token"
-                  placeholderTextColor={THEME.colors.textMuted}
-                  secureTextEntry
-                  multiline
-                />
-                <Pressable
-                  accessibilityRole="button"
-                  style={styles.primaryButton}
-                  onPress={handleDirectLink}
-                  disabled={submittingLink}
-                >
-                  {submittingLink ? (
-                    <ActivityIndicator color={THEME.colors.textInverted} />
-                  ) : (
-                    <Text style={styles.primaryButtonText}>Link Page Directly</Text>
-                  )}
-                </Pressable>
-
-                {linkMessage ? <Text style={styles.linkMessageText}>{linkMessage}</Text> : null}
-              </View>
+              </Pressable>
             </View>
-          )}
-        </ScrollView>
 
-        {/* 3. Gemini-Style Floating Bottom Input Capsule Dock */}
-        <View style={styles.geminiInputDockContainer} pointerEvents="box-none">
-          <View style={styles.geminiInputCapsule}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Quick tools & catalog"
-              onPress={() => setActiveTab('catalog')}
-              style={styles.geminiPlusButton}
-            >
-              <AppIcon name="plus" size={20} color={THEME.colors.text} strokeWidth={2.2} />
-            </Pressable>
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Voice dictate or ask Mume"
-              onPress={handleVoice}
-              style={styles.geminiInputArea}
-            >
-              {voiceState === 'idle' && (
-                <Text style={styles.geminiInputPlaceholder}>Ask Mume or tap mic…</Text>
-              )}
-              {voiceState === 'listening' && (
-                <View style={styles.voiceStateRow}>
-                  <VoiceWave />
-                  <Text style={styles.voiceStateListeningText}>Listening…</Text>
-                </View>
-              )}
-              {voiceState === 'thinking' && (
-                <View style={styles.voiceStateRow}>
-                  <AppIcon name="bot" size={16} color={THEME.colors.primary} />
-                  <Text style={styles.voiceStateThinkingText}>Checking your page…</Text>
-                </View>
-              )}
-            </Pressable>
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Dictate and talk to Mume"
-              onPress={handleVoice}
-              style={[
-                styles.geminiMicButton,
-                voiceState === 'listening' && styles.geminiMicButtonActive,
-              ]}
-            >
-              <AppIcon
-                name={voiceState === 'thinking' ? 'bot' : voiceState === 'listening' ? 'mic-audio-lines' : 'mic'}
-                size={22}
-                color="#FFFFFF"
-                strokeWidth={2.2}
+            {/* Method 2: Direct Page Token (Dev) */}
+            <View style={styles.settingsCard}>
+              <Text style={styles.settingsCardTitle}>METHOD 2: DIRECT PAGE TOKEN (DEV)</Text>
+              <Text style={styles.inputLabel}>Page ID</Text>
+              <TextInput
+                style={styles.input}
+                value={fbPageId}
+                onChangeText={setFbPageId}
+                placeholder="1447275391796820"
+                placeholderTextColor={THEME.colors.textMuted}
               />
-            </Pressable>
+              <Text style={styles.inputLabel}>Page Name</Text>
+              <TextInput
+                style={styles.input}
+                value={pageName}
+                onChangeText={setPageName}
+                placeholder="Mume Fresh - Fruit Store"
+                placeholderTextColor={THEME.colors.textMuted}
+              />
+              <Text style={styles.inputLabel}>Page Access Token</Text>
+              <TextInput
+                style={[styles.input, styles.tokenInput]}
+                value={pageAccessToken}
+                onChangeText={setPageAccessToken}
+                placeholder="Paste EAAG... token"
+                placeholderTextColor={THEME.colors.textMuted}
+                secureTextEntry
+                multiline
+              />
+              <Pressable
+                accessibilityRole="button"
+                style={styles.primaryButton}
+                onPress={handleDirectLink}
+                disabled={submittingLink}
+              >
+                {submittingLink ? (
+                  <ActivityIndicator color={THEME.colors.textInverted} />
+                ) : (
+                  <Text style={styles.primaryButtonText}>Link Page Directly</Text>
+                )}
+              </Pressable>
+
+              {linkMessage ? <Text style={styles.linkMessageText}>{linkMessage}</Text> : null}
+            </View>
           </View>
+        )}
+      </ScrollView>
 
-          <Text style={styles.capabilitiesDisclaimer}>
-            Nothing is sent to customers without your approval.
-          </Text>
+      {/* 3. Gemini-Style Floating Bottom Input Capsule Dock */}
+      <View style={styles.geminiInputDockContainer} pointerEvents="box-none">
+        <View style={styles.geminiInputCapsule}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Quick tools & catalog"
+            onPress={() => setActiveTab('catalog')}
+            style={styles.geminiPlusButton}
+          >
+            <AppIcon name="plus" size={20} color={THEME.colors.text} strokeWidth={2.2} />
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Voice dictate or ask Mume"
+            onPress={handleVoice}
+            style={styles.geminiInputArea}
+          >
+            {voiceState === 'idle' && (
+              <Text style={styles.geminiInputPlaceholder}>Ask Mume or tap mic…</Text>
+            )}
+            {voiceState === 'listening' && (
+              <View style={styles.voiceStateRow}>
+                <VoiceWave />
+                <Text style={styles.voiceStateListeningText}>Listening…</Text>
+              </View>
+            )}
+            {voiceState === 'thinking' && (
+              <View style={styles.voiceStateRow}>
+                <AppIcon name="bot" size={16} color={THEME.colors.primary} />
+                <Text style={styles.voiceStateThinkingText}>Checking your page…</Text>
+              </View>
+            )}
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Dictate and talk to Mume"
+            onPress={handleVoice}
+            style={[
+              styles.geminiMicButton,
+              voiceState === 'listening' && styles.geminiMicButtonActive,
+            ]}
+          >
+            <AppIcon
+              name={voiceState === 'thinking' ? 'bot' : voiceState === 'listening' ? 'mic-audio-lines' : 'mic'}
+              size={22}
+              color="#FFFFFF"
+              strokeWidth={2.2}
+            />
+          </Pressable>
         </View>
-      </SafeAreaView>
 
-      {/* 4. Slide-Out Side Navigation Drawer */}
-      {menuOpen && (
-        <View style={styles.drawerOverlay} pointerEvents="box-none">
+        <Text style={styles.capabilitiesDisclaimer}>
+          Nothing is sent to customers without your approval.
+        </Text>
+      </View>
+    </SafeAreaView>
+
+      {/* 4. Slide-Out Side Navigation Drawer (Responsive Full-Height Modal) */}
+      <Modal
+        visible={menuOpen}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setMenuOpen(false)}
+        statusBarTranslucent={true}
+      >
+        <View style={styles.drawerModalOverlay}>
           <Pressable
             style={styles.drawerBackdrop}
             accessibilityRole="button"
             accessibilityLabel="Close navigation menu"
             onPress={() => setMenuOpen(false)}
           />
-          <View style={styles.drawerPanel}>
-            {/* Drawer Header */}
-            <View style={styles.drawerHeader}>
-              <View style={styles.drawerBrandRow}>
-                <MumeLogo width={80} height={30} color={THEME.colors.obsidian} />
+          <View
+            style={[
+              styles.drawerPanel,
+              {
+                paddingTop: Math.max(insets.top, 16),
+                paddingBottom: Math.max(insets.bottom, 16),
+              },
+            ]}
+          >
+            <ScrollView
+              contentContainerStyle={styles.drawerScrollContent}
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              <View style={styles.drawerTopSection}>
+                {/* Drawer Header */}
+                <View style={styles.drawerHeader}>
+                  <View style={styles.drawerBrandRow}>
+                    <MumeLogo width={80} height={30} color={THEME.colors.obsidian} />
+                  </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Close menu"
+                    onPress={() => setMenuOpen(false)}
+                    style={styles.drawerCloseButton}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  >
+                    <AppIcon name="x" size={20} color={THEME.colors.text} />
+                  </Pressable>
+                </View>
+
+                {/* Store Card in Drawer */}
+                <View style={styles.drawerStoreCard}>
+                  <Text style={styles.drawerStoreName} numberOfLines={1}>
+                    {activePageTitle}
+                  </Text>
+                  <Text style={styles.drawerStoreMeta}>
+                    Messenger AI Assistant · Meta Synced
+                  </Text>
+                </View>
+
+                {/* Navigation Options List */}
+                <View style={styles.drawerNavSection}>
+                  <Text style={styles.drawerSectionLabel}>NAVIGATION</Text>
+
+                  {/* 1. Today */}
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Today Tab"
+                    style={[
+                      styles.drawerNavItem,
+                      activeTab === 'today' && styles.drawerNavItemActive,
+                    ]}
+                    onPress={() => {
+                      setActiveTab('today');
+                      setMenuOpen(false);
+                    }}
+                  >
+                    <View
+                      style={[
+                        styles.drawerNavIconWrap,
+                        activeTab === 'today' && styles.drawerNavIconWrapActive,
+                      ]}
+                    >
+                      <AppIcon
+                        name="home"
+                        size={20}
+                        color={activeTab === 'today' ? THEME.colors.primary : THEME.colors.text}
+                        strokeWidth={activeTab === 'today' ? 2.3 : 1.8}
+                      />
+                    </View>
+                    <View style={styles.drawerNavCopy}>
+                      <Text
+                        style={[
+                          styles.drawerNavTitle,
+                          activeTab === 'today' && styles.drawerNavTitleActive,
+                        ]}
+                      >
+                        Today
+                      </Text>
+                      <Text style={styles.drawerNavSubtitle}>Overview & action items</Text>
+                    </View>
+                    {activeTab === 'today' && (
+                      <View style={styles.drawerActiveIndicator} />
+                    )}
+                  </Pressable>
+
+                  {/* 2. Inbox */}
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Inbox Tab"
+                    style={[
+                      styles.drawerNavItem,
+                      activeTab === 'inbox' && styles.drawerNavItemActive,
+                    ]}
+                    onPress={() => {
+                      setActiveTab('inbox');
+                      setMenuOpen(false);
+                    }}
+                  >
+                    <View
+                      style={[
+                        styles.drawerNavIconWrap,
+                        activeTab === 'inbox' && styles.drawerNavIconWrapActive,
+                      ]}
+                    >
+                      <AppIcon
+                        name="message-circle"
+                        size={20}
+                        color={activeTab === 'inbox' ? THEME.colors.primary : THEME.colors.text}
+                        strokeWidth={activeTab === 'inbox' ? 2.3 : 1.8}
+                      />
+                    </View>
+                    <View style={styles.drawerNavCopy}>
+                      <Text
+                        style={[
+                          styles.drawerNavTitle,
+                          activeTab === 'inbox' && styles.drawerNavTitleActive,
+                        ]}
+                      >
+                        Inbox
+                      </Text>
+                      <Text style={styles.drawerNavSubtitle}>Customer inquiries</Text>
+                    </View>
+                    <View style={styles.drawerBadge}>
+                      <Text style={styles.drawerBadgeText}>{unreadCount}</Text>
+                    </View>
+                  </Pressable>
+
+                  {/* 3. Catalog */}
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Catalog Tab"
+                    style={[
+                      styles.drawerNavItem,
+                      activeTab === 'catalog' && styles.drawerNavItemActive,
+                    ]}
+                    onPress={() => {
+                      setActiveTab('catalog');
+                      setMenuOpen(false);
+                    }}
+                  >
+                    <View
+                      style={[
+                        styles.drawerNavIconWrap,
+                        activeTab === 'catalog' && styles.drawerNavIconWrapActive,
+                      ]}
+                    >
+                      <AppIcon
+                        name="folder"
+                        size={20}
+                        color={activeTab === 'catalog' ? THEME.colors.primary : THEME.colors.text}
+                        strokeWidth={activeTab === 'catalog' ? 2.3 : 1.8}
+                      />
+                    </View>
+                    <View style={styles.drawerNavCopy}>
+                      <Text
+                        style={[
+                          styles.drawerNavTitle,
+                          activeTab === 'catalog' && styles.drawerNavTitleActive,
+                        ]}
+                      >
+                        Catalog
+                      </Text>
+                      <Text style={styles.drawerNavSubtitle}>Products & prices</Text>
+                    </View>
+                    <View style={styles.drawerBadgeSecondary}>
+                      <Text style={styles.drawerBadgeTextSecondary}>3</Text>
+                    </View>
+                  </Pressable>
+
+                  {/* 4. Settings */}
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Settings Tab"
+                    style={[
+                      styles.drawerNavItem,
+                      activeTab === 'settings' && styles.drawerNavItemActive,
+                    ]}
+                    onPress={() => {
+                      setActiveTab('settings');
+                      setMenuOpen(false);
+                    }}
+                  >
+                    <View
+                      style={[
+                        styles.drawerNavIconWrap,
+                        activeTab === 'settings' && styles.drawerNavIconWrapActive,
+                      ]}
+                    >
+                      <AppIcon
+                        name="wrench"
+                        size={20}
+                        color={activeTab === 'settings' ? THEME.colors.primary : THEME.colors.text}
+                        strokeWidth={activeTab === 'settings' ? 2.3 : 1.8}
+                      />
+                    </View>
+                    <View style={styles.drawerNavCopy}>
+                      <Text
+                        style={[
+                          styles.drawerNavTitle,
+                          activeTab === 'settings' && styles.drawerNavTitleActive,
+                        ]}
+                      >
+                        Settings
+                      </Text>
+                      <Text style={styles.drawerNavSubtitle}>Meta token & OAuth</Text>
+                    </View>
+                    {activeTab === 'settings' && (
+                      <View style={styles.drawerActiveIndicator} />
+                    )}
+                  </Pressable>
+                </View>
               </View>
+
+              {/* Drawer Footer User Profile */}
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Close menu"
-                onPress={() => setMenuOpen(false)}
-                style={styles.drawerCloseButton}
-              >
-                <AppIcon name="x" size={20} color={THEME.colors.text} />
-              </Pressable>
-            </View>
-
-            {/* Store Card in Drawer */}
-            <View style={styles.drawerStoreCard}>
-              <Text style={styles.drawerStoreName} numberOfLines={1}>
-                {activePageTitle}
-              </Text>
-              <Text style={styles.drawerStoreMeta}>
-                Messenger AI Assistant · Meta Synced
-              </Text>
-            </View>
-
-            {/* Navigation Options List */}
-            <View style={styles.drawerNavSection}>
-              <Text style={styles.drawerSectionLabel}>NAVIGATION</Text>
-
-              {/* 1. Today */}
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Today Tab"
-                style={[
-                  styles.drawerNavItem,
-                  activeTab === 'today' && styles.drawerNavItemActive,
-                ]}
-                onPress={() => {
-                  setActiveTab('today');
-                  setMenuOpen(false);
-                }}
-              >
-                <View
-                  style={[
-                    styles.drawerNavIconWrap,
-                    activeTab === 'today' && styles.drawerNavIconWrapActive,
-                  ]}
-                >
-                  <AppIcon
-                    name="home"
-                    size={20}
-                    color={activeTab === 'today' ? THEME.colors.primary : THEME.colors.text}
-                    strokeWidth={activeTab === 'today' ? 2.3 : 1.8}
-                  />
-                </View>
-                <View style={styles.drawerNavCopy}>
-                  <Text
-                    style={[
-                      styles.drawerNavTitle,
-                      activeTab === 'today' && styles.drawerNavTitleActive,
-                    ]}
-                  >
-                    Today
-                  </Text>
-                  <Text style={styles.drawerNavSubtitle}>Overview & action items</Text>
-                </View>
-                {activeTab === 'today' && (
-                  <View style={styles.drawerActiveIndicator} />
-                )}
-              </Pressable>
-
-              {/* 2. Inbox */}
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Inbox Tab"
-                style={[
-                  styles.drawerNavItem,
-                  activeTab === 'inbox' && styles.drawerNavItemActive,
-                ]}
-                onPress={() => {
-                  setActiveTab('inbox');
-                  setMenuOpen(false);
-                }}
-              >
-                <View
-                  style={[
-                    styles.drawerNavIconWrap,
-                    activeTab === 'inbox' && styles.drawerNavIconWrapActive,
-                  ]}
-                >
-                  <AppIcon
-                    name="message-circle"
-                    size={20}
-                    color={activeTab === 'inbox' ? THEME.colors.primary : THEME.colors.text}
-                    strokeWidth={activeTab === 'inbox' ? 2.3 : 1.8}
-                  />
-                </View>
-                <View style={styles.drawerNavCopy}>
-                  <Text
-                    style={[
-                      styles.drawerNavTitle,
-                      activeTab === 'inbox' && styles.drawerNavTitleActive,
-                    ]}
-                  >
-                    Inbox
-                  </Text>
-                  <Text style={styles.drawerNavSubtitle}>Customer inquiries</Text>
-                </View>
-                <View style={styles.drawerBadge}>
-                  <Text style={styles.drawerBadgeText}>{unreadCount}</Text>
-                </View>
-              </Pressable>
-
-              {/* 3. Catalog */}
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Catalog Tab"
-                style={[
-                  styles.drawerNavItem,
-                  activeTab === 'catalog' && styles.drawerNavItemActive,
-                ]}
-                onPress={() => {
-                  setActiveTab('catalog');
-                  setMenuOpen(false);
-                }}
-              >
-                <View
-                  style={[
-                    styles.drawerNavIconWrap,
-                    activeTab === 'catalog' && styles.drawerNavIconWrapActive,
-                  ]}
-                >
-                  <AppIcon
-                    name="folder"
-                    size={20}
-                    color={activeTab === 'catalog' ? THEME.colors.primary : THEME.colors.text}
-                    strokeWidth={activeTab === 'catalog' ? 2.3 : 1.8}
-                  />
-                </View>
-                <View style={styles.drawerNavCopy}>
-                  <Text
-                    style={[
-                      styles.drawerNavTitle,
-                      activeTab === 'catalog' && styles.drawerNavTitleActive,
-                    ]}
-                  >
-                    Catalog
-                  </Text>
-                  <Text style={styles.drawerNavSubtitle}>Products & prices</Text>
-                </View>
-                <View style={styles.drawerBadgeSecondary}>
-                  <Text style={styles.drawerBadgeTextSecondary}>3</Text>
-                </View>
-              </Pressable>
-
-              {/* 4. Settings */}
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Settings Tab"
-                style={[
-                  styles.drawerNavItem,
-                  activeTab === 'settings' && styles.drawerNavItemActive,
-                ]}
+                accessibilityLabel="User profile and settings"
+                style={styles.drawerUserFooter}
                 onPress={() => {
                   setActiveTab('settings');
                   setMenuOpen(false);
                 }}
               >
-                <View
-                  style={[
-                    styles.drawerNavIconWrap,
-                    activeTab === 'settings' && styles.drawerNavIconWrapActive,
-                  ]}
-                >
-                  <AppIcon
-                    name="wrench"
-                    size={20}
-                    color={activeTab === 'settings' ? THEME.colors.primary : THEME.colors.text}
-                    strokeWidth={activeTab === 'settings' ? 2.3 : 1.8}
-                  />
+                <View style={styles.drawerUserAvatar}>
+                  <Text style={styles.drawerUserAvatarText}>{userInitials}</Text>
                 </View>
-                <View style={styles.drawerNavCopy}>
-                  <Text
-                    style={[
-                      styles.drawerNavTitle,
-                      activeTab === 'settings' && styles.drawerNavTitleActive,
-                    ]}
-                  >
-                    Settings
-                  </Text>
-                  <Text style={styles.drawerNavSubtitle}>Meta token & OAuth</Text>
+                <View style={styles.drawerUserCopy}>
+                  <Text style={styles.drawerUserName}>{userName}</Text>
+                  <Text style={styles.drawerUserRole}>Store Owner · Admin</Text>
                 </View>
-                {activeTab === 'settings' && (
-                  <View style={styles.drawerActiveIndicator} />
-                )}
+                <AppIcon name="chevron-right" size={16} color={THEME.colors.textMuted} />
               </Pressable>
-            </View>
-
-            {/* Spacer */}
-            <View style={{ flex: 1 }} />
-
-            {/* Drawer Footer User Profile */}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="User profile and settings"
-              style={styles.drawerUserFooter}
-              onPress={() => {
-                setActiveTab('settings');
-                setMenuOpen(false);
-              }}
-            >
-              <View style={styles.drawerUserAvatar}>
-                <Text style={styles.drawerUserAvatarText}>{userInitials}</Text>
-              </View>
-              <View style={styles.drawerUserCopy}>
-                <Text style={styles.drawerUserName}>{userName}</Text>
-                <Text style={styles.drawerUserRole}>Store Owner · Admin</Text>
-              </View>
-              <AppIcon name="chevron-right" size={16} color={THEME.colors.textMuted} />
-            </Pressable>
+            </ScrollView>
           </View>
         </View>
-      )}
+      </Modal>
 
       {/* 5. Animated Success Toast */}
       {sentToast && (
@@ -1468,32 +1491,38 @@ const styles = StyleSheet.create({
     marginTop: 5,
     fontWeight: '500',
   },
-  // Side Menu Drawer Styles
-  drawerOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 100,
-    elevation: 20,
+  // Side Menu Drawer Styles (Responsive Mobile First)
+  drawerModalOverlay: {
+    flex: 1,
     flexDirection: 'row',
   },
   drawerBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(18, 19, 23, 0.45)',
+    backgroundColor: 'rgba(18, 19, 23, 0.55)',
+    zIndex: 1,
   },
   drawerPanel: {
     width: 300,
-    maxWidth: '84%',
+    maxWidth: '82%',
     height: '100%',
     backgroundColor: THEME.colors.surface,
-    paddingTop: 16,
-    paddingBottom: 24,
     paddingHorizontal: 16,
     borderRightWidth: 1,
     borderRightColor: THEME.colors.cardBorder,
     shadowColor: '#000000',
     shadowOffset: { width: 4, height: 0 },
-    shadowOpacity: 0.16,
-    shadowRadius: 18,
-    elevation: 24,
+    shadowOpacity: 0.18,
+    shadowRadius: 20,
+    elevation: 25,
+    zIndex: 10,
+  },
+  drawerScrollContent: {
+    flexGrow: 1,
+    justifyContent: 'space-between',
+    paddingBottom: 10,
+  },
+  drawerTopSection: {
+    flex: 1,
   },
   drawerHeader: {
     flexDirection: 'row',
@@ -1506,32 +1535,11 @@ const styles = StyleSheet.create({
   drawerBrandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-  },
-  drawerStatusPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(32, 185, 107, 0.1)',
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 12,
-  },
-  drawerStatusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: THEME.colors.speaking,
-  },
-  drawerStatusText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: THEME.colors.speaking,
   },
   drawerCloseButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: THEME.colors.cardElevated,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1570,10 +1578,11 @@ const styles = StyleSheet.create({
   drawerNavItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 12,
     borderRadius: 12,
     backgroundColor: 'transparent',
+    minHeight: 48,
   },
   drawerNavItemActive: {
     backgroundColor: THEME.colors.cardElevated,
@@ -1635,28 +1644,15 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
-  drawerSafetyNotice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 18,
-    padding: 10,
-    borderRadius: 10,
-    backgroundColor: 'rgba(32, 185, 107, 0.08)',
-  },
-  drawerSafetyText: {
-    flex: 1,
-    fontSize: 10.5,
-    color: THEME.colors.speaking,
-    fontWeight: '600',
-  },
   drawerUserFooter: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 12,
+    paddingTop: 14,
+    marginTop: 14,
     borderTopWidth: 1,
     borderTopColor: THEME.colors.cardBorder,
     gap: 10,
+    minHeight: 52,
   },
   drawerUserAvatar: {
     width: 38,
