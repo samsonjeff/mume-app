@@ -157,6 +157,14 @@ mume/
 - `#82C8E5` (Cerulean Sky): Primary action CTAs, WakeWordButton base, borders
 - **Text Color Rule:** Text must be complementary deep tones (e.g. `#1E293B` / `#0F172A` and muted `#475569`) to guarantee high-contrast legibility against these light, pastel backgrounds under outdoor sunlight.
 
+**Figma Screen Blueprint:**
+- **Navigation:** 4-tab bottom bar (`Today`, `Inbox`, `Catalog`, `Settings`) with a floating 72dp center mic button in the bottom 40% thumb zone.
+- **Voice Dock:** Reactive status pill (`Say "Hey Mume"`, `Listening... VoiceWave`, `Checking your page... Spark`).
+- **Today:** Taglish greeting, Live Page indicator, summary count, and `PendingActionCard` with inline price adjustment and single-tap "Approve & send" confirmation.
+- **Inbox:** Real-time customer inquiry threads, unread status dots, relative timestamps.
+- **Catalog:** Multi-column product catalog with pricing (₱/kg), photos/emojis, and stock levels.
+- **Settings:** Connected Facebook Page, AES-256 token security, and Meta compliance tools.
+
 See full strict directive + compliance checklist in [PLAN.md](./PLAN.md#cross-platform-mobile-responsiveness-and-ergonomics-directive-cpmred---mandatory).
 
 ---

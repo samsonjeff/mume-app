@@ -140,6 +140,47 @@ The UI components and theme tokens MUST strictly adhere to the following 4-color
 - **Button / Action Text:** Deep navy (`#0F172A`) on `#98CFF0` and `#82C8E5` buttons to preserve clear visibility under outdoor sunlight.
 - **Strict Boundary:** No unauthorized colors. All styling must derive strictly from this palette.
 
+### 4.2 Official Figma Make UI Architecture & Screen Specification
+
+Derived from the verified Figma design file (`Build Mume Voice Assistant.zip`), the mobile frontend is structured as follows:
+
+1. **Header & Brand Bar:**
+   - Left: Mume Brand Mark (`assets/mume-logo.png`).
+   - Center: Connected Business Name (e.g. `Mume Fresh - Fruit Store` / `Santa Ana Sari-Sari Store`) + Page Live status.
+   - Right: Admin profile initials badge (`AN`).
+
+2. **4-Tab Bottom Navigation + Center Thumb Zone Dock:**
+   - Tabs: `Today` (Home), `Inbox`, `[Center Spacer for Floating Mic]`, `Catalog`, `Settings`.
+   - Floating Center `WakeWordButton`: 72dp circular action button in bottom 40% thumb zone with animated glowing pulse ring.
+   - Dynamic Voice Dock status pill above bottom bar:
+     - `IDLE`: "Say 'Hey Mume' or tap to speak".
+     - `LISTENING`: "Listening…" with animated 5-bar `VoiceWave`.
+     - `THINKING`: "Checking your page…" with `SparkIcon`.
+
+3. **Screen 1: Today Screen:**
+   - Header greeting: Taglish ("Magandang umaga, [Name]") + date + Page Live indicator.
+   - Summary Card: Unread messages & pending action count.
+   - Pending Action Approval Card:
+     - Customer avatar, name, timestamp, and message bubble (e.g. *"Hi po, how much ang red apples?"*).
+     - Mume Spark suggested draft reply with highlighted price.
+     - Inline live price editor ("Edit" / "Done editing") allowing one-tap price correction.
+     - "Approve & send" primary CTA with confirmation checkmark.
+     - Safety disclaimer: *"Nothing is sent without your approval."*
+
+4. **Screen 2: Inbox Screen:**
+   - Customer conversation list with customer initials avatars, inquiry previews, relative timestamps, and unread indicator dots.
+
+5. **Screen 3: Catalog Screen:**
+   - Product catalog cards with product image/emoji, item title, price per unit (₱/kg), and stock level badge (*"In stock"*, *"Low stock"*).
+
+6. **Screen 4: Settings Screen:**
+   - Facebook Page Connection Card (Page Name, Page ID, AES-256 encrypted token status).
+   - Direct manual Page linking form for fast developer testing.
+   - Meta Developer Compliance links: `/privacy` and `/data-deletion`.
+
+7. **Toast Notifications:**
+   - Temporary animated confirmation pill (e.g. *"Reply sent to Maria"*) upon approving actions.
+
 ### 5. Implementation Rules
 
 - **Component Library:** All components from `components/` must accept `style` prop and be responsive
