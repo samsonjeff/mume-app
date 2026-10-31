@@ -37,6 +37,7 @@ export default function HomeScreen() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
   const [userName, setUserName] = useState<string>('Jefferson');
+  const [isLoggedIn, setIsLoggedIn] = useState(true);
   const [pages, setPages] = useState<LinkedPage[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -57,11 +58,12 @@ export default function HomeScreen() {
 
   // Dynamically compute user initials from real user name
   const userInitials = useMemo(() => {
+    if (!isLoggedIn) return '?';
     const parts = userName.trim().split(/\s+/).filter(Boolean);
     if (parts.length === 0) return 'JS';
     if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
     return (parts[0][0] + parts[1][0]).toUpperCase();
-  }, [userName]);
+  }, [isLoggedIn, userName]);
 
   const loadLinkedPages = useCallback(async () => {
     try {
@@ -133,8 +135,27 @@ export default function HomeScreen() {
     } catch (err: any) {
       setLinkMessage(err.message || 'OAuth error');
     } finally {
+      setIsLoggedIn(true);
+      setUserName('Jefferson');
+      setUnreadCount(2);
+      setIsApproved(false);
       setSubmittingLink(false);
+      setMenuOpen(false);
+      loadLinkedPages();
     }
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setUserName('');
+    setPages([]);
+    setUnreadCount(0);
+    setIsApproved(false);
+    setMenuOpen(false);
+  };
+
+  const handleLogin = async () => {
+    await handleOAuthLogin();
   };
 
   const handleDirectLink = async () => {
@@ -159,7 +180,9 @@ export default function HomeScreen() {
   };
 
   const linkedPage = pages[0];
-  const activePageTitle = linkedPage?.page_name || 'Mume Fresh - Fruit Store';
+  const activePageTitle = isLoggedIn
+    ? (linkedPage?.page_name || 'Mume Fresh - Fruit Store')
+    : 'No Store Linked';
 
   return (
     <View style={styles.rootContainer}>
@@ -198,150 +221,191 @@ export default function HomeScreen() {
             {/* Zero-State Hero Section (Gemini Layout Style) */}
             <View style={styles.geminiZeroStateContainer}>
               <Text style={styles.geminiHeroTitle}>
-                Hello, {userName.trim().split(/\s+/)[0] || userName}
+                {isLoggedIn ? `Hello, ${userName.trim().split(/\s+/)[0] || userName}` : 'Welcome to Mume'}
               </Text>
               <Text style={styles.geminiHeroSubtitle}>
-                Where should we start with {activePageTitle}?
+                {isLoggedIn
+                  ? `Where should we start with ${activePageTitle}?`
+                  : 'Connect your Facebook Page to start managing inquiries.'}
               </Text>
             </View>
 
             {/* Quick Action Suggestion Chips (Gemini Prompt Starters) */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.geminiChipsScroll}
-            >
-              <Pressable
-                style={styles.geminiChip}
-                onPress={() => setActiveTab('inbox')}
+            {isLoggedIn ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.geminiChipsScroll}
               >
-                <AppIcon name="message-circle" size={14} color={THEME.colors.primary} />
-                <Text style={styles.geminiChipText}>Maria's inquiry (₱120)</Text>
-              </Pressable>
+                <Pressable
+                  style={styles.geminiChip}
+                  onPress={() => setActiveTab('inbox')}
+                >
+                  <AppIcon name="message-circle" size={14} color={THEME.colors.primary} />
+                  <Text style={styles.geminiChipText}>Maria's inquiry (₱120)</Text>
+                </Pressable>
 
-              <Pressable
-                style={styles.geminiChip}
-                onPress={() => setActiveTab('catalog')}
-              >
-                <AppIcon name="folder" size={14} color={THEME.colors.primary} />
-                <Text style={styles.geminiChipText}>Fruit catalog (3 items)</Text>
-              </Pressable>
+                <Pressable
+                  style={styles.geminiChip}
+                  onPress={() => setActiveTab('catalog')}
+                >
+                  <AppIcon name="folder" size={14} color={THEME.colors.primary} />
+                  <Text style={styles.geminiChipText}>Fruit catalog (3 items)</Text>
+                </Pressable>
 
-              <Pressable
-                style={styles.geminiChip}
-                onPress={() => setActiveTab('settings')}
-              >
-                <AppIcon name="check" size={14} color={THEME.colors.speaking} />
-                <Text style={styles.geminiChipText}>Page live & encrypted</Text>
-              </Pressable>
-            </ScrollView>
-
-            {/* Summary Card */}
-            <Pressable style={styles.summaryCard} onPress={() => setActiveTab('inbox')}>
-              <View style={styles.summaryIconContainer}>
-                <AppIcon name="message-circle" size={22} color={THEME.colors.primary} />
-              </View>
-              <View style={styles.summaryCopy}>
-                <Text style={styles.summaryTitle}>2 new messages</Text>
-                <Text style={styles.summarySubtitle}>
-                  {isApproved ? 'All inquiries handled' : '1 needs your approval'}
-                </Text>
-              </View>
-              <AppIcon name="chevron-right" size={20} color={THEME.colors.textMuted} />
-            </Pressable>
-
-            {/* Section Heading */}
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionHeading}>Ready for you</Text>
-              <Text style={styles.sectionBadge}>{isApproved ? '0 actions' : '1 action'}</Text>
-            </View>
-
-            {/* Pending Action Card */}
-            {!isApproved ? (
-              <View style={styles.approvalCard}>
-                <View style={styles.cardTopline}>
-                  <View style={styles.eyebrow}>
-                    <View style={styles.statusDotAmber} />
-                    <Text style={styles.eyebrowText}>Needs your approval</Text>
-                  </View>
-                  <Text style={styles.timeLabel}>now</Text>
-                </View>
-
-                <View style={styles.customerRow}>
-                  <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>MA</Text>
-                  </View>
-                  <View>
-                    <Text style={styles.customerName}>Maria A.</Text>
-                    <Text style={styles.customerContext}>Messenger · Price inquiry</Text>
-                  </View>
-                </View>
-
-                <View style={styles.messageBubble}>
-                  <Text style={styles.messageBubbleText}>“Hi po, how much ang red apples?”</Text>
-                </View>
-
-                <View style={styles.draftBlock}>
-                  <View style={styles.draftLabelRow}>
-                    <AppIcon name="bot" size={16} color={THEME.colors.primary} />
-                    <Text style={styles.draftLabelText}>Mume’s suggested reply</Text>
-                  </View>
-
-                  {editingPrice ? (
-                    <View style={styles.priceEditor}>
-                      <Text style={styles.priceEditorLabel}>Update price</Text>
-                      <TextInput
-                        autoFocus
-                        style={styles.priceInput}
-                        value={price}
-                        onChangeText={setPrice}
-                      />
-                    </View>
-                  ) : (
-                    <Text style={styles.draftText}>
-                      Hi po! Our red apples are{' '}
-                      <Text style={styles.draftPriceHighlight}>{price}</Text>. Fresh delivery today.
-                    </Text>
-                  )}
-                </View>
-
-                <View style={styles.approvalActions}>
-                  <Pressable
-                    accessibilityRole="button"
-                    style={styles.secondaryButton}
-                    onPress={() => setEditingPrice((v) => !v)}
-                  >
-                    <View style={styles.buttonInnerRow}>
-                      <AppIcon name="edit" size={15} color={THEME.colors.text} />
-                      <Text style={styles.secondaryButtonText}>
-                        {editingPrice ? 'Done' : 'Edit'}
-                      </Text>
-                    </View>
-                  </Pressable>
-
-                  <Pressable
-                    accessibilityRole="button"
-                    style={styles.primaryButton}
-                    onPress={handleApprove}
-                  >
-                    <View style={styles.buttonInnerRow}>
-                      <Text style={styles.primaryButtonText}>Approve & send</Text>
-                      <AppIcon name="check" size={16} color="#FFFFFF" strokeWidth={2.5} />
-                    </View>
-                  </Pressable>
-                </View>
-
-                <Text style={styles.safetyNote}>Nothing is sent without your approval.</Text>
-              </View>
+                <Pressable
+                  style={styles.geminiChip}
+                  onPress={() => setActiveTab('settings')}
+                >
+                  <AppIcon name="check" size={14} color={THEME.colors.speaking} />
+                  <Text style={styles.geminiChipText}>Page live & encrypted</Text>
+                </Pressable>
+              </ScrollView>
             ) : (
-              <View style={styles.emptyCard}>
-                <View style={styles.emptyCheckBadge}>
-                  <AppIcon name="check" size={28} color={THEME.colors.speaking} strokeWidth={2.5} />
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.geminiChipsScroll}
+              >
+                <Pressable
+                  style={styles.geminiChip}
+                  onPress={handleLogin}
+                >
+                  <AppIcon name="log-in" size={14} color={THEME.colors.primary} />
+                  <Text style={styles.geminiChipText}>Login using Facebook</Text>
+                </Pressable>
+              </ScrollView>
+            )}
+
+            {isLoggedIn ? (
+              <>
+                {/* Summary Card */}
+                <Pressable style={styles.summaryCard} onPress={() => setActiveTab('inbox')}>
+                  <View style={styles.summaryIconContainer}>
+                    <AppIcon name="message-circle" size={22} color={THEME.colors.primary} />
+                  </View>
+                  <View style={styles.summaryCopy}>
+                    <Text style={styles.summaryTitle}>2 new messages</Text>
+                    <Text style={styles.summarySubtitle}>
+                      {isApproved ? 'All inquiries handled' : '1 needs your approval'}
+                    </Text>
+                  </View>
+                  <AppIcon name="chevron-right" size={20} color={THEME.colors.textMuted} />
+                </Pressable>
+
+                {/* Section Heading */}
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={styles.sectionHeading}>Ready for you</Text>
+                  <Text style={styles.sectionBadge}>{isApproved ? '0 actions' : '1 action'}</Text>
                 </View>
-                <Text style={styles.emptyCardTitle}>All Caught Up!</Text>
-                <Text style={styles.emptyCardSubtitle}>
-                  Reply confirmed and dispatched to Maria via Meta Graph API.
+
+                {/* Pending Action Card */}
+                {!isApproved ? (
+                  <View style={styles.approvalCard}>
+                    <View style={styles.cardTopline}>
+                      <View style={styles.eyebrow}>
+                        <View style={styles.statusDotAmber} />
+                        <Text style={styles.eyebrowText}>Needs your approval</Text>
+                      </View>
+                      <Text style={styles.timeLabel}>now</Text>
+                    </View>
+
+                    <View style={styles.customerRow}>
+                      <View style={styles.avatar}>
+                        <Text style={styles.avatarText}>MA</Text>
+                      </View>
+                      <View>
+                        <Text style={styles.customerName}>Maria A.</Text>
+                        <Text style={styles.customerContext}>Messenger · Price inquiry</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.messageBubble}>
+                      <Text style={styles.messageBubbleText}>“Hi po, how much ang red apples?”</Text>
+                    </View>
+
+                    <View style={styles.draftBlock}>
+                      <View style={styles.draftLabelRow}>
+                        <AppIcon name="bot" size={16} color={THEME.colors.primary} />
+                        <Text style={styles.draftLabelText}>Mume’s suggested reply</Text>
+                      </View>
+
+                      {editingPrice ? (
+                        <View style={styles.priceEditor}>
+                          <Text style={styles.priceEditorLabel}>Update price</Text>
+                          <TextInput
+                            autoFocus
+                            style={styles.priceInput}
+                            value={price}
+                            onChangeText={setPrice}
+                          />
+                        </View>
+                      ) : (
+                        <Text style={styles.draftText}>
+                          Hi po! Our red apples are{' '}
+                          <Text style={styles.draftPriceHighlight}>{price}</Text>. Fresh delivery today.
+                        </Text>
+                      )}
+                    </View>
+
+                    <View style={styles.approvalActions}>
+                      <Pressable
+                        accessibilityRole="button"
+                        style={styles.secondaryButton}
+                        onPress={() => setEditingPrice((v) => !v)}
+                      >
+                        <View style={styles.buttonInnerRow}>
+                          <AppIcon name="edit" size={15} color={THEME.colors.text} />
+                          <Text style={styles.secondaryButtonText}>
+                            {editingPrice ? 'Done' : 'Edit'}
+                          </Text>
+                        </View>
+                      </Pressable>
+
+                      <Pressable
+                        accessibilityRole="button"
+                        style={styles.primaryButton}
+                        onPress={handleApprove}
+                      >
+                        <View style={styles.buttonInnerRow}>
+                          <Text style={styles.primaryButtonText}>Approve & send</Text>
+                          <AppIcon name="check" size={16} color="#FFFFFF" strokeWidth={2.5} />
+                        </View>
+                      </Pressable>
+                    </View>
+
+                    <Text style={styles.safetyNote}>Nothing is sent without your approval.</Text>
+                  </View>
+                ) : (
+                  <View style={styles.emptyCard}>
+                    <View style={styles.emptyCheckBadge}>
+                      <AppIcon name="check" size={28} color={THEME.colors.speaking} strokeWidth={2.5} />
+                    </View>
+                    <Text style={styles.emptyCardTitle}>All Caught Up!</Text>
+                    <Text style={styles.emptyCardSubtitle}>
+                      Reply confirmed and dispatched to Maria via Meta Graph API.
+                    </Text>
+                  </View>
+                )}
+              </>
+            ) : (
+              <View style={styles.emptyStateCard}>
+                <View style={styles.emptyStateIconCircle}>
+                  <AppIcon name="log-in" size={30} color={THEME.colors.primary} strokeWidth={2} />
+                </View>
+                <Text style={styles.emptyStateTitle}>No Active Store Connected</Text>
+                <Text style={styles.emptyStateSubtitle}>
+                  You are currently logged out. Connect your Facebook account to view customer messages, approve drafts, and manage store catalog.
                 </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Login using Facebook"
+                  style={styles.fbLoginPrimaryBtn}
+                  onPress={handleLogin}
+                >
+                  <AppIcon name="log-in" size={18} color="#FFFFFF" strokeWidth={2.2} />
+                  <Text style={styles.fbLoginPrimaryBtnText}>Login using Facebook</Text>
+                </Pressable>
               </View>
             )}
           </View>
@@ -351,30 +415,51 @@ export default function HomeScreen() {
           <View style={styles.screenContainer}>
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionHeading}>Inbox</Text>
-              <Text style={styles.sectionBadge}>2 unread</Text>
+              <Text style={styles.sectionBadge}>{isLoggedIn ? '2 unread' : '0 unread'}</Text>
             </View>
 
-            {[
-              { id: '1', initials: 'MA', name: 'Maria A.', message: 'Hi po, how much ang red apples?', time: 'now', unread: true },
-              { id: '2', initials: 'JL', name: 'Jun L.', message: 'Available pa po ang mango?', time: '8m', unread: true },
-              { id: '3', initials: 'RS', name: 'Rica S.', message: 'Thank you po!', time: '1h', unread: false },
-            ].map((convo) => (
-              <Pressable key={convo.id} style={styles.conversationCard}>
-                <View style={styles.conversationAvatar}>
-                  <Text style={styles.conversationAvatarText}>{convo.initials}</Text>
+            {isLoggedIn ? (
+              [
+                { id: '1', initials: 'MA', name: 'Maria A.', message: 'Hi po, how much ang red apples?', time: 'now', unread: true },
+                { id: '2', initials: 'JL', name: 'Jun L.', message: 'Available pa po ang mango?', time: '8m', unread: true },
+                { id: '3', initials: 'RS', name: 'Rica S.', message: 'Thank you po!', time: '1h', unread: false },
+              ].map((convo) => (
+                <Pressable key={convo.id} style={styles.conversationCard}>
+                  <View style={styles.conversationAvatar}>
+                    <Text style={styles.conversationAvatarText}>{convo.initials}</Text>
+                  </View>
+                  <View style={styles.conversationCopy}>
+                    <Text style={styles.conversationName}>{convo.name}</Text>
+                    <Text style={styles.conversationMessage} numberOfLines={1}>
+                      {convo.message}
+                    </Text>
+                  </View>
+                  <View style={styles.conversationMeta}>
+                    <Text style={styles.conversationTime}>{convo.time}</Text>
+                    {convo.unread && <View style={styles.unreadDot} />}
+                  </View>
+                </Pressable>
+              ))
+            ) : (
+              <View style={styles.emptyStateCard}>
+                <View style={styles.emptyStateIconCircle}>
+                  <AppIcon name="message-circle" size={30} color={THEME.colors.textMuted} strokeWidth={1.8} />
                 </View>
-                <View style={styles.conversationCopy}>
-                  <Text style={styles.conversationName}>{convo.name}</Text>
-                  <Text style={styles.conversationMessage} numberOfLines={1}>
-                    {convo.message}
-                  </Text>
-                </View>
-                <View style={styles.conversationMeta}>
-                  <Text style={styles.conversationTime}>{convo.time}</Text>
-                  {convo.unread && <View style={styles.unreadDot} />}
-                </View>
-              </Pressable>
-            ))}
+                <Text style={styles.emptyStateTitle}>No Conversations</Text>
+                <Text style={styles.emptyStateSubtitle}>
+                  No customer messages to show. Log in using your Facebook account to synchronize inquiries.
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Login using Facebook"
+                  style={styles.fbLoginPrimaryBtn}
+                  onPress={handleLogin}
+                >
+                  <AppIcon name="log-in" size={18} color="#FFFFFF" strokeWidth={2.2} />
+                  <Text style={styles.fbLoginPrimaryBtnText}>Login using Facebook</Text>
+                </Pressable>
+              </View>
+            )}
           </View>
         )}
 
@@ -382,25 +467,46 @@ export default function HomeScreen() {
           <View style={styles.screenContainer}>
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionHeading}>Catalog</Text>
-              <Text style={styles.sectionBadge}>3 products</Text>
+              <Text style={styles.sectionBadge}>{isLoggedIn ? '3 products' : '0 products'}</Text>
             </View>
 
-            <View style={styles.catalogGrid}>
-              {[
-                { name: 'Red apples', price: '₱120 / kg', stock: 'In stock', isStock: true, image: FRUIT_IMAGES.apple },
-                { name: 'Carabao mango', price: '₱180 / kg', stock: 'In stock', isStock: true, image: FRUIT_IMAGES.mango },
-                { name: 'Lakatan banana', price: '₱85 / kg', stock: 'Low stock', isStock: false, image: FRUIT_IMAGES.banana },
-              ].map((item) => (
-                <View key={item.name} style={styles.productCard}>
-                  <Image source={item.image} style={styles.productImage} resizeMode="cover" />
-                  <Text style={styles.productName}>{item.name}</Text>
-                  <Text style={styles.productPrice}>{item.price}</Text>
-                  <View style={[styles.stockPill, item.isStock ? styles.stockIn : styles.stockLow]}>
-                    <Text style={styles.stockPillText}>{item.stock}</Text>
+            {isLoggedIn ? (
+              <View style={styles.catalogGrid}>
+                {[
+                  { name: 'Red apples', price: '₱120 / kg', stock: 'In stock', isStock: true, image: FRUIT_IMAGES.apple },
+                  { name: 'Carabao mango', price: '₱180 / kg', stock: 'In stock', isStock: true, image: FRUIT_IMAGES.mango },
+                  { name: 'Lakatan banana', price: '₱85 / kg', stock: 'Low stock', isStock: false, image: FRUIT_IMAGES.banana },
+                ].map((item) => (
+                  <View key={item.name} style={styles.productCard}>
+                    <Image source={item.image} style={styles.productImage} resizeMode="cover" />
+                    <Text style={styles.productName}>{item.name}</Text>
+                    <Text style={styles.productPrice}>{item.price}</Text>
+                    <View style={[styles.stockPill, item.isStock ? styles.stockIn : styles.stockLow]}>
+                      <Text style={styles.stockPillText}>{item.stock}</Text>
+                    </View>
                   </View>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.emptyStateCard}>
+                <View style={styles.emptyStateIconCircle}>
+                  <AppIcon name="folder" size={30} color={THEME.colors.textMuted} strokeWidth={1.8} />
                 </View>
-              ))}
-            </View>
+                <Text style={styles.emptyStateTitle}>Catalog is Empty</Text>
+                <Text style={styles.emptyStateSubtitle}>
+                  No products found. Log in using your Facebook account to link and manage your store inventory.
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Login using Facebook"
+                  style={styles.fbLoginPrimaryBtn}
+                  onPress={handleLogin}
+                >
+                  <AppIcon name="log-in" size={18} color="#FFFFFF" strokeWidth={2.2} />
+                  <Text style={styles.fbLoginPrimaryBtnText}>Login using Facebook</Text>
+                </Pressable>
+              </View>
+            )}
           </View>
         )}
 
@@ -416,7 +522,7 @@ export default function HomeScreen() {
               <Text style={styles.settingsCardTitle}>CONNECTED FACEBOOK PAGE</Text>
               {loading ? (
                 <ActivityIndicator color={THEME.colors.primary} />
-              ) : linkedPage ? (
+              ) : isLoggedIn && linkedPage ? (
                 <View>
                   <View style={styles.pageBadgeRow}>
                     <Text style={styles.statusDotGreen}>●</Text>
@@ -443,13 +549,18 @@ export default function HomeScreen() {
               <Pressable
                 accessibilityRole="button"
                 style={styles.fbButton}
-                onPress={handleOAuthLogin}
+                onPress={handleLogin}
                 disabled={submittingLink}
               >
                 {submittingLink ? (
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.fbButtonText}>Connect via Facebook OAuth</Text>
+                  <View style={styles.buttonInnerRow}>
+                    <AppIcon name="log-in" size={18} color="#FFFFFF" strokeWidth={2.2} />
+                    <Text style={styles.fbButtonText}>
+                      {isLoggedIn ? 'Re-authenticate with Facebook' : 'Login using Facebook'}
+                    </Text>
+                  </View>
                 )}
               </Pressable>
             </View>
@@ -614,7 +725,7 @@ export default function HomeScreen() {
                     {activePageTitle}
                   </Text>
                   <Text style={styles.drawerStoreMeta}>
-                    Messenger AI Assistant · Meta Synced
+                    {isLoggedIn ? 'Messenger AI Assistant · Meta Synced' : 'Log in with Facebook to sync store'}
                   </Text>
                 </View>
 
@@ -702,7 +813,7 @@ export default function HomeScreen() {
                       <Text style={styles.drawerNavSubtitle}>Customer inquiries</Text>
                     </View>
                     <View style={styles.drawerBadge}>
-                      <Text style={styles.drawerBadgeText}>{unreadCount}</Text>
+                      <Text style={styles.drawerBadgeText}>{isLoggedIn ? unreadCount : 0}</Text>
                     </View>
                   </Pressable>
 
@@ -744,7 +855,7 @@ export default function HomeScreen() {
                       <Text style={styles.drawerNavSubtitle}>Products & prices</Text>
                     </View>
                     <View style={styles.drawerBadgeSecondary}>
-                      <Text style={styles.drawerBadgeTextSecondary}>3</Text>
+                      <Text style={styles.drawerBadgeTextSecondary}>{isLoggedIn ? 3 : 0}</Text>
                     </View>
                   </Pressable>
 
@@ -792,25 +903,49 @@ export default function HomeScreen() {
                 </View>
               </View>
 
-              {/* Drawer Footer User Profile */}
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="User profile and settings"
-                style={styles.drawerUserFooter}
-                onPress={() => {
-                  setActiveTab('settings');
-                  setMenuOpen(false);
-                }}
-              >
-                <View style={styles.drawerUserAvatar}>
-                  <Text style={styles.drawerUserAvatarText}>{userInitials}</Text>
+              {/* Drawer Footer User Profile or Login */}
+              {isLoggedIn ? (
+                <View style={styles.drawerUserFooter}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="User profile and settings"
+                    style={styles.drawerUserClickArea}
+                    onPress={() => {
+                      setActiveTab('settings');
+                      setMenuOpen(false);
+                    }}
+                  >
+                    <View style={styles.drawerUserAvatar}>
+                      <Text style={styles.drawerUserAvatarText}>{userInitials}</Text>
+                    </View>
+                    <View style={styles.drawerUserCopy}>
+                      <Text style={styles.drawerUserName}>{userName}</Text>
+                      <Text style={styles.drawerUserRole}>Store Owner · Admin</Text>
+                    </View>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Log out"
+                    style={styles.drawerLogoutBtn}
+                    onPress={handleLogout}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  >
+                    <AppIcon name="log-out" size={18} color={THEME.palette.red} strokeWidth={2} />
+                  </Pressable>
                 </View>
-                <View style={styles.drawerUserCopy}>
-                  <Text style={styles.drawerUserName}>{userName}</Text>
-                  <Text style={styles.drawerUserRole}>Store Owner · Admin</Text>
+              ) : (
+                <View style={styles.drawerUserFooter}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Login using Facebook"
+                    style={styles.drawerLoginBtn}
+                    onPress={handleLogin}
+                  >
+                    <AppIcon name="log-in" size={18} color="#FFFFFF" strokeWidth={2.2} />
+                    <Text style={styles.drawerLoginBtnText}>Login using Facebook</Text>
+                  </Pressable>
                 </View>
-                <AppIcon name="chevron-right" size={16} color={THEME.colors.textMuted} />
-              </Pressable>
+              )}
             </ScrollView>
           </View>
         </View>
@@ -1653,6 +1788,100 @@ const styles = StyleSheet.create({
     borderTopColor: THEME.colors.cardBorder,
     gap: 10,
     minHeight: 52,
+  },
+  drawerUserClickArea: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  drawerLogoutBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(252, 65, 61, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(252, 65, 61, 0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  drawerLoginBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1877F2',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    gap: 8,
+    shadowColor: '#1877F2',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  drawerLoginBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  emptyStateCard: {
+    backgroundColor: THEME.colors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: THEME.colors.cardBorder,
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+  },
+  emptyStateIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: THEME.colors.cardElevated,
+    borderWidth: 1,
+    borderColor: THEME.colors.cardBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  emptyStateTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: THEME.colors.text,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptyStateSubtitle: {
+    fontSize: 13,
+    color: THEME.colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 19,
+    marginBottom: 20,
+    paddingHorizontal: 10,
+  },
+  fbLoginPrimaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1877F2',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    gap: 8,
+    width: '100%',
+    shadowColor: '#1877F2',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  fbLoginPrimaryBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
   },
   drawerUserAvatar: {
     width: 38,

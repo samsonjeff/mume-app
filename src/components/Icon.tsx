@@ -15,6 +15,8 @@ import messageCircleSvg from '../assets/message-circle.svg';
 import wrenchSvg from '../assets/wrench.svg';
 import xSvg from '../assets/x.svg';
 import mumeBlackSvg from '../assets/mume-black.svg';
+import logOutSvg from '../assets/log-out.svg';
+import logInSvg from '../assets/log-in.svg';
 
 export type VerifiedIconName =
   | 'audio-waveform'
@@ -30,7 +32,9 @@ export type VerifiedIconName =
   | 'message-circle'
   | 'wrench'
   | 'x'
-  | 'mume-black';
+  | 'mume-black'
+  | 'log-out'
+  | 'log-in';
 
 export type MissingIconName = 'settings' | 'menu' | 'meta-facebook';
 
@@ -51,6 +55,8 @@ const VERIFIED_ASSETS: Record<VerifiedIconName, string> = {
   wrench: wrenchSvg,
   x: xSvg,
   'mume-black': mumeBlackSvg,
+  'log-out': logOutSvg,
+  'log-in': logInSvg,
 };
 
 interface IconProps {

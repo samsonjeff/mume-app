@@ -894,16 +894,128 @@
 .drawer-user-footer {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 0.65rem;
   padding-top: 0.85rem;
   border-top: 1px solid var(--line);
-  border-left: none;
-  border-right: none;
-  border-bottom: none;
+  background: transparent;
+  width: 100%;
+}
+
+.drawer-user-info {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex: 1;
+  border: none;
   background: transparent;
   cursor: pointer;
   text-align: left;
+  min-width: 0;
+  padding: 0;
+}
+
+.drawer-logout-btn {
+  display: grid;
+  place-items: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  background: rgba(252, 65, 61, 0.08);
+  border: 1px solid rgba(252, 65, 61, 0.18);
+  color: #fc413d;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.drawer-logout-btn:hover {
+  background: rgba(252, 65, 61, 0.16);
+  transform: scale(1.04);
+}
+
+.drawer-login-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
   width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  background: #1877f2;
+  color: white;
+  border: none;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(24, 119, 242, 0.28);
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.drawer-login-btn:hover {
+  background: #1465cc;
+  transform: translateY(-1px);
+}
+
+.empty-state-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  padding: 1.8rem 1.4rem;
+  margin-top: 1rem;
+}
+
+.empty-icon-circle {
+  display: grid;
+  place-items: center;
+  width: 3.8rem;
+  height: 3.8rem;
+  border-radius: 50%;
+  background: var(--surface-raised);
+  border: 1px solid var(--line);
+  color: var(--dim);
+  margin-bottom: 1rem;
+}
+
+.empty-state-card h3 {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--ink);
+  margin-bottom: 0.45rem;
+}
+
+.empty-state-card p {
+  font-size: 0.82rem;
+  color: var(--muted);
+  line-height: 1.5;
+  margin-bottom: 1.25rem;
+}
+
+.fb-login-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.75rem 1.2rem;
+  border-radius: 0.75rem;
+  background: #1877f2;
+  color: white;
+  border: none;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(24, 119, 242, 0.28);
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.fb-login-btn:hover {
+  background: #1465cc;
+  transform: translateY(-1px);
 }
 
 .drawer-avatar {

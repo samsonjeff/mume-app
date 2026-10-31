@@ -90,12 +90,16 @@ function PendingAction({ onApproved }: { onApproved: () => void }) {
 
 function HomeScreen({
   userName,
+  isLoggedIn,
+  onLogin,
   onApproved,
   onOpenInbox,
   onOpenCatalog,
   onOpenSettings,
 }: {
   userName: string;
+  isLoggedIn: boolean;
+  onLogin: () => void;
   onApproved: () => void;
   onOpenInbox: () => void;
   onOpenCatalog: () => void;
@@ -104,86 +108,157 @@ function HomeScreen({
   return (
     <>
       <div className="zero-state-hero">
-        <h1>Hello, {userName.trim().split(/\s+/)[0] || userName}</h1>
-        <p>Where should we start with Santa Ana Sari-Sari Store?</p>
+        <h1>{isLoggedIn ? `Hello, ${userName.trim().split(/\s+/)[0] || userName}` : 'Welcome to Mume'}</h1>
+        <p>
+          {isLoggedIn
+            ? 'Where should we start with Santa Ana Sari-Sari Store?'
+            : 'Connect your Facebook Page to start managing inquiries.'}
+        </p>
       </div>
 
-      <div className="chips-container">
-        <button type="button" className="action-chip" onClick={onOpenInbox}>
-          <Icon name="bookmark" size={14} />
-          <span>Maria's inquiry (₱120)</span>
-        </button>
-        <button type="button" className="action-chip" onClick={onOpenCatalog}>
-          <Icon name="folder" size={14} />
-          <span>Fruit catalog (3 items)</span>
-        </button>
-        <button type="button" className="action-chip" onClick={onOpenSettings}>
-          <Icon name="check" size={14} />
-          <span>Page live & encrypted</span>
-        </button>
-      </div>
+      {isLoggedIn ? (
+        <div className="chips-container">
+          <button type="button" className="action-chip" onClick={onOpenInbox}>
+            <Icon name="bookmark" size={14} />
+            <span>Maria's inquiry (₱120)</span>
+          </button>
+          <button type="button" className="action-chip" onClick={onOpenCatalog}>
+            <Icon name="folder" size={14} />
+            <span>Fruit catalog (3 items)</span>
+          </button>
+          <button type="button" className="action-chip" onClick={onOpenSettings}>
+            <Icon name="check" size={14} />
+            <span>Page live & encrypted</span>
+          </button>
+        </div>
+      ) : (
+        <div className="chips-container">
+          <button type="button" className="action-chip" onClick={onLogin}>
+            <Icon name="log-in" size={14} />
+            <span>Login using Facebook</span>
+          </button>
+        </div>
+      )}
 
-      <div className="section-heading">
-        <h2>Ready for you</h2>
-        <span>1 action</span>
-      </div>
-      <PendingAction onApproved={onApproved} />
+      {isLoggedIn ? (
+        <>
+          <div className="section-heading">
+            <h2>Ready for you</h2>
+            <span>1 action</span>
+          </div>
+          <PendingAction onApproved={onApproved} />
+        </>
+      ) : (
+        <div className="empty-state-card">
+          <div className="empty-icon-circle">
+            <Icon name="log-in" size={28} />
+          </div>
+          <h3>No Active Store Connected</h3>
+          <p>
+            You are currently logged out. Connect your Facebook account to view customer messages, approve drafts, and manage store catalog.
+          </p>
+          <button type="button" className="fb-login-btn" onClick={onLogin}>
+            <Icon name="log-in" size={18} />
+            <span>Login using Facebook</span>
+          </button>
+        </div>
+      )}
     </>
   );
 }
 
-function InboxScreen() {
+function InboxScreen({
+  isLoggedIn,
+  onLogin,
+}: {
+  isLoggedIn: boolean;
+  onLogin: () => void;
+}) {
   return (
     <section className="panel-screen">
       <div className="section-heading">
         <h1>Inbox</h1>
-        <span>2 unread</span>
+        <span>{isLoggedIn ? '2 unread' : '0 unread'}</span>
       </div>
-      {[
-        ['MA', 'Maria A.', 'Hi po, how much ang red apples?', 'now'],
-        ['JL', 'Jun L.', 'Available pa po ang mango?', '8m'],
-        ['RS', 'Rica S.', 'Thank you po!', '1h'],
-      ].map(([initials, name, message, time], index) => (
-        <button className="conversation min-h-[56px]" key={name} type="button">
-          <span className={`avatar conversation-avatar tone-${index}`}>{initials}</span>
-          <span className="conversation-copy">
-            <strong>{name}</strong>
-            <span>{message}</span>
-          </span>
-          <span className="conversation-meta">
-            {time}
-            {index < 2 && <i />}
-          </span>
-        </button>
-      ))}
+      {isLoggedIn ? (
+        [
+          ['MA', 'Maria A.', 'Hi po, how much ang red apples?', 'now'],
+          ['JL', 'Jun L.', 'Available pa po ang mango?', '8m'],
+          ['RS', 'Rica S.', 'Thank you po!', '1h'],
+        ].map(([initials, name, message, time], index) => (
+          <button className="conversation min-h-[56px]" key={name} type="button">
+            <span className={`avatar conversation-avatar tone-${index}`}>{initials}</span>
+            <span className="conversation-copy">
+              <strong>{name}</strong>
+              <span>{message}</span>
+            </span>
+            <span className="conversation-meta">
+              {time}
+              {index < 2 && <i />}
+            </span>
+          </button>
+        ))
+      ) : (
+        <div className="empty-state-card">
+          <div className="empty-icon-circle">
+            <Icon name="message-circle" size={28} />
+          </div>
+          <h3>No Conversations</h3>
+          <p>No customer messages to show. Log in using your Facebook account to synchronize inquiries.</p>
+          <button type="button" className="fb-login-btn" onClick={onLogin}>
+            <Icon name="log-in" size={18} />
+            <span>Login using Facebook</span>
+          </button>
+        </div>
+      )}
     </section>
   );
 }
 
-function CatalogScreen() {
+function CatalogScreen({
+  isLoggedIn,
+  onLogin,
+}: {
+  isLoggedIn: boolean;
+  onLogin: () => void;
+}) {
   return (
     <section className="panel-screen">
       <div className="section-heading">
         <h1>Catalog & Inventory</h1>
-        <span>3 products</span>
+        <span>{isLoggedIn ? '3 products' : '0 products'}</span>
       </div>
-      <div className="catalog-grid">
-        {[
-          [appleImg, 'Red apples', '₱120 / kg', 'In stock'],
-          [mangoImg, 'Carabao mango', '₱180 / kg', 'In stock'],
-          [bananaImg, 'Lakatan banana', '₱85 / kg', 'Low stock'],
-        ].map(([imgSrc, name, price, stock]) => (
-          <button className="product-card min-h-[140px]" key={name} type="button">
-            <img src={imgSrc} alt={name} className="product-image" />
-            <strong>{name}</strong>
-            <span className="flex items-center justify-center gap-1 text-sm font-bold text-blue-600">
-              <Icon name="dollar-sign" size={14} />
-              {price}
-            </span>
-            <small>{stock}</small>
+      {isLoggedIn ? (
+        <div className="catalog-grid">
+          {[
+            [appleImg, 'Red apples', '₱120 / kg', 'In stock'],
+            [mangoImg, 'Carabao mango', '₱180 / kg', 'In stock'],
+            [bananaImg, 'Lakatan banana', '₱85 / kg', 'Low stock'],
+          ].map(([imgSrc, name, price, stock]) => (
+            <button className="product-card min-h-[140px]" key={name} type="button">
+              <img src={imgSrc} alt={name} className="product-image" />
+              <strong>{name}</strong>
+              <span className="flex items-center justify-center gap-1 text-sm font-bold text-blue-600">
+                <Icon name="dollar-sign" size={14} />
+                {price}
+              </span>
+              <small>{stock}</small>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="empty-state-card">
+          <div className="empty-icon-circle">
+            <Icon name="folder" size={28} />
+          </div>
+          <h3>Catalog is Empty</h3>
+          <p>No products found. Log in using your Facebook account to link and manage your store inventory.</p>
+          <button type="button" className="fb-login-btn" onClick={onLogin}>
+            <Icon name="log-in" size={18} />
+            <span>Login using Facebook</span>
           </button>
-        ))}
-      </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -193,9 +268,12 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
   const [userName, setUserName] = useState<string>('Jefferson');
+  const [isLoggedIn, setIsLoggedIn] = useState(true);
   const [sent, setSent] = useState(false);
 
-  const userInitials = userName.trim().split(/\s+/).filter(Boolean).map(n => n[0]?.toUpperCase()).slice(0, 2).join('') || 'JS';
+  const userInitials = isLoggedIn
+    ? userName.trim().split(/\s+/).filter(Boolean).map(n => n[0]?.toUpperCase()).slice(0, 2).join('') || 'JS'
+    : '?';
 
   useEffect(() => {
     if (voiceState !== 'thinking') return;
@@ -214,13 +292,25 @@ export default function App() {
     window.setTimeout(() => setSent(false), 3200);
   };
 
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setUserName('');
+    setMenuOpen(false);
+  };
+
+  const handleLogin = () => {
+    setIsLoggedIn(true);
+    setUserName('Jefferson');
+    setMenuOpen(false);
+  };
+
   return (
     <div className="app-shell">
       <main className="phone-stage max-w-[412px] min-w-[360px] mx-auto border-x border-[var(--line)] shadow-2xl relative">
         {/* Dynamic Top Header */}
         <Header
           title={activeTab === 'settings' ? 'Settings' : activeTab === 'inbox' ? 'Inbox' : activeTab === 'catalog' ? 'Catalog' : 'Mume'}
-          subtitle="Santa Ana Sari-Sari Store"
+          subtitle={isLoggedIn ? 'Santa Ana Sari-Sari Store' : 'No Store Linked'}
           showBack={activeTab !== 'home'}
           userInitials={userInitials}
           onBack={() => setActiveTab('home')}
@@ -233,14 +323,26 @@ export default function App() {
           {activeTab === 'home' && (
             <HomeScreen
               userName={userName}
+              isLoggedIn={isLoggedIn}
+              onLogin={handleLogin}
               onApproved={handleApproved}
               onOpenInbox={() => setActiveTab('inbox')}
               onOpenCatalog={() => setActiveTab('catalog')}
               onOpenSettings={() => setActiveTab('settings')}
             />
           )}
-          {activeTab === 'inbox' && <InboxScreen />}
-          {activeTab === 'catalog' && <CatalogScreen />}
+          {activeTab === 'inbox' && (
+            <InboxScreen
+              isLoggedIn={isLoggedIn}
+              onLogin={handleLogin}
+            />
+          )}
+          {activeTab === 'catalog' && (
+            <CatalogScreen
+              isLoggedIn={isLoggedIn}
+              onLogin={handleLogin}
+            />
+          )}
           {activeTab === 'settings' && (
             <SettingsView
               onBack={() => setActiveTab('home')}
@@ -331,8 +433,8 @@ export default function App() {
 
               {/* Store details */}
               <div className="drawer-store-card">
-                <strong>Santa Ana Sari-Sari Store</strong>
-                <span>Messenger AI Assistant · Meta Synced</span>
+                <strong>{isLoggedIn ? 'Santa Ana Sari-Sari Store' : 'No Store Linked'}</strong>
+                <span>{isLoggedIn ? 'Messenger AI Assistant · Meta Synced' : 'Log in with Facebook to sync store'}</span>
               </div>
 
               {/* Options Navigation */}
@@ -372,7 +474,7 @@ export default function App() {
                     <strong>Inbox</strong>
                     <span>Customer inquiries</span>
                   </div>
-                  <span className="drawer-badge">2</span>
+                  <span className="drawer-badge">{isLoggedIn ? 2 : 0}</span>
                 </button>
 
                 <button
@@ -390,7 +492,7 @@ export default function App() {
                     <strong>Catalog</strong>
                     <span>Products & prices</span>
                   </div>
-                  <span className="drawer-badge-secondary">3</span>
+                  <span className="drawer-badge-secondary">{isLoggedIn ? 3 : 0}</span>
                 </button>
 
                 <button
@@ -414,22 +516,45 @@ export default function App() {
 
               <div className="flex-1" />
 
-              {/* User Profile Footer */}
-              <button
-                type="button"
-                className="drawer-user-footer"
-                onClick={() => {
-                  setActiveTab('settings');
-                  setMenuOpen(false);
-                }}
-              >
-                <span className="avatar drawer-avatar">{userInitials}</span>
-                <div className="drawer-user-copy">
-                  <strong>{userName}</strong>
-                  <span>Store Owner · Admin</span>
+              {/* User Profile Footer or Login */}
+              {isLoggedIn ? (
+                <div className="drawer-user-footer">
+                  <button
+                    type="button"
+                    className="drawer-user-info"
+                    onClick={() => {
+                      setActiveTab('settings');
+                      setMenuOpen(false);
+                    }}
+                  >
+                    <span className="avatar drawer-avatar">{userInitials}</span>
+                    <div className="drawer-user-copy">
+                      <strong>{userName}</strong>
+                      <span>Store Owner · Admin</span>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    className="drawer-logout-btn"
+                    onClick={handleLogout}
+                    aria-label="Log out"
+                    title="Log out"
+                  >
+                    <Icon name="log-out" size={18} />
+                  </button>
                 </div>
-                <Icon name="chevron-right" size={16} />
-              </button>
+              ) : (
+                <div className="drawer-user-footer">
+                  <button
+                    type="button"
+                    className="drawer-login-btn"
+                    onClick={handleLogin}
+                  >
+                    <Icon name="log-in" size={18} />
+                    <span>Login using Facebook</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
