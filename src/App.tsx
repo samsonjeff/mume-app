@@ -318,10 +318,6 @@ export default function App() {
               <div className="drawer-header">
                 <div className="drawer-brand">
                   <Icon name="mume-black" size={24} />
-                  <span className="drawer-live-badge">
-                    <i className="status-dot" />
-                    Live
-                  </span>
                 </div>
                 <button
                   type="button"
