@@ -16,7 +16,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#F2F0EF"
+        "backgroundColor": "#F8F9FC"
       },
       "package": "com.mume.app",
       "permissions": [
@@ -34,7 +34,7 @@
         {
           "image": "./assets/splash.png",
           "resizeMode": "contain",
-          "backgroundColor": "#F2F0EF"
+          "backgroundColor": "#F8F9FC"
         }
       ]
     ],

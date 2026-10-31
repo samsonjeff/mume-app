@@ -123,22 +123,29 @@ We are Android-first (Windows dev), but code MUST be iOS-ready without rewrite.
 - `eas build -p ios` -> cloud builds IPA -> TestFlight
 - Keep `expo` SDK latest to avoid iOS breaking changes
 
-### 4.1 Strict Color Palette Directive - MANDATORY
+### 4.1 Official Google Antigravity Color Palette (`https://antigravity.google/`) - MANDATORY
 
-The UI components and theme tokens MUST strictly adhere to the following 4-color palette, with all text colors chosen as high-contrast complementary tones:
+The UI components and theme tokens strictly adopt the official [Google Antigravity](https://antigravity.google/) CSS design system (`/_astro/BaseLayout.CRc8LsqV.css`):
 
-| Role | Hex | Color Name | Usage & Application |
+| CSS Token (`antigravity.google`) | Hex | Role | Usage & Application |
 | :--- | :--- | :--- | :--- |
-| **Canvas & Base Surface** | `#F2F0EF` | Soft Alabaster | App screen background, safe-area root canvas, view container |
-| **Card & Surface Accent** | `#F5F5DC` | Warm Beige | Content cards, status modules, badge backgrounds, input fields |
-| **Primary Accent & Glow** | `#98CFF0` | Soft Sky Blue | Secondary buttons, subtle borders, pulse glow rings, active state highlights |
-| **Primary Brand CTA & Border** | `#82C8E5` | Cerulean Sky | WakeWordButton base, primary action buttons, active borders |
+| `--palette-grey-0` | `#FFFFFF` | **Surface** | Elevated cards, bottom nav bar, header bar, status pills |
+| `--palette-grey-10` | `#F8F9FC` | **Surface Container (Canvas)** | App screen background, safe-area root canvas |
+| `--palette-grey-20` | `#EFF2F7` | **Surface Container High** | Draft reply blocks, secondary pills, icon containers |
+| `--palette-grey-50` | `#E6EAF0` | **Surface Container Higher** | Pressed states, chips, subtle wells |
+| `--palette-grey-100` | `#E1E6EC` | **Surface Border** | Hairline borders, card dividers, subtle outlines |
+| `--palette-grey-1200` | `#121317` | **On-Surface Ink & Primary CTA** | Primary typography, solid obsidian pill buttons ("Approve & send") |
+| `--palette-grey-800` | `#45474D` | **On-Surface Variant** | Secondary body text, descriptions, helper labels |
+| `--palette-blue-600` | `#3279F9` | **Antigravity Electric Blue** | WakeWordButton active core, VoiceWave bars, interactive highlights |
+| `--theme-accent-primary` | `#1A73E8` | **Google Blue Accent** | Links, price callouts, active focus rings |
+| `--palette-green` | `#00B95C` | **Google Emerald Green** | Live Page indicator, connected status, success toasts |
+| `--palette-yellow` | `#FBBC04` | **Google Amber** | Thinking / processing state, low-stock warning badges |
+| `--palette-red` | `#FC413D` | **Google Coral Red** | Critical alerts, disconnect / error states |
 
 **Complementary Text & Legibility Rules:**
-- **Primary Text:** Deep slate/navy (`#1E293B` / `#0F172A`) ensuring high contrast and WCAG AAA compliance against `#F2F0EF` and `#F5F5DC`.
-- **Muted / Secondary Text:** Complementary slate (`#475569` / `#64748B`) for helper text, timestamps, and secondary captions.
-- **Button / Action Text:** Deep navy (`#0F172A`) on `#98CFF0` and `#82C8E5` buttons to preserve clear visibility under outdoor sunlight.
-- **Strict Boundary:** No unauthorized colors. All styling must derive strictly from this palette.
+- **Primary Text:** Deep obsidian ink (`#121317`, `--palette-grey-1200`) ensuring crisp WCAG AAA contrast against `#FFFFFF` and `#F8F9FC`.
+- **Secondary / Muted Text:** Cool slate (`#45474D`, `--palette-grey-800`) and subtle grey (`#676A72`) for helper text, timestamps, and captions.
+- **Primary Button Contrast:** Pure white (`#FFFFFF`) on `#121317` pill CTAs and `#3279F9` active mic states.
 
 ### 4.2 Official Figma Make UI Architecture & Screen Specification
 

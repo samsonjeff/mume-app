@@ -150,12 +150,15 @@ mume/
 - `app.json` already contains `bundleIdentifier: com.mume.app` + both Android + iOS permission strings (`NSMicrophoneUsageDescription`, etc.)
 - Icons via cross-platform Ionicons, SafeAreaView everywhere
 
-**Strict Color Palette:**
-- `#F2F0EF` (Soft Alabaster): Main screen canvas & background
-- `#98CFF0` (Soft Sky Blue): Glow states, active highlights, secondary buttons
-- `#F5F5DC` (Warm Beige): Card surfaces, status badges, module containers
-- `#82C8E5` (Cerulean Sky): Primary action CTAs, WakeWordButton base, borders
-- **Text Color Rule:** Text must be complementary deep tones (e.g. `#1E293B` / `#0F172A` and muted `#475569`) to guarantee high-contrast legibility against these light, pastel backgrounds under outdoor sunlight.
+**Official Google Antigravity Color Palette (`https://antigravity.google/`):**
+- `#FFFFFF` (`--palette-grey-0`): Pure white card surfaces, bottom bar, header
+- `#F8F9FC` (`--palette-grey-10`): Cool-tinted canvas & root screen background
+- `#EFF2F7` (`--palette-grey-20`) & `#E6EAF0` (`--palette-grey-50`): Secondary containers, draft boxes, subtle pills
+- `#E1E6EC` (`--palette-grey-100`): Clean hairline borders and dividers
+- `#121317` (`--palette-grey-1200`): Primary obsidian ink & solid pill CTA buttons
+- `#45474D` (`--palette-grey-800`): Secondary text & captions
+- `#3279F9` (`--palette-blue-600`) & `#1A73E8`: Antigravity Electric Blue & Google Blue accents (`WakeWordButton`, `VoiceWave`, active tabs)
+- `#00B95C` (Emerald), `#FBBC04` (Amber), `#FC413D` (Coral): Google spectrum status accents
 
 **Figma Screen Blueprint:**
 - **Navigation:** 4-tab bottom bar (`Today`, `Inbox`, `Catalog`, `Settings`) with a floating 72dp center mic button in the bottom 40% thumb zone.
