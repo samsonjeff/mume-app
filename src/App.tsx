@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import Header from './components/Header';
 import SettingsView from './components/SettingsView';
 import Icon from './components/Icon';
+import appleImg from './assets/apple.jpg';
+import mangoImg from './assets/mango.jpg';
+import bananaImg from './assets/banana.jpg';
 
 type Tab = 'home' | 'inbox' | 'catalog' | 'settings';
 type VoiceState = 'idle' | 'listening' | 'thinking';
@@ -160,12 +163,12 @@ function CatalogScreen() {
       </div>
       <div className="catalog-grid">
         {[
-          ['🍎', 'Red apples', '₱120 / kg', 'In stock'],
-          ['🥭', 'Carabao mango', '₱180 / kg', 'In stock'],
-          ['🍌', 'Lakatan banana', '₱85 / kg', 'Low stock'],
-        ].map(([emoji, name, price, stock]) => (
+          [appleImg, 'Red apples', '₱120 / kg', 'In stock'],
+          [mangoImg, 'Carabao mango', '₱180 / kg', 'In stock'],
+          [bananaImg, 'Lakatan banana', '₱85 / kg', 'Low stock'],
+        ].map(([imgSrc, name, price, stock]) => (
           <button className="product-card min-h-[140px]" key={name} type="button">
-            <span className="product-image">{emoji}</span>
+            <img src={imgSrc} alt={name} className="product-image" />
             <strong>{name}</strong>
             <span className="flex items-center justify-center gap-1 text-sm font-bold text-blue-600">
               <Icon name="dollar-sign" size={14} />

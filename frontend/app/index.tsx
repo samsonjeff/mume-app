@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Animated,
   Linking,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { THEME } from '../constants/theme';
@@ -18,6 +19,12 @@ import { VoiceWave } from '../components/VoiceWave';
 import { AppIcon } from '../components/AppIcon';
 import { api, LinkedPage } from '../lib/api';
 import { supabase } from '../lib/supabase';
+
+const FRUIT_IMAGES = {
+  apple: require('../assets/apple.jpg'),
+  mango: require('../assets/mango.jpg'),
+  banana: require('../assets/banana.jpg'),
+};
 
 type Tab = 'today' | 'inbox' | 'catalog' | 'settings';
 type VoiceState = 'idle' | 'listening' | 'thinking';
@@ -335,12 +342,12 @@ export default function HomeScreen() {
 
             <View style={styles.catalogGrid}>
               {[
-                { emoji: '🍎', name: 'Red apples', price: '₱120 / kg', stock: 'In stock', isStock: true },
-                { emoji: '🥭', name: 'Carabao mango', price: '₱180 / kg', stock: 'In stock', isStock: true },
-                { emoji: '🍌', name: 'Lakatan banana', price: '₱85 / kg', stock: 'Low stock', isStock: false },
+                { name: 'Red apples', price: '₱120 / kg', stock: 'In stock', isStock: true, image: FRUIT_IMAGES.apple },
+                { name: 'Carabao mango', price: '₱180 / kg', stock: 'In stock', isStock: true, image: FRUIT_IMAGES.mango },
+                { name: 'Lakatan banana', price: '₱85 / kg', stock: 'Low stock', isStock: false, image: FRUIT_IMAGES.banana },
               ].map((item) => (
                 <View key={item.name} style={styles.productCard}>
-                  <Text style={styles.productEmoji}>{item.emoji}</Text>
+                  <Image source={item.image} style={styles.productImage} resizeMode="cover" />
                   <Text style={styles.productName}>{item.name}</Text>
                   <Text style={styles.productPrice}>{item.price}</Text>
                   <View style={[styles.stockPill, item.isStock ? styles.stockIn : styles.stockLow]}>
@@ -955,14 +962,22 @@ const styles = StyleSheet.create({
     width: '47%',
     backgroundColor: THEME.colors.card,
     borderRadius: 16,
-    padding: 16,
+    padding: 12,
     borderWidth: 1,
     borderColor: THEME.colors.cardBorder,
     alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  productEmoji: {
-    fontSize: 40,
+  productImage: {
+    width: '100%',
+    height: 96,
+    borderRadius: 12,
     marginBottom: 8,
+    backgroundColor: THEME.colors.cardElevated,
   },
   productName: {
     color: THEME.colors.text,

@@ -621,14 +621,13 @@
 }
 
 .product-image {
-  display: grid;
+  display: block;
   width: 100%;
-  flex: 1;
-  place-items: center;
+  height: 5.5rem;
+  object-fit: cover;
   margin-bottom: 0.6rem;
   border-radius: 0.7rem;
   background: #f1f4f8;
-  font-size: 2.3rem;
 }
 
 .product-card strong { font-size: 0.8rem; }
