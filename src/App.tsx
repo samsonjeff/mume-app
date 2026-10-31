@@ -92,30 +92,39 @@ function HomeScreen({
   userName,
   onApproved,
   onOpenInbox,
+  onOpenCatalog,
+  onOpenSettings,
 }: {
   userName: string;
   onApproved: () => void;
   onOpenInbox: () => void;
+  onOpenCatalog: () => void;
+  onOpenSettings: () => void;
 }) {
   return (
     <>
-      <div className="greeting">
-        <div>
-          <h1>Hello, {userName.trim().split(/\s+/)[0] || userName}</h1>
-          <p>Mume is watching your page.</p>
+      <div className="zero-state-hero">
+        <div className="sparkle-badge" aria-hidden="true">
+          ✨
         </div>
+        <h1>Hello, {userName.trim().split(/\s+/)[0] || userName}</h1>
+        <p>Where should we start with Santa Ana Sari-Sari Store?</p>
       </div>
 
-      <button className="summary-card min-h-[52px]" onClick={onOpenInbox} type="button">
-        <div className="summary-icon flex items-center justify-center">
-          <Icon name="bookmark" size={20} />
-        </div>
-        <div className="summary-copy">
-          <strong>2 new messages</strong>
-          <span>1 needs your approval</span>
-        </div>
-        <Icon name="chevron-right" size={20} />
-      </button>
+      <div className="chips-container">
+        <button type="button" className="action-chip" onClick={onOpenInbox}>
+          <Icon name="bookmark" size={14} />
+          <span>Maria's inquiry (₱120)</span>
+        </button>
+        <button type="button" className="action-chip" onClick={onOpenCatalog}>
+          <Icon name="folder" size={14} />
+          <span>Fruit catalog (3 items)</span>
+        </button>
+        <button type="button" className="action-chip" onClick={onOpenSettings}>
+          <Icon name="check" size={14} />
+          <span>Page live & encrypted</span>
+        </button>
+      </div>
 
       <div className="section-heading">
         <h2>Ready for you</h2>
@@ -227,6 +236,8 @@ export default function App() {
               userName={userName}
               onApproved={handleApproved}
               onOpenInbox={() => setActiveTab('inbox')}
+              onOpenCatalog={() => setActiveTab('catalog')}
+              onOpenSettings={() => setActiveTab('settings')}
             />
           )}
           {activeTab === 'inbox' && <InboxScreen />}
@@ -240,57 +251,58 @@ export default function App() {
           )}
         </div>
 
-        {/* Bottom Thumb Zone Voice Dock (Bottom 40% interaction) */}
+        {/* Gemini-Style Floating Bottom Input Capsule Dock */}
         {activeTab !== 'settings' && (
-          <div className={`voice-dock ${voiceState}`}>
-            <div className="voice-status" aria-live="polite">
-              {voiceState === 'idle' && (
-                <>
-                  <strong>Say “Hey Mume”</strong>
-                  <span>or tap to speak</span>
-                </>
-              )}
-              {voiceState === 'listening' && (
-                <>
-                  <div className="flex items-center gap-1.5">
-                    <Icon name="audio-waveform" size={16} />
-                    <strong>Listening…</strong>
-                  </div>
-                  <VoiceWave />
-                </>
-              )}
-              {voiceState === 'thinking' && (
-                <>
-                  <div className="flex items-center gap-1.5">
-                    <Icon name="bot-svg" size={16} />
-                    <strong>Checking your page…</strong>
-                  </div>
-                  <span>One moment</span>
-                </>
-              )}
-            </div>
+          <div className="input-capsule-container">
+            <div className="input-capsule">
+              <button
+                type="button"
+                className="capsule-plus-button"
+                onClick={() => setActiveTab('catalog')}
+                aria-label="Upload and quick actions"
+              >
+                +
+              </button>
 
-            <button
-              aria-label={
-                voiceState === 'listening'
-                  ? 'Stop listening and send'
-                  : 'Wake Mume, tap and speak'
-              }
-              className="wake-button min-w-[48px] min-h-[48px] flex items-center justify-center"
-              onClick={handleVoice}
-              type="button"
-            >
-              {voiceState === 'thinking' ? (
-                <Icon name="bot-svg" size={28} />
-              ) : voiceState === 'listening' ? (
-                <Icon name="audio-waveform" size={28} />
-              ) : (
-                <span className="text-2xl" role="img" aria-label="Mic">
-                  🎙️
-                </span>
-              )}
-              <span className="wake-ring" />
-            </button>
+              <button
+                type="button"
+                className="capsule-input-area"
+                onClick={handleVoice}
+                aria-label="Voice dictate or ask Mume"
+              >
+                {voiceState === 'idle' && (
+                  <span className="capsule-placeholder">Ask Mume or tap mic…</span>
+                )}
+                {voiceState === 'listening' && (
+                  <div className="capsule-voice-row">
+                    <VoiceWave />
+                    <span className="capsule-status">Listening…</span>
+                  </div>
+                )}
+                {voiceState === 'thinking' && (
+                  <div className="capsule-voice-row">
+                    <Icon name="bot-svg" size={16} />
+                    <span className="capsule-status">Checking your page…</span>
+                  </div>
+                )}
+              </button>
+
+              <button
+                type="button"
+                className={`capsule-mic-button ${voiceState === 'listening' ? 'active' : ''}`}
+                onClick={handleVoice}
+                aria-label="Dictate and talk to Mume"
+              >
+                {voiceState === 'thinking' ? (
+                  <Icon name="bot-svg" size={20} />
+                ) : voiceState === 'listening' ? (
+                  <Icon name="audio-waveform" size={20} />
+                ) : (
+                  <span>🎙️</span>
+                )}
+              </button>
+            </div>
+            <p className="capsule-disclaimer">Nothing is sent without your approval.</p>
           </div>
         )}
 

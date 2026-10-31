@@ -67,11 +67,185 @@
   z-index: 5;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 0.7rem;
-  padding: max(1rem, env(safe-area-inset-top)) 1.1rem 0.85rem;
-  border-bottom: 1px solid rgba(210, 218, 231, 0.78);
-  background: rgba(250, 252, 255, 0.88);
+  padding: max(0.85rem, env(safe-area-inset-top)) 1rem 0.75rem;
+  border-bottom: 1px solid var(--line);
+  background: rgba(250, 252, 255, 0.94);
   backdrop-filter: blur(18px);
+}
+
+.menu-button {
+  display: grid;
+  width: 2.4rem;
+  height: 2.4rem;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--surface-raised);
+  color: var(--ink);
+  flex-shrink: 0;
+}
+
+.model-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: var(--surface-raised);
+  border: 1px solid var(--line);
+  padding: 0.35rem 0.75rem;
+  border-radius: 1.5rem;
+  max-width: 15rem;
+  flex: 1;
+  justify-content: center;
+}
+
+.zero-state-hero {
+  margin-top: 0.5rem;
+  margin-bottom: 1rem;
+  text-align: left;
+}
+
+.sparkle-badge {
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(50, 121, 249, 0.1);
+  font-size: 1.3rem;
+  margin-bottom: 0.75rem;
+}
+
+.zero-state-hero h1 {
+  font-family: 'Manrope', sans-serif;
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+  line-height: 1.2;
+}
+
+.zero-state-hero p {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-top: 0.3rem;
+}
+
+.chips-container {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.75rem;
+  margin-bottom: 1rem;
+  scrollbar-width: none;
+}
+.chips-container::-webkit-scrollbar { display: none; }
+
+.action-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  padding: 0.45rem 0.85rem;
+  border-radius: 1.2rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+/* Gemini Bottom Capsule Dock */
+.input-capsule-container {
+  position: absolute;
+  bottom: 4.8rem;
+  left: 0.75rem;
+  right: 0.75rem;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.input-capsule {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 3.5rem;
+  padding: 0.35rem 0.45rem 0.35rem 0.6rem;
+  border-radius: 2rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.08);
+}
+
+.capsule-plus-button {
+  display: grid;
+  width: 2.3rem;
+  height: 2.3rem;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--surface-raised);
+  border: none;
+  font-size: 1.25rem;
+  color: var(--ink);
+  flex-shrink: 0;
+}
+
+.capsule-input-area {
+  flex: 1;
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 0 0.75rem;
+  cursor: pointer;
+}
+
+.capsule-placeholder {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.capsule-voice-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.capsule-status {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.capsule-mic-button {
+  display: grid;
+  width: 2.6rem;
+  height: 2.6rem;
+  place-items: center;
+  border-radius: 50%;
+  background: #121317;
+  color: white;
+  border: none;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s ease;
+}
+
+.capsule-mic-button.active {
+  transform: scale(1.06);
+}
+
+.capsule-disclaimer {
+  font-size: 0.65rem;
+  color: var(--muted);
+  text-align: center;
+  margin-top: 0.35rem;
 }
 
 .brand-mark {

@@ -14,7 +14,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { THEME } from '../constants/theme';
-import { WakeWordButton } from '../components/WakeWordButton';
 import { VoiceWave } from '../components/VoiceWave';
 import { AppIcon } from '../components/AppIcon';
 import { MumeLogo } from '../components/MumeLogo';
@@ -160,15 +159,31 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
-      {/* 1. App Header / Connected Facebook Page Row */}
+      {/* 1. Gemini-Style Clean Top App Bar */}
       <View style={styles.headerRow} accessibilityRole="header">
-        <View style={styles.brandRow}>
-          <MumeLogo width={78} height={24} />
-          <View style={styles.brandDivider} />
-          <Text style={styles.brandSubtitle} numberOfLines={1}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Main menu"
+          onPress={() => setActiveTab(activeTab === 'today' ? 'inbox' : 'today')}
+          style={styles.menuIconButton}
+        >
+          <AppIcon name="menu" size={20} color={THEME.colors.text} />
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Page Switcher & Model Pill"
+          onPress={() => setActiveTab('settings')}
+          style={styles.geminiModelPill}
+        >
+          <AppIcon name="sparkles" size={14} color={THEME.colors.primary} />
+          <Text style={styles.geminiPillTitle}>Mume</Text>
+          <Text style={styles.geminiPillSubtitle} numberOfLines={1}>
             {activeTab === 'settings' ? 'Settings' : activePageTitle}
           </Text>
-        </View>
+          <AppIcon name="chevron-down" size={13} color={THEME.colors.textMuted} />
+        </Pressable>
+
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Open settings profile"
@@ -186,13 +201,49 @@ export default function HomeScreen() {
       >
         {activeTab === 'today' && (
           <View style={styles.screenContainer}>
-            {/* Greeting */}
-            <View style={styles.greetingRow}>
-              <View>
-                <Text style={styles.greetingTitle}>Hello, {userName.trim().split(/\s+/)[0] || userName}</Text>
-                <Text style={styles.greetingSubtitle}>Mume is watching your page.</Text>
+            {/* Zero-State Hero Section (Gemini Layout Style) */}
+            <View style={styles.geminiZeroStateContainer}>
+              <View style={styles.geminiSparkleBadge}>
+                <AppIcon name="sparkles" size={24} color={THEME.colors.primary} />
               </View>
+              <Text style={styles.geminiHeroTitle}>
+                Hello, {userName.trim().split(/\s+/)[0] || userName}
+              </Text>
+              <Text style={styles.geminiHeroSubtitle}>
+                Where should we start with {activePageTitle}?
+              </Text>
             </View>
+
+            {/* Quick Action Suggestion Chips (Gemini Prompt Starters) */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.geminiChipsScroll}
+            >
+              <Pressable
+                style={styles.geminiChip}
+                onPress={() => setActiveTab('inbox')}
+              >
+                <AppIcon name="message-circle" size={14} color={THEME.colors.primary} />
+                <Text style={styles.geminiChipText}>Maria's inquiry (₱120)</Text>
+              </Pressable>
+
+              <Pressable
+                style={styles.geminiChip}
+                onPress={() => setActiveTab('catalog')}
+              >
+                <AppIcon name="folder" size={14} color={THEME.colors.primary} />
+                <Text style={styles.geminiChipText}>Fruit catalog (3 items)</Text>
+              </Pressable>
+
+              <Pressable
+                style={styles.geminiChip}
+                onPress={() => setActiveTab('settings')}
+              >
+                <AppIcon name="check" size={14} color={THEME.colors.speaking} />
+                <Text style={styles.geminiChipText}>Page live & encrypted</Text>
+              </Pressable>
+            </ScrollView>
 
             {/* Summary Card */}
             <Pressable style={styles.summaryCard} onPress={() => setActiveTab('inbox')}>
@@ -476,37 +527,65 @@ export default function HomeScreen() {
         )}
       </ScrollView>
 
-      {/* 3. Floating Voice Dock + Wake Word Center Action */}
-      <View style={styles.voiceDockWrapper} pointerEvents="box-none">
-        <View style={styles.voiceStatusPill}>
-          {voiceState === 'idle' && (
-            <View style={styles.voiceStatusContent}>
-              <Text style={styles.voiceStatusTitle}>Say “Hey Mume”</Text>
-              <Text style={styles.voiceStatusSubtitle}>or tap to speak</Text>
-            </View>
-          )}
-          {voiceState === 'listening' && (
-            <View style={styles.voiceStatusContentRow}>
-              <Text style={styles.voiceStatusTitle}>Listening…</Text>
-              <VoiceWave />
-            </View>
-          )}
-          {voiceState === 'thinking' && (
-            <View style={styles.voiceStatusContentRow}>
-              <Text style={styles.voiceStatusTitle}>Checking your page…</Text>
-              <AppIcon name="bot" size={16} color={THEME.colors.obsidian} />
-            </View>
-          )}
+      {/* 3. Gemini-Style Floating Bottom Input Capsule Dock */}
+      <View style={styles.geminiInputDockContainer} pointerEvents="box-none">
+        <View style={styles.geminiInputCapsule}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Quick tools & catalog"
+            onPress={() => setActiveTab('catalog')}
+            style={styles.geminiPlusButton}
+          >
+            <AppIcon name="plus" size={20} color={THEME.colors.text} strokeWidth={2.2} />
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Voice dictate or ask Mume"
+            onPress={handleVoice}
+            style={styles.geminiInputArea}
+          >
+            {voiceState === 'idle' && (
+              <Text style={styles.geminiInputPlaceholder}>Ask Mume or tap mic…</Text>
+            )}
+            {voiceState === 'listening' && (
+              <View style={styles.voiceStateRow}>
+                <VoiceWave />
+                <Text style={styles.voiceStateListeningText}>Listening…</Text>
+              </View>
+            )}
+            {voiceState === 'thinking' && (
+              <View style={styles.voiceStateRow}>
+                <AppIcon name="bot" size={16} color={THEME.colors.primary} />
+                <Text style={styles.voiceStateThinkingText}>Checking your page…</Text>
+              </View>
+            )}
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Dictate and talk to Mume"
+            onPress={handleVoice}
+            style={[
+              styles.geminiMicButton,
+              voiceState === 'listening' && styles.geminiMicButtonActive,
+            ]}
+          >
+            <AppIcon
+              name={voiceState === 'thinking' ? 'bot' : voiceState === 'listening' ? 'mic-audio-lines' : 'mic'}
+              size={22}
+              color="#FFFFFF"
+              strokeWidth={2.2}
+            />
+          </Pressable>
         </View>
 
-        <WakeWordButton
-          isListening={voiceState === 'listening'}
-          isThinking={voiceState === 'thinking'}
-          onPress={handleVoice}
-        />
+        <Text style={styles.capabilitiesDisclaimer}>
+          Nothing is sent to customers without your approval.
+        </Text>
       </View>
 
-      {/* 4. Bottom 4-Tab Navigation with Local SVG Assets */}
+      {/* 4. Bottom 4-Tab Navigation */}
       <View style={styles.bottomNav} accessibilityRole="menubar">
         <Pressable
           accessibilityRole="button"
@@ -537,9 +616,6 @@ export default function HomeScreen() {
           />
           <Text style={[styles.tabLabel, activeTab === 'inbox' && styles.tabLabelActive]}>Inbox</Text>
         </Pressable>
-
-        {/* Center Spacer for Floating 72dp Wake Button */}
-        <View style={styles.tabCenterSpacer} />
 
         <Pressable
           accessibilityRole="button"
@@ -592,28 +668,42 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: THEME.colors.cardBorder,
     backgroundColor: THEME.colors.surface,
   },
-  brandRow: {
+  menuIconButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: THEME.colors.cardElevated,
+  },
+  geminiModelPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+    gap: 6,
+    backgroundColor: THEME.colors.cardElevated,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: THEME.colors.cardBorder,
+    maxWidth: 220,
   },
-  brandSubtitle: {
-    fontSize: 15,
+  geminiPillTitle: {
     color: THEME.colors.text,
-    fontWeight: '700',
-    flexShrink: 1,
+    fontSize: 13,
+    fontWeight: '800',
   },
-  brandDivider: {
-    width: 1,
-    height: 16,
-    backgroundColor: THEME.colors.cardBorder,
-    marginHorizontal: 10,
+  geminiPillSubtitle: {
+    color: THEME.colors.textMuted,
+    fontSize: 11,
+    fontWeight: '600',
+    flexShrink: 1,
   },
   profileBadge: {
     width: 38,
@@ -631,17 +721,64 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   scrollContent: {
-    padding: 20,
-    paddingBottom: 220,
+    padding: 16,
+    paddingBottom: 170,
   },
   screenContainer: {
     width: '100%',
   },
-  greetingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  geminiZeroStateContainer: {
     alignItems: 'flex-start',
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  geminiSparkleBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: THEME.colors.primaryTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  geminiHeroTitle: {
+    color: THEME.colors.text,
+    fontSize: 26,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  geminiHeroSubtitle: {
+    color: THEME.colors.textMuted,
+    fontSize: 13,
+    fontWeight: '500',
+    marginTop: 4,
+  },
+  geminiChipsScroll: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingVertical: 4,
     marginBottom: 20,
+  },
+  geminiChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: THEME.colors.card,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: THEME.colors.cardBorder,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  geminiChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: THEME.colors.text,
   },
   greetingTitle: {
     color: THEME.colors.text,
@@ -1116,56 +1253,97 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: 'center',
   },
-  voiceDockWrapper: {
+  geminiInputDockContainer: {
     position: 'absolute',
-    bottom: 60,
+    bottom: 64,
     left: 0,
     right: 0,
     alignItems: 'center',
     zIndex: 10,
-  },
-  voiceStatusPill: {
-    backgroundColor: THEME.colors.card,
-    borderRadius: 20,
     paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderWidth: 1.5,
-    borderColor: THEME.colors.cardBorder,
-    marginBottom: 8,
-    shadowColor: THEME.colors.text,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 4,
   },
-  voiceStatusContent: {
+  geminiInputCapsule: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: THEME.colors.card,
+    borderRadius: 28,
+    height: 56,
+    width: '100%',
+    paddingLeft: 8,
+    paddingRight: 6,
+    borderWidth: 1,
+    borderColor: THEME.colors.cardBorder,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    elevation: 6,
   },
-  voiceStatusContentRow: {
+  geminiPlusButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: THEME.colors.cardElevated,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  geminiInputArea: {
+    flex: 1,
+    marginHorizontal: 12,
+    justifyContent: 'center',
+  },
+  geminiInputPlaceholder: {
+    fontSize: 14,
+    color: THEME.colors.textMuted,
+    fontWeight: '500',
+  },
+  voiceStateRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  voiceStatusTitle: {
-    color: THEME.colors.text,
-    fontSize: 12,
+  voiceStateListeningText: {
+    fontSize: 13,
     fontWeight: '700',
+    color: THEME.colors.text,
   },
-  voiceStatusSubtitle: {
+  voiceStateThinkingText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: THEME.colors.text,
+  },
+  geminiMicButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: THEME.colors.obsidian,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  geminiMicButtonActive: {
+    transform: [{ scale: 1.05 }],
+  },
+  capabilitiesDisclaimer: {
+    fontSize: 10.5,
     color: THEME.colors.textMuted,
-    fontSize: 10,
-  },
-  sparkEmoji: {
-    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 5,
+    fontWeight: '500',
   },
   bottomNav: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: 64,
+    height: 60,
     backgroundColor: THEME.colors.card,
-    borderTopWidth: 1.5,
+    borderTopWidth: 1,
     borderTopColor: THEME.colors.cardBorder,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1173,16 +1351,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   tabButton: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 54,
     minHeight: 48,
   },
   tabButtonActive: {
     opacity: 1,
-  },
-  tabIcon: {
-    fontSize: 18,
   },
   tabLabel: {
     color: THEME.colors.textMuted,
@@ -1193,9 +1368,6 @@ const styles = StyleSheet.create({
   tabLabelActive: {
     color: THEME.colors.text,
     fontWeight: '800',
-  },
-  tabCenterSpacer: {
-    width: 64,
   },
   toast: {
     position: 'absolute',

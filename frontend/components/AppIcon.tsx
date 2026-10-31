@@ -8,6 +8,7 @@ export type AppIconName =
   | 'bookmark'
   | 'bot'
   | 'check'
+  | 'chevron-down'
   | 'chevron-left'
   | 'chevron-right'
   | 'dollar-sign'
@@ -16,15 +17,18 @@ export type AppIconName =
   | 'home'
   | 'log-in'
   | 'log-out'
+  | 'menu'
   | 'message-circle'
   | 'mic-audio-lines'
   | 'mic'
   | 'mume-black'
   | 'mume-white'
   | 'pin'
+  | 'plus'
   | 'radio'
   | 'scan-line'
   | 'share'
+  | 'sparkles'
   | 'trash'
   | 'user-round'
   | 'wrench'
@@ -306,6 +310,50 @@ export const AppIcon: React.FC<AppIconProps> = ({
           strokeLinejoin="round"
           strokeWidth={strokeWidth}
           d="M18 6L6 18M6 6l12 12"
+        />
+      )}
+
+      {name === 'menu' && (
+        <Path
+          fill="none"
+          stroke={color}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={strokeWidth}
+          d="M4 6h16M4 12h16M4 18h16"
+        />
+      )}
+
+      {name === 'plus' && (
+        <Path
+          fill="none"
+          stroke={color}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={strokeWidth}
+          d="M12 5v14M5 12h14"
+        />
+      )}
+
+      {name === 'chevron-down' && (
+        <Path
+          fill="none"
+          stroke={color}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={strokeWidth}
+          d="m6 9 6 6 6-6"
+        />
+      )}
+
+      {name === 'sparkles' && (
+        <Path
+          fill="none"
+          stroke={color}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={strokeWidth}
+          d="m12 3 1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3z"
         />
       )}
     </Svg>
