@@ -1,16 +1,18 @@
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const { createApp } = require('../src/app');
 const { encryptToken, decryptToken, verifyMetaSignature } = require('../src/services/crypto');
 
 let server;
 let base;
+const testSecret = 'testsecret1234567890123456789012';
 
 before(async () => {
   server = createApp({
     FB_VERIFY_TOKEN: 'secret-token',
     FB_APP_ID: '123456789',
-    FB_APP_SECRET: 'testsecret1234567890123456789012',
+    FB_APP_SECRET: testSecret,
   }).listen(0);
   await new Promise((resolve) => server.once('listening', resolve));
   base = `http://127.0.0.1:${server.address().port}`;
@@ -31,8 +33,14 @@ test('crypto: encrypt and decrypt token with AES-256-GCM', () => {
   assert.equal(decrypted, plain);
 });
 
+test('crypto: throws error in production when encryption secret is missing', () => {
+  const env = { NODE_ENV: 'production' };
+  assert.throws(() => {
+    encryptToken('some-token', env);
+  }, /TOKEN_ENCRYPTION_KEY or FB_APP_SECRET/);
+});
+
 test('crypto: verify Meta signature HMAC SHA256', () => {
-  const crypto = require('node:crypto');
   const secret = 'appsecret123';
   const body = Buffer.from('{"object":"page"}');
   const hash = crypto.createHmac('sha256', secret).update(body).digest('hex');
@@ -72,11 +80,26 @@ test('GET /webhook rejects wrong verify token', async () => {
   assert.equal(res.status, 403);
 });
 
-test('POST /webhook acknowledges with 200', async () => {
+test('POST /webhook rejects unauthenticated payload when FB_APP_SECRET is set', async () => {
   const res = await fetch(`${base}/webhook`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ object: 'page', entry: [] }),
+  });
+  assert.equal(res.status, 401);
+});
+
+test('POST /webhook acknowledges with 200 when signature is valid', async () => {
+  const payload = JSON.stringify({ object: 'page', entry: [] });
+  const hash = crypto.createHmac('sha256', testSecret).update(Buffer.from(payload)).digest('hex');
+
+  const res = await fetch(`${base}/webhook`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-hub-signature-256': `sha256=${hash}`,
+    },
+    body: payload,
   });
   assert.equal(res.status, 200);
   assert.equal(await res.text(), 'EVENT_RECEIVED');
@@ -98,6 +121,15 @@ test('GET /auth/facebook/callback requires code', async () => {
 
 test('POST /api/pages/link-direct validates missing fields', async () => {
   const res = await fetch(`${base}/api/pages/link-direct`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({}),
+  });
+  assert.equal(res.status, 400);
+});
+
+test('POST /api/pages/:pageId/messages/reply validates missing fields', async () => {
+  const res = await fetch(`${base}/api/pages/123/messages/reply`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({}),

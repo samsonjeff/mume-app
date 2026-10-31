@@ -1,7 +1,13 @@
 const crypto = require('node:crypto');
 
 function getEncryptionKey(env = process.env) {
-  const secret = env.TOKEN_ENCRYPTION_KEY || env.FB_APP_SECRET || 'mume-default-encryption-key-for-dev-32b';
+  const secret = env.TOKEN_ENCRYPTION_KEY || env.FB_APP_SECRET;
+  if (!secret) {
+    if (env.NODE_ENV === 'production') {
+      throw new Error('TOKEN_ENCRYPTION_KEY or FB_APP_SECRET must be configured in production');
+    }
+    return crypto.createHash('sha256').update('mume-default-encryption-key-for-dev-32b').digest();
+  }
   return crypto.createHash('sha256').update(String(secret)).digest();
 }
 

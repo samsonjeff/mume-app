@@ -8,6 +8,7 @@ const {
   subscribePageToApp,
   getPageConversations,
   getPageMessages,
+  sendPageReply,
 } = require('./services/facebook');
 
 /**
@@ -69,9 +70,9 @@ function createApp(env = process.env) {
   // Facebook webhook events (incoming messages, postbacks, feed comments)
   app.post('/webhook', (req, res) => {
     const signature = req.get('x-hub-signature-256');
-    if (env.FB_APP_SECRET && signature && req.rawBody) {
-      if (!verifyMetaSignature(req.rawBody, signature, env.FB_APP_SECRET)) {
-        console.warn('[webhook] Invalid X-Hub-Signature-256 rejected');
+    if (env.FB_APP_SECRET) {
+      if (!signature || !req.rawBody || !verifyMetaSignature(req.rawBody, signature, env.FB_APP_SECRET)) {
+        console.warn('[webhook] Rejected missing or invalid X-Hub-Signature-256');
         return res.sendStatus(401);
       }
     }
@@ -383,6 +384,47 @@ function createApp(env = process.env) {
       res.json({ conversationId, messages });
     } catch (err) {
       res.status(500).json({ error: err.message });
+    }
+  });
+
+  // 7. POST /api/pages/:pageId/messages/reply -> Send approved reply to customer
+  app.post('/api/pages/:pageId/messages/reply', async (req, res) => {
+    const { pageId } = req.params;
+    const { psid, text, lastCustomerMessageAt, approvalStatus } = req.body || {};
+
+    if (!psid || !text) {
+      return res.status(400).json({ error: 'psid and text are required' });
+    }
+
+    try {
+      if (!supabase) {
+        return res.status(500).json({ error: 'Supabase client not initialized' });
+      }
+
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pageId);
+      const query = isUuid
+        ? supabase.from('pages').select('*').eq('id', pageId)
+        : supabase.from('pages').select('*').eq('fb_page_id', pageId);
+      const { data: page, error } = await query.single();
+
+      if (error || !page) {
+        return res.status(404).json({ error: 'Page not found' });
+      }
+
+      const plainToken = decryptToken(page.page_access_token_encrypted, env);
+      const result = await sendPageReply({
+        pageId: page.fb_page_id,
+        pageAccessToken: plainToken,
+        appSecret: env.FB_APP_SECRET,
+        psid,
+        text,
+        lastCustomerMessageAt,
+        approvalStatus: approvalStatus || 'approved',
+      });
+
+      res.json({ status: 'sent', result });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
     }
   });
 

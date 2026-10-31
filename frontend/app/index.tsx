@@ -1632,7 +1632,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   drawerBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(18, 19, 23, 0.55)',
     zIndex: 1,
   },

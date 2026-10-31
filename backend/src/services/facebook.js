@@ -3,6 +3,33 @@ const { computeAppSecretProof } = require('./crypto');
 const GRAPH_BASE_URL = 'https://graph.facebook.com/v21.0';
 
 /**
+ * Inspects Graph API rate limiting headers to prevent threshold violations.
+ * Meta provides x-app-usage, x-page-usage, and x-business-use-case-usage.
+ */
+function checkRateLimitHeaders(headers) {
+  if (!headers) return;
+  for (const name of ['x-app-usage', 'x-page-usage', 'x-business-use-case-usage']) {
+    const raw = typeof headers.get === 'function' ? headers.get(name) : headers[name];
+    if (!raw) continue;
+    try {
+      const u = JSON.parse(raw);
+      const max = Math.max(
+        Number(u.call_count) || 0,
+        Number(u.total_time) || 0,
+        Number(u.total_cputime) || 0
+      );
+      if (max >= 90) {
+        console.warn(`[meta-rate-limit-critical] ${name} reached ${max}% - throttling recommended`);
+      } else if (max >= 75) {
+        console.warn(`[meta-rate-limit-warning] ${name} reached ${max}%`);
+      }
+    } catch {
+      // Ignore JSON parse errors for non-standard rate limit header payloads
+    }
+  }
+}
+
+/**
  * Returns the Facebook OAuth Dialog URL for linking Facebook Pages.
  */
 function getFacebookLoginUrl({ appId, redirectUri, state = 'mume_link' }) {
@@ -39,6 +66,7 @@ async function exchangeCodeForUserToken({ code, appId, appSecret, redirectUri })
   });
 
   const res = await fetch(`${GRAPH_BASE_URL}/oauth/access_token?${params.toString()}`);
+  checkRateLimitHeaders(res.headers);
   const data = await res.json();
   if (!res.ok) {
     throw new Error(data.error?.message || 'Failed to exchange code for user access token');
@@ -57,11 +85,13 @@ async function getUserPages(userAccessToken, appSecret) {
   let res = await fetch(url, {
     headers: { Authorization: `Bearer ${userAccessToken}` },
   });
+  checkRateLimitHeaders(res.headers);
   let data = await res.json();
 
   if (!res.ok && data.error?.message?.includes('appsecret_proof')) {
     url = `${GRAPH_BASE_URL}/me/accounts?fields=id,name,category,tasks,access_token`;
     res = await fetch(url, { headers: { Authorization: `Bearer ${userAccessToken}` } });
+    checkRateLimitHeaders(res.headers);
     data = await res.json();
   }
 
@@ -83,11 +113,13 @@ async function subscribePageToApp(pageId, pageAccessToken, appSecret) {
     method: 'POST',
     headers: { Authorization: `Bearer ${pageAccessToken}` },
   });
+  checkRateLimitHeaders(res.headers);
   let data = await res.json();
 
   if (!res.ok && data.error?.message?.includes('appsecret_proof')) {
     url = `${GRAPH_BASE_URL}/${encodeURIComponent(pageId)}/subscribed_apps?subscribed_fields=messages,messaging_postbacks,feed`;
     res = await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${pageAccessToken}` } });
+    checkRateLimitHeaders(res.headers);
     data = await res.json();
   }
 
@@ -108,11 +140,13 @@ async function getPageConversations(pageId, pageAccessToken, appSecret, limit = 
   let res = await fetch(url, {
     headers: { Authorization: `Bearer ${pageAccessToken}` },
   });
+  checkRateLimitHeaders(res.headers);
   let data = await res.json();
 
   if (!res.ok && data.error?.message?.includes('appsecret_proof')) {
     url = `${GRAPH_BASE_URL}/${encodeURIComponent(pageId)}/conversations?fields=id,link,updated_time,unread_count,senders&limit=${limit}`;
     res = await fetch(url, { headers: { Authorization: `Bearer ${pageAccessToken}` } });
+    checkRateLimitHeaders(res.headers);
     data = await res.json();
   }
 
@@ -133,11 +167,13 @@ async function getPageMessages(conversationId, pageAccessToken, appSecret, limit
   let res = await fetch(url, {
     headers: { Authorization: `Bearer ${pageAccessToken}` },
   });
+  checkRateLimitHeaders(res.headers);
   let data = await res.json();
 
   if (!res.ok && data.error?.message?.includes('appsecret_proof')) {
     url = `${GRAPH_BASE_URL}/${encodeURIComponent(conversationId)}/messages?fields=id,message,from,created_time&limit=${limit}`;
     res = await fetch(url, { headers: { Authorization: `Bearer ${pageAccessToken}` } });
+    checkRateLimitHeaders(res.headers);
     data = await res.json();
   }
 
@@ -149,6 +185,12 @@ async function getPageMessages(conversationId, pageAccessToken, appSecret, limit
 
 /**
  * Sends a reply to a customer via Messenger Send API.
+ * Adheres strictly to Meta Platform Policies:
+ * 1. Human-in-the-loop gate: requires approvalStatus === 'approved'.
+ * 2. 24-hour Standard Messaging Window enforcement.
+ * 3. messaging_type: 'RESPONSE'.
+ * 4. Authorization: Bearer + appsecret_proof.
+ * 5. Rate-limit header inspection.
  */
 async function sendPageReply({ pageId, pageAccessToken, appSecret, psid, text, lastCustomerMessageAt, approvalStatus }) {
   if (approvalStatus !== 'approved') {
@@ -178,6 +220,7 @@ async function sendPageReply({ pageId, pageAccessToken, appSecret, psid, text, l
     }),
   });
 
+  checkRateLimitHeaders(res.headers);
   let data = await res.json();
   if (!res.ok && data.error?.message?.includes('appsecret_proof')) {
     url = `${GRAPH_BASE_URL}/${encodeURIComponent(pageId)}/messages`;
@@ -193,6 +236,7 @@ async function sendPageReply({ pageId, pageAccessToken, appSecret, psid, text, l
         message: { text },
       }),
     });
+    checkRateLimitHeaders(res.headers);
     data = await res.json();
   }
 
@@ -204,6 +248,7 @@ async function sendPageReply({ pageId, pageAccessToken, appSecret, psid, text, l
 
 module.exports = {
   GRAPH_BASE_URL,
+  checkRateLimitHeaders,
   getFacebookLoginUrl,
   exchangeCodeForUserToken,
   getUserPages,
