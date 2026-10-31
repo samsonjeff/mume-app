@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -25,6 +25,7 @@ type VoiceState = 'idle' | 'listening' | 'thinking';
 export default function HomeScreen() {
   const [activeTab, setActiveTab] = useState<Tab>('today');
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
+  const [userName, setUserName] = useState<string>('Jefferson');
   const [pages, setPages] = useState<LinkedPage[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -42,6 +43,14 @@ export default function HomeScreen() {
   const [pageAccessToken, setPageAccessToken] = useState('');
   const [submittingLink, setSubmittingLink] = useState(false);
   const [linkMessage, setLinkMessage] = useState('');
+
+  // Dynamically compute user initials from real user name
+  const userInitials = useMemo(() => {
+    const parts = userName.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return 'JS';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }, [userName]);
 
   const loadLinkedPages = useCallback(async () => {
     try {
@@ -150,9 +159,14 @@ export default function HomeScreen() {
             {activePageTitle}
           </Text>
         </View>
-        <View style={styles.profileBadge}>
-          <Text style={styles.profileBadgeText}>AN</Text>
-        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open settings profile"
+          onPress={() => setActiveTab('settings')}
+          style={styles.profileBadge}
+        >
+          <Text style={styles.profileBadgeText}>{userInitials}</Text>
+        </Pressable>
       </View>
 
       {/* 2. Main Content Scroll Area */}
@@ -162,16 +176,11 @@ export default function HomeScreen() {
       >
         {activeTab === 'today' && (
           <View style={styles.screenContainer}>
-            {/* Greeting & Status */}
+            {/* Greeting */}
             <View style={styles.greetingRow}>
               <View>
-                <Text style={styles.dateLabel}>TUESDAY, NOVEMBER 5</Text>
-                <Text style={styles.greetingTitle}>Magandang umaga, Ana</Text>
+                <Text style={styles.greetingTitle}>Hello, {userName.trim().split(/\s+/)[0] || userName}</Text>
                 <Text style={styles.greetingSubtitle}>Mume is watching your page.</Text>
-              </View>
-              <View style={styles.onlinePill}>
-                <View style={styles.onlineDot} />
-                <Text style={styles.onlinePillText}>Page live</Text>
               </View>
             </View>
 
@@ -348,6 +357,22 @@ export default function HomeScreen() {
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionHeading}>Settings & Linking</Text>
               <Text style={styles.sectionBadge}>v1.0.0</Text>
+            </View>
+
+            {/* Real User Profile & Greeting Sync */}
+            <View style={styles.settingsCard}>
+              <Text style={styles.settingsCardTitle}>USER PROFILE & GREETING</Text>
+              <Text style={styles.inputLabel}>Store Owner / User Name</Text>
+              <TextInput
+                style={styles.input}
+                value={userName}
+                onChangeText={setUserName}
+                placeholder="Enter real user name (e.g., Jefferson)"
+                placeholderTextColor={THEME.colors.textMuted}
+              />
+              <Text style={styles.cardHelp}>
+                Live syncs with home screen greeting ("Hello, {userName.trim().split(/\s+/)[0] || userName}") and profile initials ({userInitials}).
+              </Text>
             </View>
 
             {/* Connected Facebook Page Status */}
@@ -601,13 +626,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 20,
   },
-  dateLabel: {
-    color: THEME.colors.textMuted,
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-    marginBottom: 2,
-  },
   greetingTitle: {
     color: THEME.colors.text,
     fontSize: 22,
@@ -617,26 +635,6 @@ const styles = StyleSheet.create({
     color: THEME.colors.textMuted,
     fontSize: 13,
     marginTop: 2,
-  },
-  onlinePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-    gap: 6,
-  },
-  onlineDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: THEME.colors.speaking,
-  },
-  onlinePillText: {
-    color: THEME.colors.text,
-    fontSize: 11,
-    fontWeight: '700',
   },
   summaryCard: {
     backgroundColor: THEME.colors.card,

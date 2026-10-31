@@ -75,9 +75,10 @@ export const WakeWordButton: React.FC<WakeWordButtonProps> = ({
   };
 
   const getBackgroundColor = () => {
-    if (isListening) return THEME.colors.listening;
-    if (isThinking) return THEME.colors.primary;
-    return THEME.colors.primary;
+    // Primary Antigravity Obsidian Black button across all states (not red)
+    if (isListening) return THEME.colors.obsidian;
+    if (isThinking) return THEME.colors.obsidian;
+    return THEME.colors.obsidian;
   };
 
   return (
@@ -87,7 +88,7 @@ export const WakeWordButton: React.FC<WakeWordButtonProps> = ({
         style={[
           styles.wakeRing,
           {
-            borderColor: isListening ? THEME.colors.listening : THEME.colors.primaryLight,
+            borderColor: isListening ? THEME.colors.obsidian : THEME.colors.cardBorder,
             opacity: ringOpacity,
             transform: [{ scale: ringAnim }],
           },
@@ -136,9 +137,9 @@ const styles = StyleSheet.create({
     borderRadius: THEME.ergonomics.wakeButtonSize / 2,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: THEME.colors.primary,
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.45,
+    shadowOpacity: 0.35,
     shadowRadius: 14,
     elevation: 8,
     borderWidth: 2,

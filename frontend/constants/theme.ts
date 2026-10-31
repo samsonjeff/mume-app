@@ -49,7 +49,7 @@ export const THEME = {
     textInverted: '#FFFFFF',   // --palette-grey-0 (--theme-primary-on-primary)
 
     // Semantic Status States (Antigravity Spectrum)
-    listening: '#FC413D',      // Antigravity Coral Red
+    listening: '#121317',      // Obsidian Black (Antigravity primary action)
     speaking: '#00B95C',       // Antigravity Emerald Green
     pending: '#FBBC04',        // Antigravity Amber
     danger: '#FC413D',

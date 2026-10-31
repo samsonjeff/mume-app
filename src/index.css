@@ -461,28 +461,27 @@
   place-items: center;
   border: 0.38rem solid var(--canvas);
   border-radius: 50%;
-  background: linear-gradient(145deg, #d78aff, #7175ff 52%, #1688ff);
+  background: #121317;
   color: white;
   box-shadow:
-    0 0 0 1px rgba(189, 118, 255, 0.26),
-    0 0.7rem 2rem rgba(54, 76, 116, 0.22),
-    0 0 1.8rem rgba(88, 111, 255, 0.16);
+    0 0 0 1px rgba(0, 0, 0, 0.25),
+    0 0.7rem 2rem rgba(0, 0, 0, 0.35);
   pointer-events: auto;
 }
 
 .wake-ring {
   position: absolute;
   inset: -0.45rem;
-  border: 1px solid rgba(189, 118, 255, 0.5);
+  border: 1px solid rgba(18, 19, 23, 0.4);
   border-radius: 50%;
   opacity: 0;
 }
 
 .voice-dock.listening .wake-button {
-  background: linear-gradient(145deg, #edc6ff, #8b8fff 52%, #54acff);
+  background: #121317;
   box-shadow:
-    0 0 0 0.6rem rgba(189, 118, 255, 0.12),
-    0 0 2.8rem rgba(99, 121, 255, 0.42);
+    0 0 0 0.6rem rgba(18, 19, 23, 0.15),
+    0 0 2rem rgba(0, 0, 0, 0.45);
 }
 
 .voice-dock.listening .wake-ring {

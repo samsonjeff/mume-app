@@ -6,6 +6,7 @@ interface HeaderProps {
   title?: string;
   subtitle?: string;
   showBack?: boolean;
+  userInitials?: string;
   onBack?: () => void;
   onProfileClick?: () => void;
 }
@@ -14,6 +15,7 @@ export const Header: React.FC<HeaderProps> = ({
   title = 'Mume',
   subtitle = 'Santa Ana Sari-Sari Store',
   showBack = false,
+  userInitials = 'JS',
   onBack,
   onProfileClick,
 }) => {
@@ -45,7 +47,7 @@ export const Header: React.FC<HeaderProps> = ({
         type="button"
         onClick={onProfileClick}
       >
-        AN
+        {userInitials}
       </button>
     </header>
   );

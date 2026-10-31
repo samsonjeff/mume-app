@@ -86,9 +86,11 @@ function PendingAction({ onApproved }: { onApproved: () => void }) {
 }
 
 function HomeScreen({
+  userName,
   onApproved,
   onOpenInbox,
 }: {
+  userName: string;
   onApproved: () => void;
   onOpenInbox: () => void;
 }) {
@@ -96,12 +98,8 @@ function HomeScreen({
     <>
       <div className="greeting">
         <div>
-          <p className="date-label">TUESDAY, NOVEMBER 5</p>
-          <h1>Magandang umaga, Ana</h1>
+          <h1>Hello, {userName.trim().split(/\s+/)[0] || userName}</h1>
           <p>Mume is watching your page.</p>
-        </div>
-        <div className="online-pill">
-          <span /> Page live
         </div>
       </div>
 
@@ -184,7 +182,10 @@ function CatalogScreen() {
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('home');
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
+  const [userName, setUserName] = useState<string>('Jefferson');
   const [sent, setSent] = useState(false);
+
+  const userInitials = userName.trim().split(/\s+/).filter(Boolean).map(n => n[0]?.toUpperCase()).slice(0, 2).join('') || 'JS';
 
   useEffect(() => {
     if (voiceState !== 'thinking') return;
@@ -211,6 +212,7 @@ export default function App() {
           title={activeTab === 'settings' ? 'Settings' : 'Mume'}
           subtitle="Santa Ana Sari-Sari Store"
           showBack={activeTab !== 'home'}
+          userInitials={userInitials}
           onBack={() => setActiveTab('home')}
           onProfileClick={() => setActiveTab('settings')}
         />
@@ -219,6 +221,7 @@ export default function App() {
         <div className="content-scroll">
           {activeTab === 'home' && (
             <HomeScreen
+              userName={userName}
               onApproved={handleApproved}
               onOpenInbox={() => setActiveTab('inbox')}
             />
@@ -226,7 +229,11 @@ export default function App() {
           {activeTab === 'inbox' && <InboxScreen />}
           {activeTab === 'catalog' && <CatalogScreen />}
           {activeTab === 'settings' && (
-            <SettingsView onBack={() => setActiveTab('home')} />
+            <SettingsView
+              onBack={() => setActiveTab('home')}
+              userName={userName}
+              onUserNameChange={setUserName}
+            />
           )}
         </div>
 
