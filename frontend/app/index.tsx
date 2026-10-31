@@ -144,7 +144,7 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
       {/* 1. App Header / Connected Facebook Page Row */}
-      <header style={styles.headerRow}>
+      <View style={styles.headerRow} accessibilityRole="header">
         <View style={styles.brandRow}>
           <Text style={styles.brandSubtitle} numberOfLines={1}>
             {activePageTitle}
@@ -153,7 +153,7 @@ export default function HomeScreen() {
         <View style={styles.profileBadge}>
           <Text style={styles.profileBadgeText}>AN</Text>
         </View>
-      </header>
+      </View>
 
       {/* 2. Main Content Scroll Area */}
       <ScrollView
@@ -472,7 +472,7 @@ export default function HomeScreen() {
       </View>
 
       {/* 4. Bottom 4-Tab Navigation with Local SVG Assets */}
-      <nav style={styles.bottomNav}>
+      <View style={styles.bottomNav} accessibilityRole="menubar">
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Today Tab"
@@ -535,7 +535,7 @@ export default function HomeScreen() {
           />
           <Text style={[styles.tabLabel, activeTab === 'settings' && styles.tabLabelActive]}>Settings</Text>
         </Pressable>
-      </nav>
+      </View>
 
       {/* 5. Animated Success Toast */}
       {sentToast && (
