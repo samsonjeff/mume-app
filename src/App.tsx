@@ -412,12 +412,6 @@ export default function App() {
                 </button>
               </div>
 
-              {/* Safe Automation Note */}
-              <div className="drawer-safety-note">
-                <Icon name="check" size={14} />
-                <span>Nothing sent to customers without approval</span>
-              </div>
-
               <div className="flex-1" />
 
               {/* User Profile Footer */}
