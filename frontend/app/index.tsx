@@ -210,9 +210,6 @@ export default function HomeScreen() {
           <View style={styles.screenContainer}>
             {/* Zero-State Hero Section (Gemini Layout Style) */}
             <View style={styles.geminiZeroStateContainer}>
-              <View style={styles.geminiSparkleBadge}>
-                <AppIcon name="sparkles" size={24} color={THEME.colors.primary} />
-              </View>
               <Text style={styles.geminiHeroTitle}>
                 Hello, {userName.trim().split(/\s+/)[0] || userName}
               </Text>

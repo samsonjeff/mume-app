@@ -104,9 +104,6 @@ function HomeScreen({
   return (
     <>
       <div className="zero-state-hero">
-        <div className="sparkle-badge" aria-hidden="true">
-          ✨
-        </div>
         <h1>Hello, {userName.trim().split(/\s+/)[0] || userName}</h1>
         <p>Where should we start with Santa Ana Sari-Sari Store?</p>
       </div>
