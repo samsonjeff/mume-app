@@ -1,5 +1,4 @@
 import React from 'react';
-import mumeMarkLight from '../assets/mume-mark-light.png';
 import { Icon } from './Icon';
 
 interface HeaderProps {
@@ -13,8 +12,6 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({
-  title = 'Mume',
-  subtitle = 'Santa Ana Sari-Sari Store',
   showBack = false,
   userInitials = 'JS',
   onBack,
@@ -42,19 +39,6 @@ export const Header: React.FC<HeaderProps> = ({
           <Icon name="menu" size={20} />
         </button>
       )}
-
-      <div
-        className="model-pill cursor-pointer"
-        onClick={onMenuClick || onProfileClick}
-        role="button"
-        tabIndex={0}
-        aria-label="Store details & mode"
-      >
-        <img src={mumeMarkLight} alt="Mume" className="w-4 h-4 rounded-full object-contain" />
-        <strong className="text-xs font-bold">{title}</strong>
-        <span className="truncate max-w-[130px] text-[11px] opacity-75">{subtitle}</span>
-        <span className="text-[11px] opacity-60">▾</span>
-      </div>
 
       <button
         aria-label="Open profile settings"

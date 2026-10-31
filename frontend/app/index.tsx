@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { StatusBar } from 'expo-status-bar';
 import {
   StyleSheet,
   Text,
@@ -159,53 +160,37 @@ export default function HomeScreen() {
   const activePageTitle = linkedPage?.page_name || 'Mume Fresh - Fruit Store';
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
-      {/* 1. Gemini-Style Clean Top App Bar */}
-      <View style={styles.headerRow} accessibilityRole="header">
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Main menu"
-          onPress={() => setMenuOpen(true)}
-          style={styles.menuIconButton}
-        >
-          <AppIcon name="menu" size={20} color={THEME.colors.text} />
-        </Pressable>
+    <View style={styles.rootContainer}>
+      <StatusBar style="light" />
+      {/* 1. Black Top App Bar */}
+      <SafeAreaView edges={['top']} style={styles.headerSafeArea}>
+        <View style={styles.headerRow} accessibilityRole="header">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Main menu"
+            onPress={() => setMenuOpen(true)}
+            style={styles.menuIconButton}
+          >
+            <AppIcon name="menu" size={20} color="#FFFFFF" />
+          </Pressable>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Page Switcher & Model Pill"
-          onPress={() => setMenuOpen(true)}
-          style={styles.geminiModelPill}
-        >
-          <AppIcon name="sparkles" size={14} color={THEME.colors.primary} />
-          <Text style={styles.geminiPillTitle}>Mume</Text>
-          <Text style={styles.geminiPillSubtitle} numberOfLines={1}>
-            {activeTab === 'settings'
-              ? 'Settings'
-              : activeTab === 'inbox'
-              ? 'Inbox'
-              : activeTab === 'catalog'
-              ? 'Catalog'
-              : activePageTitle}
-          </Text>
-          <AppIcon name="chevron-down" size={13} color={THEME.colors.textMuted} />
-        </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open settings profile"
+            onPress={() => setActiveTab(activeTab === 'settings' ? 'today' : 'settings')}
+            style={styles.profileBadge}
+          >
+            <Text style={styles.profileBadgeText}>{userInitials}</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Open settings profile"
-          onPress={() => setActiveTab(activeTab === 'settings' ? 'today' : 'settings')}
-          style={styles.profileBadge}
+      {/* 2. Main Body Content */}
+      <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.bodySafeArea}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={THEME.colors.primary} />}
         >
-          <Text style={styles.profileBadgeText}>{userInitials}</Text>
-        </Pressable>
-      </View>
-
-      {/* 2. Main Content Scroll Area */}
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={THEME.colors.primary} />}
-      >
         {activeTab === 'today' && (
           <View style={styles.screenContainer}>
             {/* Zero-State Hero Section (Gemini Layout Style) */}
@@ -588,6 +573,7 @@ export default function HomeScreen() {
           Nothing is sent to customers without your approval.
         </Text>
       </View>
+    </SafeAreaView>
 
       {/* 4. Slide-Out Side Navigation Drawer */}
       {menuOpen && (
@@ -842,14 +828,17 @@ export default function HomeScreen() {
           <Text style={styles.toastText}>Reply sent to Maria A.</Text>
         </View>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  rootContainer: {
     flex: 1,
     backgroundColor: THEME.colors.bg,
+  },
+  headerSafeArea: {
+    backgroundColor: THEME.colors.obsidian,
   },
   headerRow: {
     flexDirection: 'row',
@@ -858,8 +847,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: THEME.colors.cardBorder,
-    backgroundColor: THEME.colors.surface,
+    borderBottomColor: '#22242B',
+    backgroundColor: THEME.colors.obsidian,
+  },
+  bodySafeArea: {
+    flex: 1,
+    backgroundColor: THEME.colors.bg,
+    position: 'relative',
   },
   menuIconButton: {
     width: 38,
@@ -867,43 +861,22 @@ const styles = StyleSheet.create({
     borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: THEME.colors.cardElevated,
-  },
-  geminiModelPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: THEME.colors.cardElevated,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 20,
+    backgroundColor: '#1E2026',
     borderWidth: 1,
-    borderColor: THEME.colors.cardBorder,
-    maxWidth: 220,
-  },
-  geminiPillTitle: {
-    color: THEME.colors.text,
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  geminiPillSubtitle: {
-    color: THEME.colors.textMuted,
-    fontSize: 11,
-    fontWeight: '600',
-    flexShrink: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
   },
   profileBadge: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: THEME.colors.cardElevated,
+    backgroundColor: '#1E2026',
     borderWidth: 1,
-    borderColor: THEME.colors.cardBorder,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   profileBadgeText: {
-    color: THEME.colors.text,
+    color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '700',
   },

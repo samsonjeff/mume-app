@@ -70,9 +70,8 @@
   justify-content: space-between;
   gap: 0.7rem;
   padding: max(0.85rem, env(safe-area-inset-top)) 1rem 0.75rem;
-  border-bottom: 1px solid var(--line);
-  background: rgba(250, 252, 255, 0.94);
-  backdrop-filter: blur(18px);
+  border-bottom: 1px solid #22242b;
+  background: #121317;
 }
 
 .menu-button {
@@ -81,9 +80,9 @@
   height: 2.4rem;
   place-items: center;
   border-radius: 50%;
-  border: 1px solid var(--line);
-  background: var(--surface-raised);
-  color: var(--ink);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #1e2026;
+  color: #ffffff;
   flex-shrink: 0;
 }
 
@@ -288,16 +287,18 @@
 
 .profile-button {
   display: grid;
-  min-width: 3rem;
-  min-height: 3rem;
+  min-width: 2.4rem;
+  min-height: 2.4rem;
+  width: 2.4rem;
+  height: 2.4rem;
   place-items: center;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 50%;
-  background: var(--surface-raised);
-  color: var(--ink);
-  font-size: 0.72rem;
+  background: #1e2026;
+  color: #ffffff;
+  font-size: 0.78rem;
   font-weight: 700;
-  box-shadow: 0 0.2rem 0.7rem rgba(41, 56, 82, 0.06);
+  box-shadow: 0 0.2rem 0.7rem rgba(0, 0, 0, 0.2);
 }
 
 .content-scroll {
