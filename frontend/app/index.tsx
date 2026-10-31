@@ -572,7 +572,7 @@ export default function HomeScreen() {
             {/* Drawer Header */}
             <View style={styles.drawerHeader}>
               <View style={styles.drawerBrandRow}>
-                <MumeLogo width={100} height={100} color={THEME.colors.obsidian} />
+                <MumeLogo width={80} height={30} color={THEME.colors.obsidian} />
               </View>
               <Pressable
                 accessibilityRole="button"
