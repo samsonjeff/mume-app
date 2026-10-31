@@ -1,0 +1,10 @@
+{
+  "description": "Manage Facebook Page messages hands-free with voice: review inquiries, draft replies, and approve responses while serving customers or running your small business.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
