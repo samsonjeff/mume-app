@@ -100,38 +100,33 @@ export default function LinkPageScreen() {
           )}
         </View>
 
-        {/* Option 1: Facebook Login Dialog */}
+        {/* Primary Method: Facebook Login OAuth */}
         <View style={styles.card}>
-          <Text style={styles.sectionHeader}>OPTION 1: FACEBOOK LOGIN (OAUTH)</Text>
+          <Text style={styles.sectionHeader}>METHOD 1: OFFICIAL FACEBOOK LOGIN</Text>
           <Text style={styles.bodyText}>
-            Sign in with Facebook and grant permissions (`pages_messaging`, `pages_read_engagement`).
+            Sign in with Facebook to automatically grant Page messaging permissions and link your Page with an encrypted token.
           </Text>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Login with Facebook"
-            style={[styles.fbButton, submitting && styles.disabled]}
+            accessibilityLabel="Connect via Facebook Login"
+            style={styles.fbButton}
             onPress={handleOAuthLogin}
             disabled={submitting}
           >
-            <Text style={styles.fbButtonText}>f  Log In with Facebook</Text>
+            {submitting ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.fbButtonText}>Connect via Facebook OAuth</Text>
+            )}
           </Pressable>
         </View>
 
-        {/* Option 2: Direct Page Token Linking (Hackathon Dev Mode) */}
+        {/* Secondary Method: Direct Token Link (Hackathon / Dev Fast Path) */}
         <View style={styles.card}>
-          <Text style={styles.sectionHeader}>OPTION 2: DIRECT TOKEN LINK (DEV / DEMO)</Text>
+          <Text style={styles.sectionHeader}>METHOD 2: DIRECT PAGE TOKEN (DEV)</Text>
           <Text style={styles.bodyText}>
-            Directly link a test Page using a Page Access Token. Tokens are securely encrypted with AES-256-GCM.
+            Paste a Page Access Token directly to test instantly without opening an external browser.
           </Text>
-
-          <Text style={styles.inputLabel}>Page Name</Text>
-          <TextInput
-            style={styles.input}
-            value={pageName}
-            onChangeText={setPageName}
-            placeholder="e.g. Mume Fresh - Fruit Store"
-            placeholderTextColor="#64748B"
-          />
 
           <Text style={styles.inputLabel}>Page ID</Text>
           <TextInput
@@ -139,8 +134,17 @@ export default function LinkPageScreen() {
             value={fbPageId}
             onChangeText={setFbPageId}
             placeholder="e.g. 1447275391796820"
-            placeholderTextColor="#64748B"
+            placeholderTextColor={THEME.colors.textMuted}
             keyboardType="numeric"
+          />
+
+          <Text style={styles.inputLabel}>Page Name</Text>
+          <TextInput
+            style={styles.input}
+            value={pageName}
+            onChangeText={setPageName}
+            placeholder="e.g. Mume Fresh - Fruit Store"
+            placeholderTextColor={THEME.colors.textMuted}
           />
 
           <Text style={styles.inputLabel}>Page Access Token</Text>
@@ -148,23 +152,23 @@ export default function LinkPageScreen() {
             style={[styles.input, styles.tokenInput]}
             value={pageAccessToken}
             onChangeText={setPageAccessToken}
-            placeholder="Paste Page Access Token (EAA...)"
-            placeholderTextColor="#64748B"
+            placeholder="Paste EAAG... token"
+            placeholderTextColor={THEME.colors.textMuted}
+            secureTextEntry
             multiline
-            numberOfLines={3}
           />
 
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Save and Link Page"
-            style={[styles.primaryButton, submitting && styles.disabled]}
+            accessibilityLabel="Link Page Directly"
+            style={styles.primaryButton}
             onPress={handleDirectLink}
             disabled={submitting}
           >
             {submitting ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <ActivityIndicator color={THEME.colors.textInverted} />
             ) : (
-              <Text style={styles.primaryButtonText}>🔒 Encrypt & Link Page</Text>
+              <Text style={styles.primaryButtonText}>Link Page Directly</Text>
             )}
           </Pressable>
         </View>
@@ -184,7 +188,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: THEME.colors.text,
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '800',
     marginBottom: 6,
   },
@@ -199,11 +203,11 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 18,
     marginBottom: 16,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: THEME.colors.cardBorder,
   },
   sectionHeader: {
-    color: THEME.colors.primaryLight,
+    color: THEME.colors.text,
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.8,
@@ -259,7 +263,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   input: {
-    backgroundColor: '#0F172A',
+    backgroundColor: THEME.colors.bg,
     borderWidth: 1,
     borderColor: THEME.colors.cardBorder,
     borderRadius: 10,
@@ -281,11 +285,8 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   primaryButtonText: {
-    color: '#FFFFFF',
+    color: THEME.colors.textInverted,
     fontSize: 15,
     fontWeight: '700',
-  },
-  disabled: {
-    opacity: 0.6,
   },
 });

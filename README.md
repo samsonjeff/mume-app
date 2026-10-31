@@ -150,6 +150,13 @@ mume/
 - `app.json` already contains `bundleIdentifier: com.mume.app` + both Android + iOS permission strings (`NSMicrophoneUsageDescription`, etc.)
 - Icons via cross-platform Ionicons, SafeAreaView everywhere
 
+**Strict Color Palette:**
+- `#F2F0EF` (Soft Alabaster): Main screen canvas & background
+- `#98CFF0` (Soft Sky Blue): Glow states, active highlights, secondary buttons
+- `#F5F5DC` (Warm Beige): Card surfaces, status badges, module containers
+- `#82C8E5` (Cerulean Sky): Primary action CTAs, WakeWordButton base, borders
+- **Text Color Rule:** Text must be complementary deep tones (e.g. `#1E293B` / `#0F172A` and muted `#475569`) to guarantee high-contrast legibility against these light, pastel backgrounds under outdoor sunlight.
+
 See full strict directive + compliance checklist in [PLAN.md](./PLAN.md#cross-platform-mobile-responsiveness-and-ergonomics-directive-cpmred---mandatory).
 
 ---

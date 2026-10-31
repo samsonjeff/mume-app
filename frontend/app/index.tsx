@@ -63,12 +63,18 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3B82F6" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={THEME.colors.primary} />}
       >
         {/* Top Bar Status */}
         <View style={styles.headerRow}>
           <View>
-            <Image source={require('../assets/mume-logo-white.png')} style={styles.brandLogo} resizeMode="contain" accessibilityRole="image" accessibilityLabel="Mume" />
+            <Image
+              source={require('../assets/mume-logo.png')}
+              style={styles.brandLogo}
+              resizeMode="contain"
+              accessibilityRole="image"
+              accessibilityLabel="Mume"
+            />
             <Text style={styles.brandSubtitle}>Voice-first Page OS</Text>
           </View>
           <InboxBadge count={unreadCount} onPress={() => loadLinkedPages()} />
@@ -145,26 +151,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
   },
-  brandLogo: { width: 120, height: 120, marginVertical: -36, marginLeft: -12 }, // square PNG has ~30% vertical padding
-  brandTitle: {
-    color: THEME.colors.text,
-    fontSize: 26,
-    fontWeight: '800',
+  brandLogo: {
+    width: 120,
+    height: 120,
+    marginVertical: -36,
+    marginLeft: -12,
   },
   brandSubtitle: {
     color: THEME.colors.textMuted,
     fontSize: 13,
+    fontWeight: '500',
   },
   card: {
     backgroundColor: THEME.colors.card,
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: THEME.colors.cardBorder,
   },
   cardLabel: {
-    color: THEME.colors.primaryLight,
+    color: THEME.colors.textMuted,
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.8,
@@ -192,14 +199,14 @@ const styles = StyleSheet.create({
   },
   secureTag: {
     marginTop: 10,
-    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    backgroundColor: 'rgba(130, 200, 229, 0.3)',
     borderRadius: 8,
     alignSelf: 'flex-start',
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   secureTagText: {
-    color: THEME.colors.primaryLight,
+    color: THEME.colors.text,
     fontSize: 11,
     fontWeight: '600',
   },
@@ -214,7 +221,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   infoCard: {
-    backgroundColor: 'rgba(30, 41, 59, 0.5)',
+    backgroundColor: THEME.colors.card,
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
@@ -232,7 +239,7 @@ const styles = StyleSheet.create({
     lineHeight: 19,
   },
   highlight: {
-    color: THEME.colors.primaryLight,
+    color: THEME.colors.primary,
     fontWeight: '700',
   },
   thumbZone: {
@@ -247,17 +254,17 @@ const styles = StyleSheet.create({
   secondaryButton: {
     width: '100%',
     minHeight: THEME.ergonomics.minTapTarget,
-    backgroundColor: THEME.colors.card,
+    backgroundColor: THEME.colors.primaryLight,
     borderRadius: 12,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: THEME.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
   },
   secondaryButtonText: {
-    color: THEME.colors.text,
+    color: THEME.colors.textInverted,
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });

@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
     fontSize: 26,
   },
   label: {
-    color: '#FFFFFF',
+    color: THEME.colors.textInverted,
     fontSize: 10,
     fontWeight: '700',
     marginTop: 2,
