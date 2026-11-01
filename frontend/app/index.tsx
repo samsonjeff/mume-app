@@ -601,6 +601,7 @@ export default function HomeScreen() {
           ref={mainScrollRef}
           contentContainerStyle={[
             styles.scrollContent,
+            activeTab === 'catalog' && styles.scrollContentCatalog,
             isEditingDraft && styles.scrollContentEditingDraft,
           ]}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={THEME.colors.primary} />}
@@ -690,23 +691,6 @@ export default function HomeScreen() {
                             <AppIcon name="bot" size={16} color={THEME.colors.primary} />
                             <Text style={styles.draftLabelText}>Mume’s suggested reply</Text>
                           </View>
-                          <Pressable
-                            onPress={() => {
-                              setIsEditingDraft((v) => {
-                                const next = !v;
-                                if (next) {
-                                  setTimeout(() => scrollToActionCard(true), 60);
-                                }
-                                return next;
-                              });
-                            }}
-                            style={styles.draftEditPill}
-                            accessibilityRole="button"
-                            accessibilityLabel={isEditingDraft ? 'Done editing' : 'Edit message text'}
-                          >
-                            <AppIcon name={isEditingDraft ? 'check' : 'edit'} size={12} color={THEME.colors.primary} />
-                            <Text style={styles.draftEditPillText}>{isEditingDraft ? 'Done' : 'Edit text'}</Text>
-                          </Pressable>
                         </View>
 
                         {isEditingDraft ? (
@@ -1170,13 +1154,14 @@ export default function HomeScreen() {
         </ScrollView>
 
         {/* 3. Gemini-Style Floating Bottom Input Capsule Dock (Size x 2 with Multi-Line Text Input) */}
-        <View
-          style={[
-            styles.geminiInputDockContainer,
-            isEditingDraft && styles.geminiInputDockFixedBelow,
-          ]}
-          pointerEvents="box-none"
-        >
+        {activeTab !== 'catalog' && activeTab !== 'settings' && (
+          <View
+            style={[
+              styles.geminiInputDockContainer,
+              isEditingDraft && styles.geminiInputDockFixedBelow,
+            ]}
+            pointerEvents="box-none"
+          >
           <View style={[styles.geminiInputCapsule, isEditingDraft && styles.geminiInputCapsuleFixedBelow]}>
             {/* Top Row: Merchant can write a message to talk to AI */}
             <View style={styles.capsuleTextInputWrapper}>
@@ -1279,6 +1264,7 @@ export default function HomeScreen() {
             Nothing is sent to customers without your approval.
           </Text>
         </View>
+        )}
       </SafeAreaView>
 
       {/* 4. Slide-Out Side Navigation Drawer (Responsive Full-Height Modal) */}
@@ -1989,6 +1975,9 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 175,
   },
+  scrollContentCatalog: {
+    paddingBottom: 40,
+  },
   scrollContentEditingDraft: {
     paddingBottom: 280,
   },
@@ -2265,29 +2254,13 @@ const styles = StyleSheet.create({
   draftLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 6,
     marginBottom: 8,
   },
   draftLabelLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-  },
-  draftEditPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(50, 121, 249, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(50, 121, 249, 0.25)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 999,
-  },
-  draftEditPillText: {
-    color: THEME.colors.primary,
-    fontSize: 11,
-    fontWeight: '700',
   },
   draftIconText: {
     fontSize: 14,

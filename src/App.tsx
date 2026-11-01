@@ -173,20 +173,9 @@ function PendingAction({
 
       {/* Draft block: Entire text is editable */}
       <div className={`draft-block ${editing ? 'draft-block-editing' : ''}`}>
-        <div className="draft-label flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <Icon name="bot-svg" size={16} />
-            <span>Mume’s suggested reply</span>
-          </div>
-          <button
-            type="button"
-            className="draft-edit-pill-btn"
-            onClick={toggleEditing}
-            aria-label={editing ? 'Save draft changes' : 'Edit message text'}
-          >
-            <Icon name={editing ? 'check' : 'edit'} size={12} />
-            <span>{editing ? 'Done' : 'Edit text'}</span>
-          </button>
+        <div className="draft-label flex items-center gap-1.5">
+          <Icon name="bot-svg" size={16} />
+          <span>Mume’s suggested reply</span>
         </div>
 
         {editing ? (
@@ -864,7 +853,7 @@ export default function App() {
 
         {/* Content Scroll View (Ergonomic layout for Android 360dp - 412dp) */}
         <div
-          className={`content-scroll ${isEditingActionDraft ? 'editing-draft' : ''}`}
+          className={`content-scroll ${isEditingActionDraft ? 'editing-draft' : ''} ${activeTab === 'catalog' ? 'catalog-view-scroll' : ''}`}
           ref={contentScrollRef}
         >
           {activeTab === 'home' && (
@@ -911,7 +900,7 @@ export default function App() {
         </div>
 
         {/* Gemini-Style Floating Bottom Input Capsule Dock (Size x 2 with Multi-Line Text Input & Send) */}
-        {activeTab !== 'settings' && (
+        {activeTab !== 'settings' && activeTab !== 'catalog' && (
           <div className={`input-capsule-container ${isEditingActionDraft ? 'dock-fixed-below' : ''}`}>
             <div className={`input-capsule size-x2 ${isEditingActionDraft ? 'capsule-docked-below' : ''}`}>
               {/* Top Row: Merchant can write a message to talk to AI */}
