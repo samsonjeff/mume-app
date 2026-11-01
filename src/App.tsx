@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Header from './components/Header';
 import SettingsView from './components/SettingsView';
 import Icon from './components/Icon';
@@ -165,6 +165,8 @@ function HomeScreen({
   onOpenSettings,
   chatMessages,
   isAiThinking,
+  isChattingOrTyping = false,
+  voiceState = 'idle',
 }: {
   userName: string;
   isLoggedIn: boolean;
@@ -175,7 +177,17 @@ function HomeScreen({
   onOpenSettings: () => void;
   chatMessages: ChatMessage[];
   isAiThinking: boolean;
+  isChattingOrTyping?: boolean;
+  voiceState?: VoiceState;
 }) {
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  }, [chatMessages, isAiThinking]);
+
   return (
     <>
       <div className="zero-state-hero">
@@ -183,7 +195,7 @@ function HomeScreen({
           <h1>{isLoggedIn ? `Hello, ${userName.trim().split(/\s+/)[0] || userName}` : 'Welcome to Mume'}</h1>
           <p>
             {isLoggedIn
-              ? 'Where should we start with Mume Fresh - Fruit Store?'
+              ? 'Welcome to Muse!'
               : 'Connect your Facebook Page to start managing inquiries.'}
           </p>
         </div>
@@ -211,18 +223,25 @@ function HomeScreen({
 
           {/* Mume AI Chat Thread Stream (Positioned below Pending Action Card) */}
           {chatMessages.length > 0 && (
-            <div className="chat-section-card">
+            <div className={`chat-section-card ${isChattingOrTyping ? 'highlighted-active' : ''}`}>
               <div className="chat-section-header">
                 <div className="chat-header-left">
-                  <span className="chat-header-badge">
+                  <span className={`chat-header-badge ${isChattingOrTyping ? 'active' : ''}`}>
                     <Icon name="bot-svg" size={18} />
                   </span>
                   <strong>Mume AI Chat</strong>
                 </div>
-                <span className="chat-header-subtitle">Talk to AI</span>
+                {isChattingOrTyping ? (
+                  <span className="active-highlight-badge">
+                    <span className="active-highlight-dot" />
+                    <span>{voiceState === 'listening' ? 'Listening' : voiceState === 'thinking' ? 'Thinking…' : 'Chatting'}</span>
+                  </span>
+                ) : (
+                  <span className="chat-header-subtitle">Talk to AI</span>
+                )}
               </div>
 
-              <div className="chat-messages-list">
+              <div className="chat-messages-list" ref={chatScrollRef}>
                 {chatMessages.map((msg) => (
                   <div
                     key={msg.id}
@@ -435,6 +454,8 @@ export default function App() {
     },
   ]);
   const [isAiThinking, setIsAiThinking] = useState(false);
+  const [isInputFocused, setIsInputFocused] = useState(false);
+  const isChattingOrTyping = chatInput.trim().length > 0 || isInputFocused || voiceState !== 'idle' || isAiThinking;
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -660,6 +681,8 @@ export default function App() {
               onOpenSettings={() => setActiveTab('settings')}
               chatMessages={chatMessages}
               isAiThinking={isAiThinking}
+              isChattingOrTyping={isChattingOrTyping}
+              voiceState={voiceState}
             />
           )}
           {activeTab === 'inbox' && (
@@ -697,6 +720,8 @@ export default function App() {
                   placeholder="Ask Mume or write a message…"
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
+                  onFocus={() => setIsInputFocused(true)}
+                  onBlur={() => setIsInputFocused(false)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();

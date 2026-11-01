@@ -129,6 +129,16 @@ export default function HomeScreen() {
     },
   ]);
   const [isAiThinking, setIsAiThinking] = useState(false);
+  const [isInputFocused, setIsInputFocused] = useState(false);
+  const isChattingOrTyping = chatInput.trim().length > 0 || isInputFocused || voiceState !== 'idle' || isAiThinking;
+  const chatScrollRef = useRef<any>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      chatScrollRef.current?.scrollToEnd({ animated: true });
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [chatMessages, isAiThinking]);
 
   // Pending action state from Figma Make prototype
   const [editingPrice, setEditingPrice] = useState(false);
@@ -526,7 +536,7 @@ export default function HomeScreen() {
                 </Text>
                 <Text style={styles.geminiHeroSubtitle}>
                   {isLoggedIn
-                    ? `Where should we start with ${activePageTitle}?`
+                    ? 'Welcome to Muse!'
                     : 'Connect your Facebook Page to start managing inquiries.'}
                 </Text>
               </View>
@@ -642,18 +652,43 @@ export default function HomeScreen() {
 
                   {/* Mume AI Chat Stream (Positioned below Pending Action Card) */}
                   {chatMessages.length > 0 && (
-                    <View style={styles.chatSectionCard}>
+                    <View style={[styles.chatSectionCard, isChattingOrTyping && styles.chatSectionCardHighlighted]}>
                       <View style={styles.chatSectionHeader}>
                         <View style={styles.chatHeaderLeft}>
-                          <View style={styles.chatHeaderBadge}>
+                          <View style={[styles.chatHeaderBadge, isChattingOrTyping && styles.chatHeaderBadgeActive]}>
                             <AppIcon name="bot" size={16} color="#FFFFFF" />
                           </View>
                           <Text style={styles.chatHeaderTitle}>Mume AI Chat</Text>
                         </View>
-                        <Text style={styles.chatHeaderSubtitle}>Talk to AI</Text>
+                        {isChattingOrTyping ? (
+                          <View style={styles.activeHighlightBadge}>
+                            <View style={styles.activeHighlightDot} />
+                            <Text style={styles.activeHighlightText}>
+                              {voiceState === 'listening' ? 'Listening' : voiceState === 'thinking' ? 'Thinking…' : 'Chatting'}
+                            </Text>
+                          </View>
+                        ) : (
+                          <Text style={styles.chatHeaderSubtitle}>Talk to AI</Text>
+                        )}
                       </View>
 
-                      <View style={styles.chatMessagesList}>
+                      <ScrollView
+                        ref={chatScrollRef}
+                        style={[
+                          styles.chatScrollView,
+                          Platform.OS === 'web'
+                            ? ({
+                                scrollbarWidth: 'thin',
+                                scrollbarColor: '#9CA3AF #F3F4F6',
+                              } as any)
+                            : null,
+                        ]}
+                        contentContainerStyle={styles.chatMessagesList}
+                        nestedScrollEnabled={true}
+                        showsVerticalScrollIndicator={true}
+                        persistentScrollbar={true}
+                        indicatorStyle="black"
+                      >
                         {chatMessages.map((msg) => (
                           <View
                             key={msg.id}
@@ -708,7 +743,7 @@ export default function HomeScreen() {
                             </View>
                           </View>
                         )}
-                      </View>
+                      </ScrollView>
                     </View>
                   )}
                 </>
@@ -999,6 +1034,8 @@ export default function HomeScreen() {
                 placeholderTextColor={THEME.colors.textMuted}
                 value={chatInput}
                 onChangeText={setChatInput}
+                onFocus={() => setIsInputFocused(true)}
+                onBlur={() => setIsInputFocused(false)}
                 multiline
                 maxLength={400}
                 returnKeyType="send"
@@ -2855,6 +2892,17 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 6,
     elevation: 2,
+    height: 220, // Constant container size with +10% height
+  },
+  chatSectionCardHighlighted: {
+    borderColor: '#3279F9',
+    borderWidth: 1.5,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#3279F9',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    elevation: 4,
   },
   chatSectionHeader: {
     flexDirection: 'row',
@@ -2863,7 +2911,7 @@ const styles = StyleSheet.create({
     paddingBottom: 13,
     borderBottomWidth: 1,
     borderBottomColor: THEME.colors.cardBorder,
-    marginBottom: 15,
+    marginBottom: 12,
   },
   chatHeaderLeft: {
     flexDirection: 'row',
@@ -2878,6 +2926,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  chatHeaderBadgeActive: {
+    backgroundColor: '#3279F9',
+  },
   chatHeaderTitle: {
     fontSize: 14,
     fontWeight: '700',
@@ -2888,8 +2939,34 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: THEME.colors.textMuted,
   },
+  activeHighlightBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(50, 121, 249, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(50, 121, 249, 0.28)',
+  },
+  activeHighlightDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#3279F9',
+  },
+  activeHighlightText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#1A73E8',
+  },
+  chatScrollView: {
+    flex: 1,
+  },
   chatMessagesList: {
-    gap: 13,
+    gap: 12,
+    paddingBottom: 4,
   },
   chatBubbleRow: {
     flexDirection: 'row',

@@ -102,6 +102,7 @@ Complies with the **Cross-Platform Mobile Responsiveness and Ergonomics Directiv
 - **Minimum Tap Target**: 48x48dp minimum with 8dp spacing for accurate operation on the move.
 - **60 FPS Reanimated UI**: Smooth, UI-thread audio waveform animations with zero frame drop.
 - **0.8-Second Startup Intro**: Fluid cross-fade startup transition between `mume-black.svg` (white canvas) and `mume-white.svg` (obsidian black canvas), flowing directly into the app header.
+- **Constant-Height Mume AI Chat**: Locked container height with internal scrollbar and active conversation highlighting (Electric Blue focus border, live status pill) when chatting or dictating.
 - **Product Catalog Management**: Interactive modal CRUD with custom photo upload, live image preview, and stock status indicators.
 - **International Pricing & Currency**: Standardized USD ($) currency across catalog products, suggested draft responses, and simulated store inventory.
 - **Official Meta Branding**: Integrated `baseline-facebook.svg` across all Page connection touchpoints.
