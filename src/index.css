@@ -750,6 +750,7 @@
   padding: 1rem;
   border: 1px solid rgba(160, 101, 225, 0.16);
   border-radius: 1.25rem;
+  margin-bottom: 1.25rem;
   background:
     radial-gradient(circle at 100% 0, rgba(189, 118, 255, 0.08), transparent 38%),
     var(--surface);

@@ -2249,6 +2249,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: THEME.colors.cardBorder,
+    marginBottom: 18,
   },
   buttonInnerRow: {
     flexDirection: 'row',
