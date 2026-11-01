@@ -605,28 +605,27 @@
   white-space: nowrap;
 }
 
-.profile-button {
+.profile-button,
+.subscription-upgrade-button {
   display: grid;
   min-width: 2.4rem;
   min-height: 2.4rem;
   width: 2.4rem;
   height: 2.4rem;
   place-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.4);
   border-radius: 50%;
-  background: linear-gradient(135deg, #ffffff 0%, #9ca3af 100%);
-  color: #121317;
-  font-size: 0.78rem;
-  font-weight: 700;
-  box-shadow: 0 0.2rem 0.7rem rgba(0, 0, 0, 0.35);
+  border: none;
+  background: transparent;
+  color: #ffffff;
   cursor: pointer;
   user-select: none;
   transition: transform 0.15s ease, opacity 0.15s ease;
 }
 
-.profile-button:hover {
+.profile-button:hover,
+.subscription-upgrade-button:hover {
   transform: scale(1.05);
-  opacity: 0.95;
+  opacity: 0.85;
 }
 
 .content-scroll {

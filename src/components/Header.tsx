@@ -58,9 +58,9 @@ export const Header: React.FC<HeaderProps> = ({
         type="button"
         onClick={onProfileClick}
         aria-label="Subscription upgrade"
-        className="profile-button subscription-upgrade-button cursor-pointer"
+        className="menu-button subscription-upgrade-button cursor-pointer"
       >
-        <Icon name="subscription-upgrade" size={20} />
+        <Icon name="subscription-upgrade" size={20} className="text-white" />
       </button>
     </header>
   );

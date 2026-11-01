@@ -585,12 +585,10 @@ export default function HomeScreen() {
             accessibilityRole="button"
             accessibilityLabel="Subscription upgrade"
             onPress={() => setActiveTab('settings')}
-            style={[
-              styles.profileBadge,
-              { backgroundImage: 'linear-gradient(135deg, #FFFFFF 0%, #9CA3AF 100%)' } as any,
-            ]}
+            style={styles.profileBadge}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
-            <AppIcon name="subscription-upgrade" size={20} color="#121317" strokeWidth={2} />
+            <AppIcon name="subscription-upgrade" size={20} color="#FFFFFF" strokeWidth={2} />
           </Pressable>
         </View>
       </SafeAreaView>
@@ -1954,22 +1952,10 @@ const styles = StyleSheet.create({
   profileBadge: {
     width: 38,
     height: 38,
-    borderRadius: 19,
-    backgroundColor: '#D1D5DB',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  profileBadgeText: {
-    color: '#121317',
-    fontSize: 13,
-    fontWeight: '700',
+    backgroundColor: 'transparent',
+    borderWidth: 0,
   },
   scrollContent: {
     padding: 16,

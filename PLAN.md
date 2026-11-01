@@ -113,7 +113,7 @@ The integration strictly satisfies Meta Developer Policies, Platform Terms, and 
 
 ### 3.2 Dynamic Visuals & Interaction Architecture
 - **2.5-Second Startup Intro**: Fluid cross-fade startup transition between `mume-black.svg` (white canvas) and `mume-white.svg` (obsidian canvas), transitioning smoothly into the top navigation header.
-- **Obsidian Top Header Bar**: Polished obsidian black bar (`#121317`) featuring a centered white Mume vector logo, left menu toggle, and right silver-to-white gradient badge rendering `subscription-upgrade.svg`.
+- **Obsidian Top Header Bar**: Polished obsidian black bar (`#121317`) featuring a centered white Mume vector logo, left menu toggle, and right transparent action button rendering a crisp pure white (`#FFFFFF`) `subscription-upgrade.svg` icon for balanced visual symmetry.
 - **Constant-Height Mume AI Chat (13.8rem / 220px)**: Locked container height with custom internal gray scrollbar, ensuring conversation history remains accessible without jumping layout height.
 - **Dynamic Conversation Auto-Follow**: Automatically tracks and scrolls the conversation card into clear view as the merchant types or dictates, preventing keyboard occlusion.
 - **Transient Active-Typing Electric Blue Highlight**: A glowing `#3279F9` focus ring activates solely during active keystrokes or active speech recognition and gracefully dismisses 1.0s after typing pauses.
