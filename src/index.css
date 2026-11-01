@@ -762,14 +762,17 @@
 .approval-card {
   overflow: hidden;
   padding: 1.15rem;
-  border: 1.5px solid rgba(251, 188, 4, 0.45);
+  border: 1px solid var(--line);
   border-radius: 1.25rem;
   margin-bottom: 1.25rem;
-  background:
-    radial-gradient(circle at 100% 0, rgba(251, 188, 4, 0.08), transparent 42%),
-    var(--surface);
-  box-shadow: 0 0.5rem 1.8rem rgba(251, 188, 4, 0.08), 0 0.2rem 0.6rem rgba(0, 0, 0, 0.04);
+  background: var(--surface);
+  box-shadow: 0 0.5rem 1.8rem rgba(0, 0, 0, 0.04), 0 0.2rem 0.6rem rgba(0, 0, 0, 0.02);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.approval-card.is-editing {
+  border-color: #121317;
+  box-shadow: 0 0.5rem 1.8rem rgba(0, 0, 0, 0.08);
 }
 
 .card-topline {
@@ -784,9 +787,9 @@
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  background: rgba(251, 188, 4, 0.12);
-  border: 1px solid rgba(251, 188, 4, 0.35);
-  color: #B45309;
+  background: var(--surface-high);
+  border: 1px solid var(--line);
+  color: var(--ink);
   padding: 0.2rem 0.6rem;
   border-radius: 999px;
   font-size: 0.68rem;
@@ -799,20 +802,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #FBBC04;
-  box-shadow: 0 0 6px #FBBC04;
-  animation: amberPulse 1.6s ease-in-out infinite;
-}
-
-@keyframes amberPulse {
-  0%, 100% {
-    opacity: 0.6;
-    transform: scale(0.9);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.2);
-  }
+  background: #121317;
 }
 
 .card-topline,
@@ -1011,34 +1001,33 @@
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  background: rgba(251, 188, 4, 0.12);
-  color: #B45309;
-  border: 1px solid rgba(251, 188, 4, 0.35);
+  background: var(--surface-high);
+  color: var(--ink);
+  border: 1px solid var(--line);
   padding: 0.2rem 0.6rem;
   border-radius: 999px;
   font-size: 0.72rem;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .badge-approved {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  background: rgba(0, 185, 92, 0.12);
-  color: #00B95C;
-  border: 1px solid rgba(0, 185, 92, 0.35);
+  background: var(--surface-high);
+  color: var(--muted);
+  border: 1px solid var(--line);
   padding: 0.2rem 0.6rem;
   border-radius: 999px;
   font-size: 0.72rem;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .status-dot-amber-inline {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #FBBC04;
-  animation: amberPulse 1.6s ease-in-out infinite;
+  background: #121317;
 }
 
 .approval-actions {

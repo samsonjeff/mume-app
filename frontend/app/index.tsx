@@ -776,8 +776,6 @@ export default function HomeScreen() {
                           </View>
                         </Pressable>
                       </View>
-
-                      <Text style={styles.safetyNote}>🛡️ Nothing is sent without your approval.</Text>
                     </View>
                   ) : (
                     <View style={styles.emptyCard}>
@@ -2164,42 +2162,42 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   sectionBadgePending: {
-    backgroundColor: 'rgba(251, 188, 4, 0.12)',
+    backgroundColor: THEME.colors.cardElevated,
     borderWidth: 1,
-    borderColor: 'rgba(251, 188, 4, 0.35)',
+    borderColor: THEME.colors.cardBorder,
   },
   sectionBadgeApproved: {
-    backgroundColor: 'rgba(0, 185, 92, 0.12)',
+    backgroundColor: THEME.colors.cardElevated,
     borderWidth: 1,
-    borderColor: 'rgba(0, 185, 92, 0.35)',
+    borderColor: THEME.colors.cardBorder,
   },
   sectionBadgeTextPending: {
-    color: '#B45309',
+    color: THEME.colors.text,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   sectionBadgeTextApproved: {
-    color: '#00B95C',
+    color: THEME.colors.textMuted,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   approvalCard: {
     backgroundColor: THEME.colors.card,
     borderRadius: 18,
     padding: 18,
-    borderWidth: 1.5,
-    borderColor: 'rgba(251, 188, 4, 0.45)',
+    borderWidth: 1,
+    borderColor: THEME.colors.cardBorder,
     marginBottom: 16,
-    shadowColor: '#FBBC04',
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 3,
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   approvalCardEditing: {
-    borderColor: 'rgba(251, 188, 4, 0.85)',
-    shadowOpacity: 0.14,
-    shadowRadius: 14,
+    borderColor: THEME.colors.obsidian,
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
   },
   cardTopline: {
     flexDirection: 'row',
@@ -2212,9 +2210,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(251, 188, 4, 0.12)',
+    backgroundColor: THEME.colors.cardElevated,
     borderWidth: 1,
-    borderColor: 'rgba(251, 188, 4, 0.35)',
+    borderColor: THEME.colors.cardBorder,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 999,
@@ -2223,10 +2221,10 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: THEME.colors.pending,
+    backgroundColor: THEME.colors.obsidian,
   },
   eyebrowText: {
-    color: '#B45309',
+    color: THEME.colors.text,
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.3,
@@ -2407,11 +2405,6 @@ const styles = StyleSheet.create({
     color: THEME.colors.textInverted,
     fontSize: 14,
     fontWeight: '700',
-  },
-  safetyNote: {
-    color: THEME.colors.textMuted,
-    fontSize: 11,
-    textAlign: 'center',
   },
   emptyCard: {
     backgroundColor: THEME.colors.card,

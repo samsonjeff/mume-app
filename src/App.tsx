@@ -243,7 +243,6 @@ function PendingAction({
           <Icon name="check" size={18} />
         </button>
       </div>
-      <p className="safety-note">🛡️ Nothing is sent without your approval.</p>
     </section>
   );
 }
