@@ -659,12 +659,8 @@ export default function HomeScreen() {
                       }}
                       style={[styles.approvalCard, isEditingDraft && styles.approvalCardEditing]}
                     >
-                      {/* Card Topline: Shows urgency & "Action needed to approve" */}
+                      {/* Card Topline: Timestamp */}
                       <View style={styles.cardTopline}>
-                        <View style={styles.eyebrow}>
-                          <View style={styles.statusDotAmber} />
-                          <Text style={styles.eyebrowText}>Action needed to approve</Text>
-                        </View>
                         <Text style={styles.timeLabel}>now</Text>
                       </View>
 
@@ -1152,15 +1148,12 @@ export default function HomeScreen() {
         </ScrollView>
 
         {/* 3. Gemini-Style Floating Bottom Input Capsule Dock (Size x 2 with Multi-Line Text Input) */}
-        {activeTab !== 'catalog' && activeTab !== 'settings' && (
+        {activeTab !== 'catalog' && activeTab !== 'settings' && !isEditingDraft && (
           <View
-            style={[
-              styles.geminiInputDockContainer,
-              isEditingDraft && styles.geminiInputDockFixedBelow,
-            ]}
+            style={styles.geminiInputDockContainer}
             pointerEvents="box-none"
           >
-          <View style={[styles.geminiInputCapsule, isEditingDraft && styles.geminiInputCapsuleFixedBelow]}>
+            <View style={styles.geminiInputCapsule}>
             {/* Top Row: Merchant can write a message to talk to AI */}
             <View style={styles.capsuleTextInputWrapper}>
               <TextInput
@@ -1965,7 +1958,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   scrollContentEditingDraft: {
-    paddingBottom: 280,
+    paddingBottom: 60,
   },
   screenContainer: {
     width: '100%',
@@ -2144,33 +2137,16 @@ const styles = StyleSheet.create({
   },
   cardTopline: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 10,
     width: '100%',
-  },
-  eyebrow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: THEME.colors.cardElevated,
-    borderWidth: 1,
-    borderColor: THEME.colors.cardBorder,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 999,
   },
   statusDotAmber: {
     width: 6,
     height: 6,
     borderRadius: 3,
     backgroundColor: THEME.colors.obsidian,
-  },
-  eyebrowText: {
-    color: THEME.colors.text,
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.3,
   },
   timeLabel: {
     color: THEME.colors.textMuted,
@@ -2883,11 +2859,6 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginHorizontal: 'auto' as any,
   },
-  geminiInputDockFixedBelow: {
-    position: (Platform.OS === 'web' ? 'fixed' : 'absolute') as any,
-    bottom: 8,
-    zIndex: 10,
-  },
   geminiInputCapsule: {
     flexDirection: 'column',
     justifyContent: 'space-between',
@@ -2905,11 +2876,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 14,
     elevation: 6,
-  },
-  geminiInputCapsuleFixedBelow: {
-    shadowOpacity: 0.05,
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
   },
   capsuleTextInputWrapper: {
     width: '100%',

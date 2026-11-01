@@ -187,16 +187,6 @@
   align-items: center;
 }
 
-.input-capsule-container.dock-fixed-below {
-  position: fixed;
-  bottom: 0.65rem;
-  left: 0.75rem;
-  right: 0.75rem;
-  max-width: 440px;
-  margin: 0 auto;
-  z-index: 10;
-}
-
 .input-capsule {
   display: flex;
   flex-direction: column;
@@ -638,7 +628,7 @@
 }
 
 .content-scroll.editing-draft {
-  padding-bottom: 18rem;
+  padding-bottom: 4rem;
 }
 
 .content-scroll.catalog-view-scroll {
@@ -786,24 +776,9 @@
 .card-topline {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 0.85rem;
+  justify-content: flex-end;
+  margin-bottom: 0.65rem;
   width: 100%;
-}
-
-.action-needed-eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  background: var(--surface-high);
-  border: 1px solid var(--line);
-  color: var(--ink);
-  padding: 0.2rem 0.6rem;
-  border-radius: 999px;
-  font-size: 0.68rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
 .status-dot-amber {
@@ -819,14 +794,6 @@
 .approval-actions {
   display: flex;
   align-items: center;
-}
-
-.eyebrow {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  font-size: 0.69rem;
-  font-weight: 700;
 }
 
 .time-label,

@@ -148,12 +148,8 @@ function PendingAction({
       className={`approval-card action-needed-card ${editing ? 'is-editing' : ''}`}
       aria-labelledby="approval-title"
     >
-      {/* Topline: Status dot & "Action needed to approve" */}
+      {/* Topline: Timestamp */}
       <div className="card-topline">
-        <div className="eyebrow action-needed-eyebrow">
-          <span className="status-dot-amber" />
-          <span>Action needed to approve</span>
-        </div>
         <span className="time-label">now</span>
       </div>
 
@@ -900,9 +896,9 @@ export default function App() {
         </div>
 
         {/* Gemini-Style Floating Bottom Input Capsule Dock (Size x 2 with Multi-Line Text Input & Send) */}
-        {activeTab !== 'settings' && activeTab !== 'catalog' && (
-          <div className={`input-capsule-container ${isEditingActionDraft ? 'dock-fixed-below' : ''}`}>
-            <div className={`input-capsule size-x2 ${isEditingActionDraft ? 'capsule-docked-below' : ''}`}>
+        {activeTab !== 'settings' && activeTab !== 'catalog' && !isEditingActionDraft && (
+          <div className="input-capsule-container">
+            <div className="input-capsule size-x2">
               {/* Top Row: Merchant can write a message to talk to AI */}
               <div className="capsule-text-container">
                 <textarea
