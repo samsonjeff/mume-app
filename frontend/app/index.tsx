@@ -2560,27 +2560,28 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(0, 0, 0, 0.12)',
   },
   stockLow: {
-    backgroundColor: '#121317',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: 'rgba(0, 0, 0, 0.12)',
   },
   stockOut: {
-    backgroundColor: '#E4E4E7',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.1)',
+    borderColor: 'rgba(0, 0, 0, 0.12)',
   },
   stockPillText: {
     fontSize: 10,
     fontWeight: '700',
+    color: '#121317',
   },
   stockInText: {
     color: '#121317',
   },
   stockLowText: {
-    color: '#FFFFFF',
+    color: '#121317',
   },
   stockOutText: {
-    color: '#71717A',
+    color: '#121317',
   },
   catalogHeaderRow: {
     flexDirection: 'row',

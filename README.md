@@ -148,7 +148,7 @@ Complies with the **Cross-Platform Mobile Responsiveness and Ergonomics Directiv
 - **Full-Message Draft Reply Editing**: Merchants can edit the complete text of any suggested customer reply before granting approval, directly in-place using a multiline editor or single tap.
 - **Fixed-Below Bottom Dock & Auto-Scroll on Draft Edit**: When editing an "Action needed to approve" card, the bottom dock locks into a fixed-below layout with extended bottom padding (280dp / 18rem), and the viewport automatically scrolls the pending action card to the top, ensuring the dock never covers the text being edited.
 - **"Action Needed to Approve" Visual System**: Adopts the clean Figma Make black, white, and gray palette (`#121317`, `#FFFFFF`, `#EFF2F7`, `#E1E6EC`) for the section badge pill (`1 action to approve`), card eyebrow, obsidian dot, and card borders, with clean layout and streamlined action buttons.
-- **Product Catalog Management (CRUD)**: Interactive modal CRUD with custom photo upload, live image preview, stock status indicators (`In stock`, `Low stock`, `Out of stock`), and international USD ($) pricing.
+- **Product Catalog Management (CRUD)**: Interactive modal CRUD with custom photo upload, live image preview, consistent white badge and dark text stock indicators (`In stock`, `Low stock`, `Out of stock`), and international USD ($) pricing.
 - **Official Meta Branding**: Integrated `baseline-facebook.svg` across all Facebook login and linking touchpoints.
 - **Official Google Antigravity Palette**:
   - `#FFFFFF` (`--palette-grey-0`): Elevated surfaces & cards

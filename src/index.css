@@ -1775,22 +1775,12 @@
   z-index: 2;
 }
 
-.stock-in {
+.stock-in,
+.stock-low,
+.stock-out {
   background: #ffffff;
   color: #121317;
   border: 1px solid rgba(0, 0, 0, 0.12);
-}
-
-.stock-low {
-  background: #121317;
-  color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.stock-out {
-  background: #e4e4e7;
-  color: #71717a;
-  border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .product-card {
