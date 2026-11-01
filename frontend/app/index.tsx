@@ -135,9 +135,19 @@ export default function HomeScreen() {
   const chatScrollRef = useRef<any>(null);
   const mainScrollRef = useRef<any>(null);
   const chatCardY = useRef<number>(0);
+  const actionCardY = useRef<number>(0);
 
   // Blue highlight triggers only when user is actively typing or dictating via voice
   const isChattingOrTyping = isTyping || voiceState === 'listening';
+
+  const scrollToActionCard = useCallback((animated = true) => {
+    if (mainScrollRef.current) {
+      mainScrollRef.current.scrollTo({
+        y: Math.max(0, actionCardY.current - 12),
+        animated,
+      });
+    }
+  }, []);
 
   const scrollToConversation = useCallback((animated = true) => {
     if (mainScrollRef.current && chatCardY.current > 0) {
@@ -587,7 +597,10 @@ export default function HomeScreen() {
       <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.bodySafeArea}>
         <ScrollView
           ref={mainScrollRef}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            isEditingDraft && styles.scrollContentEditingDraft,
+          ]}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={THEME.colors.primary} />}
         >
         {activeTab === 'today' && (
@@ -639,7 +652,12 @@ export default function HomeScreen() {
 
                   {/* Pending Action Card */}
                   {!isApproved ? (
-                    <View style={styles.approvalCard}>
+                    <View
+                      onLayout={(e) => {
+                        actionCardY.current = e.nativeEvent.layout.y;
+                      }}
+                      style={[styles.approvalCard, isEditingDraft && styles.approvalCardEditing]}
+                    >
                       {/* Card Topline: Shows urgency & "Action needed to approve" */}
                       <View style={styles.cardTopline}>
                         <View style={styles.eyebrow}>
@@ -671,7 +689,15 @@ export default function HomeScreen() {
                             <Text style={styles.draftLabelText}>Mume’s suggested reply</Text>
                           </View>
                           <Pressable
-                            onPress={() => setIsEditingDraft((v) => !v)}
+                            onPress={() => {
+                              setIsEditingDraft((v) => {
+                                const next = !v;
+                                if (next) {
+                                  setTimeout(() => scrollToActionCard(true), 60);
+                                }
+                                return next;
+                              });
+                            }}
                             style={styles.draftEditPill}
                             accessibilityRole="button"
                             accessibilityLabel={isEditingDraft ? 'Done editing' : 'Edit message text'}
@@ -693,12 +719,18 @@ export default function HomeScreen() {
                               onChangeText={setDraftReply}
                               placeholder="Type message to customer…"
                               placeholderTextColor={THEME.colors.textMuted}
+                              onFocus={() => {
+                                scrollToActionCard(true);
+                              }}
                             />
                           </View>
                         ) : (
                           <Pressable
                             style={styles.draftTextContainer}
-                            onPress={() => setIsEditingDraft(true)}
+                            onPress={() => {
+                              setIsEditingDraft(true);
+                              setTimeout(() => scrollToActionCard(true), 60);
+                            }}
                             accessibilityRole="button"
                             accessibilityLabel="Tap to edit full message text"
                           >
@@ -712,7 +744,15 @@ export default function HomeScreen() {
                         <Pressable
                           accessibilityRole="button"
                           style={[styles.secondaryButton, isEditingDraft && styles.secondaryButtonActive]}
-                          onPress={() => setIsEditingDraft((v) => !v)}
+                          onPress={() => {
+                            setIsEditingDraft((v) => {
+                              const next = !v;
+                              if (next) {
+                                setTimeout(() => scrollToActionCard(true), 60);
+                              }
+                              return next;
+                            });
+                          }}
                         >
                           <View style={styles.buttonInnerRow}>
                             <AppIcon name={isEditingDraft ? 'check' : 'edit'} size={15} color={THEME.colors.text} />
@@ -1130,8 +1170,14 @@ export default function HomeScreen() {
         </ScrollView>
 
         {/* 3. Gemini-Style Floating Bottom Input Capsule Dock (Size x 2 with Multi-Line Text Input) */}
-        <View style={styles.geminiInputDockContainer} pointerEvents="box-none">
-          <View style={styles.geminiInputCapsule}>
+        <View
+          style={[
+            styles.geminiInputDockContainer,
+            isEditingDraft && styles.geminiInputDockFixedBelow,
+          ]}
+          pointerEvents="box-none"
+        >
+          <View style={[styles.geminiInputCapsule, isEditingDraft && styles.geminiInputCapsuleFixedBelow]}>
             {/* Top Row: Merchant can write a message to talk to AI */}
             <View style={styles.capsuleTextInputWrapper}>
               <TextInput
@@ -1977,6 +2023,9 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 175,
   },
+  scrollContentEditingDraft: {
+    paddingBottom: 280,
+  },
   screenContainer: {
     width: '100%',
   },
@@ -2146,6 +2195,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 10,
     elevation: 3,
+  },
+  approvalCardEditing: {
+    borderColor: 'rgba(251, 188, 4, 0.85)',
+    shadowOpacity: 0.14,
+    shadowRadius: 14,
   },
   cardTopline: {
     flexDirection: 'row',
@@ -2936,13 +2990,22 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   geminiInputDockContainer: {
-    position: 'absolute',
+    position: (Platform.OS === 'web' ? 'fixed' : 'absolute') as any,
     bottom: 12,
     left: 0,
     right: 0,
     alignItems: 'center',
     zIndex: 10,
     paddingHorizontal: 16,
+    maxWidth: 480,
+    width: '100%',
+    alignSelf: 'center',
+    marginHorizontal: 'auto' as any,
+  },
+  geminiInputDockFixedBelow: {
+    position: (Platform.OS === 'web' ? 'fixed' : 'absolute') as any,
+    bottom: 8,
+    zIndex: 10,
   },
   geminiInputCapsule: {
     flexDirection: 'column',
@@ -2961,6 +3024,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 14,
     elevation: 6,
+  },
+  geminiInputCapsuleFixedBelow: {
+    shadowOpacity: 0.05,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
   },
   capsuleTextInputWrapper: {
     width: '100%',

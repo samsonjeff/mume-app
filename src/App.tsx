@@ -97,12 +97,36 @@ function VoiceWave() {
 function PendingAction({
   onApproved,
   isApproved = false,
+  onEditingChange,
 }: {
   onApproved: () => void;
   isApproved?: boolean;
+  onEditingChange?: (isEditing: boolean) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draftReply, setDraftReply] = useState('Hi! Our red apples are $2.50 / kg. Fresh delivery today.');
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const toggleEditing = () => {
+    setEditing((prev) => {
+      const next = !prev;
+      onEditingChange?.(next);
+      if (next) {
+        setTimeout(() => {
+          cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 50);
+      }
+      return next;
+    });
+  };
+
+  const startEditing = () => {
+    setEditing(true);
+    onEditingChange?.(true);
+    setTimeout(() => {
+      cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  };
 
   if (isApproved) {
     return (
@@ -119,7 +143,11 @@ function PendingAction({
   }
 
   return (
-    <section className="approval-card action-needed-card" aria-labelledby="approval-title">
+    <section
+      ref={cardRef}
+      className={`approval-card action-needed-card ${editing ? 'is-editing' : ''}`}
+      aria-labelledby="approval-title"
+    >
       {/* Topline: Status dot & "Action needed to approve" */}
       <div className="card-topline">
         <div className="eyebrow action-needed-eyebrow">
@@ -153,7 +181,7 @@ function PendingAction({
           <button
             type="button"
             className="draft-edit-pill-btn"
-            onClick={() => setEditing((v) => !v)}
+            onClick={toggleEditing}
             aria-label={editing ? 'Save draft changes' : 'Edit message text'}
           >
             <Icon name={editing ? 'check' : 'edit'} size={12} />
@@ -171,6 +199,9 @@ function PendingAction({
               className="draft-textarea-input"
               value={draftReply}
               onChange={(e) => setDraftReply(e.target.value)}
+              onFocus={() => {
+                cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }}
               rows={3}
               autoFocus
             />
@@ -178,7 +209,7 @@ function PendingAction({
         ) : (
           <div
             className="draft-message-display-box"
-            onClick={() => setEditing(true)}
+            onClick={startEditing}
             title="Click to edit full message text"
           >
             <p id="approval-title" className="draft-message-display">
@@ -192,7 +223,7 @@ function PendingAction({
       <div className="approval-actions">
         <button
           className={`secondary-button min-h-[48px] flex items-center justify-center gap-1.5 ${editing ? 'active' : ''}`}
-          onClick={() => setEditing((value) => !value)}
+          onClick={toggleEditing}
           type="button"
         >
           <Icon name={editing ? 'check' : 'edit'} size={16} />
@@ -203,6 +234,7 @@ function PendingAction({
           className="primary-button min-h-[48px] flex items-center justify-center gap-1.5"
           onClick={() => {
             setEditing(false);
+            onEditingChange?.(false);
             onApproved();
           }}
           type="button"
@@ -231,6 +263,7 @@ function HomeScreen({
   chatCardRef,
   chatScrollRef,
   isApproved = false,
+  onEditingChange,
 }: {
   userName: string;
   isLoggedIn: boolean;
@@ -246,6 +279,7 @@ function HomeScreen({
   chatCardRef?: React.RefObject<HTMLDivElement | null>;
   chatScrollRef?: React.RefObject<HTMLDivElement | null>;
   isApproved?: boolean;
+  onEditingChange?: (isEditing: boolean) => void;
 }) {
   const localChatScrollRef = useRef<HTMLDivElement>(null);
   const activeChatScrollRef = chatScrollRef || localChatScrollRef;
@@ -290,7 +324,11 @@ function HomeScreen({
               {isApproved ? '0 actions' : '1 action to approve'}
             </span>
           </div>
-          <PendingAction onApproved={onApproved} isApproved={isApproved} />
+          <PendingAction
+            onApproved={onApproved}
+            isApproved={isApproved}
+            onEditingChange={onEditingChange}
+          />
 
           {/* Mume AI Chat Thread Stream (Positioned below Pending Action Card) */}
           {chatMessages.length > 0 && (
@@ -534,6 +572,7 @@ export default function App() {
   const chatCardRef = useRef<HTMLDivElement | null>(null);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
   const contentScrollRef = useRef<HTMLDivElement | null>(null);
+  const [isEditingActionDraft, setIsEditingActionDraft] = useState(false);
 
   // Blue highlight triggers only when user is actively typing or dictating via voice
   const isChattingOrTyping = isTyping || voiceState === 'listening';
@@ -825,7 +864,10 @@ export default function App() {
         />
 
         {/* Content Scroll View (Ergonomic layout for Android 360dp - 412dp) */}
-        <div className="content-scroll" ref={contentScrollRef}>
+        <div
+          className={`content-scroll ${isEditingActionDraft ? 'editing-draft' : ''}`}
+          ref={contentScrollRef}
+        >
           {activeTab === 'home' && (
             <HomeScreen
               userName={userName}
@@ -842,6 +884,7 @@ export default function App() {
               chatCardRef={chatCardRef}
               chatScrollRef={chatScrollRef}
               isApproved={isApproved}
+              onEditingChange={setIsEditingActionDraft}
             />
           )}
           {activeTab === 'inbox' && (
@@ -870,8 +913,8 @@ export default function App() {
 
         {/* Gemini-Style Floating Bottom Input Capsule Dock (Size x 2 with Multi-Line Text Input & Send) */}
         {activeTab !== 'settings' && (
-          <div className="input-capsule-container">
-            <div className="input-capsule size-x2">
+          <div className={`input-capsule-container ${isEditingActionDraft ? 'dock-fixed-below' : ''}`}>
+            <div className={`input-capsule size-x2 ${isEditingActionDraft ? 'capsule-docked-below' : ''}`}>
               {/* Top Row: Merchant can write a message to talk to AI */}
               <div className="capsule-text-container">
                 <textarea
