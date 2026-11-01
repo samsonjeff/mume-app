@@ -103,6 +103,7 @@ Complies with the **Cross-Platform Mobile Responsiveness and Ergonomics Directiv
 - **60 FPS Reanimated UI**: Smooth, UI-thread audio waveform animations with zero frame drop.
 - **1.5-Second Startup Intro**: Fluid cross-fade startup transition between `mume-black.svg` (white canvas) and `mume-white.svg` (obsidian black canvas), flowing directly into the app header.
 - **Constant-Height Mume AI Chat with Auto-Follow**: Locked container height with internal scrollbar, automatic scroll adjustment so the merchant clearly sees conversation history while typing, and transient active-typing electric blue highlight that triggers during keystrokes and automatically dismisses after pausing.
+- **Ergonomic Spacing & Vertical Rhythm**: Generous bottom margin (18dp / 1.25rem) between pending actions / "All Caught Up!" cards and the Mume AI Chat stream to prevent cramped element stacking.
 - **Product Catalog Management**: Interactive modal CRUD with custom photo upload, live image preview, and stock status indicators.
 - **International Pricing & Currency**: Standardized USD ($) currency across catalog products, suggested draft responses, and simulated store inventory.
 - **Official Meta Branding**: Integrated `baseline-facebook.svg` across all Page connection touchpoints.

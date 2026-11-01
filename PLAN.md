@@ -185,12 +185,28 @@ pending_actions (id, conversation_id, product_id, draft_reply, suggested_price, 
 - [x] Integrated official `baseline-facebook.svg` across all Facebook login and linking touchpoints.
 - [x] Polished header bar with centered white Mume vector logo and high-visibility silver-to-white gradient avatar badge.
 - [x] Standardized hero greeting subtitle to "Welcome to Muse!".
-- [x] Locked Mume AI Chat container to a constant height (+10%) with internal message scrolling.
-- [x] Active conversation highlighting: dynamic Electric Blue focus glow and live status pill (`Chatting` · `Listening` · `Thinking`) when typing or dictating.
+- [x] Locked Mume AI Chat container to a constant height (+10%, 13.8rem / 220px) with internal color gray scrollbar.
+- [x] Active conversation highlighting: dynamic Electric Blue focus glow and live status pill (`Typing…` · `Listening` · `Thinking`) when actively composing or dictating.
 - [x] Integrated visible color gray scrollbar for smooth review of full conversation history while composing messages.
 - [x] Engineered 1.5-second startup animation with smooth cross-fade transition using `mume-black.svg` and `mume-white.svg`.
 - [x] Dynamic conversation auto-follow & position adjustment while typing, keeping conversation history clearly visible above input capsule.
 - [x] Transient active typing blue highlight: triggers solely during active keystrokes, smoothly turns off after typing pause, and returns immediately upon resumed typing.
+- [x] Ergonomic vertical rhythm: Added breathing room margin bottom (18dp / 1.25rem) to "All Caught Up!" and pending action cards above the conversation stream.
+
+### Phase 6: Comprehensive Security, Compliance & Distribution Audit [COMPLETED]
+- [x] **Secrets & Key Quarantine**: Conducted full-repository regex scan (`git log` history & working tree) verifying zero production API keys, secrets, tokens, or credentials are hardcoded or tracked.
+- [x] **Meta Platform Compliance Audit**:
+  - `POST /webhook` HMAC-SHA256 signature verification with `crypto.timingSafeEqual` and sub-5s fast ACK.
+  - PII-safe logging (logging only `page_id` and timestamp; excluding customer text, names, PSIDs, and phone numbers).
+  - Outbound Messenger Send API gated strictly behind `approvalStatus === 'approved'` human confirmation.
+  - 24-hour Standard Messaging Window validation enforced before any outbound Graph API request.
+  - Page Access Tokens encrypted at rest with AES-256-GCM authenticated cipher (`iv.tag.data`).
+  - Graph API rate-limit header telemetry (`x-app-usage`, `x-page-usage`, `x-business-use-case-usage`) with 75% warning and 90% throttle alerts.
+- [x] **Public Distribution Hygiene**:
+  - Comprehensive `.gitignore` protecting local `.env` files, build caches, mobile keystores, signing certificates, and local debug logs.
+  - Sanitized `.env.example` templates in root, `backend/`, and `frontend/` with zero real secrets.
+  - Verified 13/13 backend compliance test suite passing.
+  - Verified clean TypeScript compilation and Vite production build.
 
 ---
 
