@@ -1,7 +1,41 @@
 # Mume
 
-**Mume = Muse + Messenger. Manage Business Page Messenger without opening Messenger.**
+> Voice-first Page OS for Facebook Business Pages. Hands-free assistant that syncs with your Page Messenger, drafts context-aware replies with real-time catalog pricing, and strictly enforces human-in-the-loop confirmation before dispatching customer responses.
 
+![React Native](https://img.shields.io/badge/React_Native-0.88.1-61DAFB?style=for-the-badge&logo=react&logoColor=black)
+![Expo](https://img.shields.io/badge/Expo-SDK_58-000020?style=for-the-badge&logo=expo&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-20+-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
+![Express](https://img.shields.io/badge/Express.js-4.21-000000?style=for-the-badge&logo=express&logoColor=white)
+![Supabase](https://img.shields.io/badge/Supabase-pgvector_%26_Realtime-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)
+![Meta Graph API](https://img.shields.io/badge/Meta_Graph_API-v21.0-0467DF?style=for-the-badge&logo=meta&logoColor=white)
+![Meta AI](https://img.shields.io/badge/Meta_AI-Muse_Models-0467DF?style=for-the-badge&logo=meta&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-00B95C?style=for-the-badge)
+
+---
+
+## 📑 Table of Contents
+
+- [Overview](#overview)
+- [Hackathon Track & Highlights](#hackathon-highlight)
+- [Architecture & Topology](#architecture--topology)
+- [Security & Meta Platform Compliance](#security--meta-platform-compliance)
+- [Mobile Ergonomics & Google Antigravity Design System](#mobile-ergonomics--google-antigravity-design-system)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [1. Repository Setup](#1-repository-setup)
+  - [2. Backend Setup](#2-backend-setup)
+  - [3. Frontend Setup (Expo Mobile App)](#3-frontend-setup-expo-mobile-app)
+  - [4. Supabase Database Migration](#4-supabase-database-migration)
+  - [5. Facebook App & Page Configuration](#5-facebook-app--page-configuration)
+- [Verification & Audit Commands](#verification--audit-commands)
+- [Compliance Endpoints](#compliance-endpoints)
+- [License](#license)
+
+---
+
+<a id="hackathon-highlight"></a>
 > ## 🏆 Highlight Entry - Meta Global AI Developer Hackathon
 > **Project:** Mume  
 > **Track:** Indie Developer & Startups  
@@ -12,6 +46,7 @@
 
 ---
 
+<a id="overview"></a>
 ## 🌟 Overview
 
 Small business owners, market vendors, and solo merchants handle daily inquiries, comments, and price checks through their Facebook Business Page. However, typing replies while cooking, packing orders, or serving customers is inconvenient and error-prone, leading to unanswered messages and missed sales.
@@ -20,6 +55,7 @@ Small business owners, market vendors, and solo merchants handle daily inquiries
 
 ---
 
+<a id="architecture--topology"></a>
 ## 🏗️ Architecture & Topology
 
 Mume is designed as a secure multi-tier system with strict separation of concerns:
@@ -80,6 +116,7 @@ mume/
 
 ---
 
+<a id="security--meta-platform-compliance"></a>
 ## 🔒 Security & Meta Platform Compliance
 
 Mume is engineered strictly within Meta Developer Policies and Platform Terms:
@@ -95,6 +132,7 @@ Mume is engineered strictly within Meta Developer Policies and Platform Terms:
 
 ---
 
+<a id="mobile-ergonomics--google-antigravity-design-system"></a>
 ## 🎨 Mobile Ergonomics & Google Antigravity Design System
 
 Complies with the **Cross-Platform Mobile Responsiveness and Ergonomics Directive (CPMRED-001)**:
@@ -120,6 +158,7 @@ Complies with the **Cross-Platform Mobile Responsiveness and Ergonomics Directiv
 
 ---
 
+<a id="getting-started"></a>
 ## 🚀 Getting Started
 
 ### Prerequisites
@@ -242,6 +281,7 @@ Scan the QR code with Expo Go on Android or run `npm run web` for browser previe
 
 ---
 
+<a id="verification--audit-commands"></a>
 ## 🧪 Verification & Audit Commands
 
 Run the full verification suite across the codebase:
@@ -262,6 +302,7 @@ npm run build
 
 ---
 
+<a id="compliance-endpoints"></a>
 ## 📜 Compliance Endpoints
 
 - **Privacy Policy**: `GET /privacy`
@@ -272,6 +313,7 @@ npm run build
 
 ---
 
+<a id="license"></a>
 ## 📄 License
 
 Hackathon Project. Built with Meta Muse models via Meta Model API and Meta Graph API v21.0. Distributed for open development under the MIT License.
