@@ -26,12 +26,13 @@ Mume is designed as a secure multi-tier system with strict separation of concern
 
 ```
 mume/
-├── frontend/               # Cross-platform mobile app (Expo SDK 58 + React Native 0.88 + Reanimated)
+├── frontend/               # Cross-platform mobile app (Expo SDK 58 + React Native 0.88.1 + Reanimated)
 │   ├── app/                # Expo Router screen tree (index.tsx, link-page.tsx, _layout.tsx)
-│   ├── components/         # Ergonomic components (WakeWordButton, VoiceWave, InboxBadge, AppIcon)
+│   ├── assets/             # Brand logos, icons, & product images (mume-black/white, baseline-facebook, fruits)
+│   ├── components/         # Ergonomic components (WakeWordButton, VoiceWave, MumeLogo, AppIcon)
 │   ├── constants/          # Official Google Antigravity design system tokens (theme.ts)
 │   └── lib/                # Clean API client & sanitized Supabase connection
-├── backend/                # Node.js + Express backend & Meta Graph API v21.0 integration
+├── backend/                # Node.js 20+ / Express backend & Meta Graph API v21.0 integration
 │   ├── src/
 │   │   ├── app.js          # Express app factory, webhook handlers, OAuth flow, & reply dispatcher
 │   │   ├── index.js        # Server bootstrapper & process signal handler
@@ -98,22 +99,23 @@ Mume is engineered strictly within Meta Developer Policies and Platform Terms:
 
 Complies with the **Cross-Platform Mobile Responsiveness and Ergonomics Directive (CPMRED-001)**:
 
-- **Bottom 40% Thumb Zone**: Primary actions (floating 72dp `WakeWordButton`, quick approval chips) reside in the natural one-handed reach zone.
-- **Minimum Tap Target**: 48x48dp minimum with 8dp spacing for accurate operation on the move.
+- **Bottom 40% Thumb Zone**: Floating Gemini-style input dock sits fixed bottom-center within a safe margin, uniting quick-catalog actions (`+`), a central voice dictation and typing field, and a high-contrast wake microphone.
+- **Minimum Tap Target**: 48x48dp minimum with 8dp spacing for accurate operation during active retail tasks.
+- **Responsive Slide-Out Drawer**: Safe-area aware full-height modal (`ScrollView` + `useSafeAreaInsets`) replacing bottom bar clutter, containing navigation items, store connection info, and session controls.
+- **Log-Out Confirmation & Session Toggle**: Features `log-out.svg` in the drawer footer with a safety confirmation modal (`Log Out?`) that clears session state and transforms into an official Meta "Login using Facebook" button.
 - **60 FPS Reanimated UI**: Smooth, UI-thread audio waveform animations with zero frame drop.
 - **1.5-Second Startup Intro**: Fluid cross-fade startup transition between `mume-black.svg` (white canvas) and `mume-white.svg` (obsidian black canvas), flowing directly into the app header.
-- **Constant-Height Mume AI Chat with Auto-Follow**: Locked container height with internal scrollbar, automatic scroll adjustment so the merchant clearly sees conversation history while typing, and transient active-typing electric blue highlight that triggers during keystrokes and automatically dismisses after pausing.
+- **Constant-Height Mume AI Chat with Auto-Follow**: Locked container height (13.8rem / 220px) with internal gray scrollbar, automatic scroll adjustment so the merchant clearly sees conversation history while typing, and transient active-typing electric blue highlight that triggers during keystrokes and automatically dismisses after pausing.
 - **Ergonomic Spacing & Vertical Rhythm**: Generous bottom margin (18dp / 1.25rem) between pending actions / "All Caught Up!" cards and the Mume AI Chat stream to prevent cramped element stacking.
-- **Product Catalog Management**: Interactive modal CRUD with custom photo upload, live image preview, and stock status indicators.
-- **International Pricing & Currency**: Standardized USD ($) currency across catalog products, suggested draft responses, and simulated store inventory.
-- **Official Meta Branding**: Integrated `baseline-facebook.svg` across all Page connection touchpoints.
+- **Product Catalog Management (CRUD)**: Interactive modal CRUD with custom photo upload, live image preview, stock status indicators (`In stock`, `Low stock`, `Out of stock`), and international USD ($) pricing.
+- **Official Meta Branding**: Integrated `baseline-facebook.svg` across all Facebook login and linking touchpoints.
 - **Official Google Antigravity Palette**:
   - `#FFFFFF` (`--palette-grey-0`): Elevated surfaces & cards
   - `#F8F9FC` (`--palette-grey-10`): Screen canvas background
   - `#EFF2F7` (`--palette-grey-20`): Draft reply wells
   - `#E1E6EC` (`--palette-grey-100`): Hairline dividers
   - `#121317` (`--palette-grey-1200`): Obsidian ink & primary CTAs
-  - `#3279F9` (`--palette-blue-600`): VoiceWave electric blue
+  - `#3279F9` (`--palette-blue-600`): VoiceWave electric blue & typing highlight
   - `#00B95C` (Emerald), `#FBBC04` (Amber), `#FC413D` (Coral): Real-time status accents
 
 ---

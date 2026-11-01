@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import Header from './components/Header';
 import SettingsView from './components/SettingsView';
 import Icon from './components/Icon';
@@ -13,6 +13,7 @@ export interface Product {
   name: string;
   price: string;
   stock: 'In stock' | 'Low stock' | 'Out of stock';
+  isStock?: boolean;
   imageKey: 'apple' | 'mango' | 'banana' | 'custom';
   imageUri?: string;
 }

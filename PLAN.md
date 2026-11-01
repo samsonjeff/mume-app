@@ -18,12 +18,13 @@ Mume is structured as a coordinated multi-surface workspace designed for high re
 
 ```
 mume/
-├── frontend/               # Cross-platform mobile app (Expo SDK 58 + React Native 0.88 + Reanimated)
+├── frontend/               # Cross-platform mobile app (Expo SDK 58 + React Native 0.88.1 + Reanimated)
 │   ├── app/                # Expo Router screen tree (index.tsx, link-page.tsx, _layout.tsx)
-│   ├── components/         # Ergonomic components (WakeWordButton, VoiceWave, InboxBadge, AppIcon)
+│   ├── assets/             # Brand logos, icons, & product images (mume-black/white, baseline-facebook, fruits)
+│   ├── components/         # Ergonomic components (WakeWordButton, VoiceWave, MumeLogo, AppIcon)
 │   ├── constants/          # Official Google Antigravity design system tokens (theme.ts)
 │   └── lib/                # Clean API client & sanitized Supabase connection
-├── backend/                # Node.js + Express backend & Meta Graph API v21.0 integration
+├── backend/                # Node.js 20+ / Express backend & Meta Graph API v21.0 integration
 │   ├── src/
 │   │   ├── app.js          # Express app factory, webhook handlers, OAuth flow, & reply dispatcher
 │   │   ├── index.js        # Server bootstrapper & process signal handler
@@ -104,12 +105,22 @@ The integration strictly satisfies Meta Developer Policies, Platform Terms, and 
 > **Directive ID:** CPMRED-001 | **Status:** STRICT & AUDITED  
 > **Goal:** Guarantee optimal one-handed comfortability, device responsiveness, and future-ready iOS adaptability while shipping Android-first.
 
-### 3.1 Thumb Zone & Ergonomic Targets
-- **Bottom 40% Action Zone**: The primary floating `WakeWordButton` (72dp) is fixed bottom-center within a 72px safe margin from the screen bottom edge.
-- **Minimum Tap Target**: 48x48dp for all interactive buttons and suggestion chips, with minimum 8dp spacing to prevent unintended presses.
-- **Slide-Out Navigation Drawer**: Replaces clutter with a safe-area aware slide-out drawer containing navigation destinations, active Page connection status, and Facebook Login/Logout controls.
+### 3.1 Thumb Zone & Ergonomic Architecture
+- **Bottom 40% Action Zone**: The primary floating Gemini-style input dock sits fixed bottom-center within a safe margin from the screen bottom edge. It combines a quick-catalog button (`+`), a central voice dictation / typing field, and a high-contrast microphone button for hands-free activation.
+- **Minimum Tap Target**: 48x48dp minimum for all interactive buttons, modal controls, and suggestion chips, with minimum 8dp spacing to prevent unintended presses during active store work.
+- **Responsive Slide-Out Navigation Drawer**: Uses a full-height safe-area aware modal (`ScrollView` + `useSafeAreaInsets`) replacing bottom bar clutter. Houses navigation destinations, active Page connection status, and Facebook Login/Logout controls with notch/island support.
+- **Logout Confirmation & Session Toggle**: Replaced generic chevrons with `log-out.svg` in the drawer footer. Tapping triggers a safety confirmation modal (`Log Out?`) that resets the session, displays clear empty states across tabs, and transforms the drawer footer into an official Meta "Login using Facebook" CTA.
 
-### 3.2 Official Google Antigravity Color Palette (`https://antigravity.google/`)
+### 3.2 Dynamic Visuals & Interaction Architecture
+- **1.5-Second Startup Intro**: Fluid cross-fade startup transition between `mume-black.svg` (white canvas) and `mume-white.svg` (obsidian canvas), transitioning smoothly into the top navigation header.
+- **Obsidian Top Header Bar**: Polished obsidian black bar (`#121317`) featuring a centered white Mume vector logo, left menu toggle, and right silver-to-white gradient avatar badge with dynamic initials.
+- **Constant-Height Mume AI Chat (13.8rem / 220px)**: Locked container height with custom internal gray scrollbar, ensuring conversation history remains accessible without jumping layout height.
+- **Dynamic Conversation Auto-Follow**: Automatically tracks and scrolls the conversation card into clear view as the merchant types or dictates, preventing keyboard occlusion.
+- **Transient Active-Typing Electric Blue Highlight**: A glowing `#3279F9` focus ring activates solely during active keystrokes or active speech recognition and gracefully dismisses 1.0s after typing pauses.
+- **Ergonomic Vertical Rhythm**: An 18dp (1.25rem) bottom margin is enforced below the pending action / "All Caught Up!" cards to ensure breathing room above the AI conversation stream.
+- **Interactive Product Catalog CRUD**: Add, edit, and delete modal interface with real fruit assets (apple, mango, banana) and custom photo uploads with live preview, stock status toggles, and international USD ($) pricing.
+
+### 3.3 Official Google Antigravity Color Palette (`https://antigravity.google/`)
 Adopted strictly across mobile screens and theme definitions (`frontend/constants/theme.ts`):
 
 | CSS Token | Hex | Role | Mobile Application |
@@ -121,11 +132,11 @@ Adopted strictly across mobile screens and theme definitions (`frontend/constant
 | `--palette-grey-100` | `#E1E6EC` | **Surface Border** | Subtle dividers, card borders |
 | `--palette-grey-1200` | `#121317` | **Obsidian Ink** | Primary headers, solid pill CTA buttons |
 | `--palette-grey-800` | `#45474D` | **Variant Ink** | Secondary descriptions, timestamps, metadata |
-| `--palette-blue-600` | `#3279F9` | **Electric Blue** | VoiceWave animated bars, active voice state |
-| `--theme-accent-primary` | `#1A73E8` | **Google Blue** | Primary links, accent highlights |
+| `--palette-blue-600` | `#3279F9` | **Electric Blue** | VoiceWave animated bars, active voice & typing highlight |
+| `--theme-accent-primary` | `#1A73E8` | **Google Blue** | Primary links, Facebook button accents |
 | `--palette-green` | `#00B95C` | **Emerald Green** | Live Page status badge, success indicators |
 | `--palette-yellow` | `#FBBC04` | **Google Amber** | Thinking state, low-stock indicators |
-| `--palette-red` | `#FC413D` | **Google Coral** | Disconnect states, error alerts |
+| `--palette-red` | `#FC413D` | **Google Coral** | Log-out button, disconnect states, error alerts |
 
 ---
 
