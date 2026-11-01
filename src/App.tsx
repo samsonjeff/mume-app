@@ -167,6 +167,8 @@ function HomeScreen({
   isAiThinking,
   isChattingOrTyping = false,
   voiceState = 'idle',
+  chatCardRef,
+  chatScrollRef,
 }: {
   userName: string;
   isLoggedIn: boolean;
@@ -179,14 +181,17 @@ function HomeScreen({
   isAiThinking: boolean;
   isChattingOrTyping?: boolean;
   voiceState?: VoiceState;
+  chatCardRef?: React.RefObject<HTMLDivElement | null>;
+  chatScrollRef?: React.RefObject<HTMLDivElement | null>;
 }) {
-  const chatScrollRef = useRef<HTMLDivElement>(null);
+  const localChatScrollRef = useRef<HTMLDivElement>(null);
+  const activeChatScrollRef = chatScrollRef || localChatScrollRef;
 
   useEffect(() => {
-    if (chatScrollRef.current) {
-      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    if (activeChatScrollRef.current) {
+      activeChatScrollRef.current.scrollTop = activeChatScrollRef.current.scrollHeight;
     }
-  }, [chatMessages, isAiThinking]);
+  }, [chatMessages, isAiThinking, activeChatScrollRef]);
 
   return (
     <>
@@ -223,7 +228,10 @@ function HomeScreen({
 
           {/* Mume AI Chat Thread Stream (Positioned below Pending Action Card) */}
           {chatMessages.length > 0 && (
-            <div className={`chat-section-card ${isChattingOrTyping ? 'highlighted-active' : ''}`}>
+            <div
+              ref={chatCardRef}
+              className={`chat-section-card ${isChattingOrTyping ? 'highlighted-active' : ''}`}
+            >
               <div className="chat-section-header">
                 <div className="chat-header-left">
                   <span className={`chat-header-badge ${isChattingOrTyping ? 'active' : ''}`}>
@@ -234,14 +242,14 @@ function HomeScreen({
                 {isChattingOrTyping ? (
                   <span className="active-highlight-badge">
                     <span className="active-highlight-dot" />
-                    <span>{voiceState === 'listening' ? 'Listening' : voiceState === 'thinking' ? 'Thinking…' : 'Chatting'}</span>
+                    <span>{voiceState === 'listening' ? 'Listening' : 'Typing…'}</span>
                   </span>
                 ) : (
                   <span className="chat-header-subtitle">Talk to AI</span>
                 )}
               </div>
 
-              <div className="chat-messages-list" ref={chatScrollRef}>
+              <div className="chat-messages-list" ref={activeChatScrollRef}>
                 {chatMessages.map((msg) => (
                   <div
                     key={msg.id}
@@ -455,7 +463,76 @@ export default function App() {
   ]);
   const [isAiThinking, setIsAiThinking] = useState(false);
   const [isInputFocused, setIsInputFocused] = useState(false);
-  const isChattingOrTyping = chatInput.trim().length > 0 || isInputFocused || voiceState !== 'idle' || isAiThinking;
+  const [isTyping, setIsTyping] = useState(false);
+  const typingTimeoutRef = useRef<any>(null);
+  const chatCardRef = useRef<HTMLDivElement | null>(null);
+  const chatScrollRef = useRef<HTMLDivElement | null>(null);
+  const contentScrollRef = useRef<HTMLDivElement | null>(null);
+
+  // Blue highlight triggers only when user is actively typing or dictating via voice
+  const isChattingOrTyping = isTyping || voiceState === 'listening';
+
+  const adjustConversationPosition = useCallback((smooth = true) => {
+    if (chatCardRef.current && contentScrollRef.current) {
+      const container = contentScrollRef.current;
+      const card = chatCardRef.current;
+      const containerRect = container.getBoundingClientRect();
+      const cardRect = card.getBoundingClientRect();
+
+      // Measure relative top distance from container's visible top to the conversation card
+      const relativeTop = cardRect.top - containerRect.top;
+      const targetOffset = 16; // 16px below header
+      const diff = relativeTop - targetOffset;
+
+      // Adjust scroll position smoothly so the conversation card stays directly in view
+      if (Math.abs(diff) > 20) {
+        container.scrollBy({
+          top: diff,
+          behavior: smooth ? 'smooth' : 'auto',
+        });
+      }
+    }
+
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTo({
+        top: chatScrollRef.current.scrollHeight,
+        behavior: smooth ? 'smooth' : 'auto',
+      });
+    }
+  }, []);
+
+  const handleTyping = (text: string) => {
+    setChatInput(text);
+    if (activeTab !== 'home') {
+      setActiveTab('home');
+    }
+    if (text.length > 0) {
+      setIsTyping(true);
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      // Highlight vanishes after user pauses/stops typing
+      typingTimeoutRef.current = setTimeout(() => {
+        setIsTyping(false);
+      }, 1000);
+
+      // Keep conversation in view and following while typing
+      adjustConversationPosition(true);
+    } else {
+      setIsTyping(false);
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -578,6 +655,11 @@ export default function App() {
     const trimmed = chatInput.trim();
     if (!trimmed || isAiThinking) return;
 
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    setIsTyping(false);
+
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
       sender: 'user',
@@ -589,6 +671,11 @@ export default function App() {
     setChatInput('');
     setIsAiThinking(true);
 
+    if (activeTab !== 'home') {
+      setActiveTab('home');
+    }
+    setTimeout(() => adjustConversationPosition(true), 50);
+
     window.setTimeout(() => {
       const reply = getMumeAiReply(trimmed);
       const aiMsg: ChatMessage = {
@@ -599,6 +686,7 @@ export default function App() {
       };
       setChatMessages((prev) => [...prev, aiMsg]);
       setIsAiThinking(false);
+      setTimeout(() => adjustConversationPosition(true), 50);
     }, 700);
   };
 
@@ -669,7 +757,7 @@ export default function App() {
         />
 
         {/* Content Scroll View (Ergonomic layout for Android 360dp - 412dp) */}
-        <div className="content-scroll">
+        <div className="content-scroll" ref={contentScrollRef}>
           {activeTab === 'home' && (
             <HomeScreen
               userName={userName}
@@ -683,6 +771,8 @@ export default function App() {
               isAiThinking={isAiThinking}
               isChattingOrTyping={isChattingOrTyping}
               voiceState={voiceState}
+              chatCardRef={chatCardRef}
+              chatScrollRef={chatScrollRef}
             />
           )}
           {activeTab === 'inbox' && (
@@ -719,9 +809,19 @@ export default function App() {
                   className="capsule-text-input"
                   placeholder="Ask Mume or write a message…"
                   value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  onFocus={() => setIsInputFocused(true)}
-                  onBlur={() => setIsInputFocused(false)}
+                  onChange={(e) => handleTyping(e.target.value)}
+                  onFocus={() => {
+                    setIsInputFocused(true);
+                    if (activeTab !== 'home') setActiveTab('home');
+                    adjustConversationPosition(true);
+                  }}
+                  onBlur={() => {
+                    setIsInputFocused(false);
+                    if (typingTimeoutRef.current) {
+                      clearTimeout(typingTimeoutRef.current);
+                    }
+                    setIsTyping(false);
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();

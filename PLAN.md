@@ -189,6 +189,8 @@ pending_actions (id, conversation_id, product_id, draft_reply, suggested_price, 
 - [x] Active conversation highlighting: dynamic Electric Blue focus glow and live status pill (`Chatting` · `Listening` · `Thinking`) when typing or dictating.
 - [x] Integrated visible color gray scrollbar for smooth review of full conversation history while composing messages.
 - [x] Engineered 1.5-second startup animation with smooth cross-fade transition using `mume-black.svg` and `mume-white.svg`.
+- [x] Dynamic conversation auto-follow & position adjustment while typing, keeping conversation history clearly visible above input capsule.
+- [x] Transient active typing blue highlight: triggers solely during active keystrokes, smoothly turns off after typing pause, and returns immediately upon resumed typing.
 
 ---
 

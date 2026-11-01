@@ -430,6 +430,18 @@
   border-radius: 50%;
   background: #3279F9;
   box-shadow: 0 0 6px #3279F9;
+  animation: typingDotPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes typingDotPulse {
+  0%, 100% {
+    transform: scale(0.9);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
 }
 
 /* Color gray scrollbar so user can scroll the entire conversation with bot */
@@ -607,6 +619,8 @@
   overflow-y: auto;
   padding: 1.45rem 1.1rem 11rem;
   scrollbar-width: none;
+  scroll-behavior: smooth;
+  position: relative;
 }
 
 .content-scroll::-webkit-scrollbar {

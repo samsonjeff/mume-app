@@ -130,8 +130,59 @@ export default function HomeScreen() {
   ]);
   const [isAiThinking, setIsAiThinking] = useState(false);
   const [isInputFocused, setIsInputFocused] = useState(false);
-  const isChattingOrTyping = chatInput.trim().length > 0 || isInputFocused || voiceState !== 'idle' || isAiThinking;
+  const [isTyping, setIsTyping] = useState(false);
+  const typingTimeoutRef = useRef<any>(null);
   const chatScrollRef = useRef<any>(null);
+  const mainScrollRef = useRef<any>(null);
+  const chatCardY = useRef<number>(0);
+
+  // Blue highlight triggers only when user is actively typing or dictating via voice
+  const isChattingOrTyping = isTyping || voiceState === 'listening';
+
+  const scrollToConversation = useCallback((animated = true) => {
+    if (mainScrollRef.current && chatCardY.current > 0) {
+      mainScrollRef.current.scrollTo({
+        y: Math.max(0, chatCardY.current - 16),
+        animated,
+      });
+    }
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollToEnd({ animated });
+    }
+  }, []);
+
+  const handleTyping = (text: string) => {
+    setChatInput(text);
+    if (activeTab !== 'today') {
+      setActiveTab('today');
+    }
+    if (text.length > 0) {
+      setIsTyping(true);
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      // Blue highlight vanishes after user pauses/stops typing
+      typingTimeoutRef.current = setTimeout(() => {
+        setIsTyping(false);
+      }, 1000);
+
+      // Keep conversation in view and following while typing
+      scrollToConversation(true);
+    } else {
+      setIsTyping(false);
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -368,6 +419,11 @@ export default function HomeScreen() {
     const trimmed = chatInput.trim();
     if (!trimmed || isAiThinking) return;
 
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    setIsTyping(false);
+
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
       sender: 'user',
@@ -379,6 +435,11 @@ export default function HomeScreen() {
     setChatInput('');
     setIsAiThinking(true);
 
+    if (activeTab !== 'today') {
+      setActiveTab('today');
+    }
+    setTimeout(() => scrollToConversation(true), 50);
+
     setTimeout(() => {
       const replyText = getMumeAiReply(trimmed);
       const aiMsg: ChatMessage = {
@@ -389,6 +450,7 @@ export default function HomeScreen() {
       };
       setChatMessages((prev) => [...prev, aiMsg]);
       setIsAiThinking(false);
+      setTimeout(() => scrollToConversation(true), 50);
     }, 700);
   };
 
@@ -523,6 +585,7 @@ export default function HomeScreen() {
       {/* 2. Main Body Content */}
       <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.bodySafeArea}>
         <ScrollView
+          ref={mainScrollRef}
           contentContainerStyle={styles.scrollContent}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={THEME.colors.primary} />}
         >
@@ -652,7 +715,12 @@ export default function HomeScreen() {
 
                   {/* Mume AI Chat Stream (Positioned below Pending Action Card) */}
                   {chatMessages.length > 0 && (
-                    <View style={[styles.chatSectionCard, isChattingOrTyping && styles.chatSectionCardHighlighted]}>
+                    <View
+                      onLayout={(e) => {
+                        chatCardY.current = e.nativeEvent.layout.y;
+                      }}
+                      style={[styles.chatSectionCard, isChattingOrTyping && styles.chatSectionCardHighlighted]}
+                    >
                       <View style={styles.chatSectionHeader}>
                         <View style={styles.chatHeaderLeft}>
                           <View style={[styles.chatHeaderBadge, isChattingOrTyping && styles.chatHeaderBadgeActive]}>
@@ -664,7 +732,7 @@ export default function HomeScreen() {
                           <View style={styles.activeHighlightBadge}>
                             <View style={styles.activeHighlightDot} />
                             <Text style={styles.activeHighlightText}>
-                              {voiceState === 'listening' ? 'Listening' : voiceState === 'thinking' ? 'Thinking…' : 'Chatting'}
+                              {voiceState === 'listening' ? 'Listening' : 'Typing…'}
                             </Text>
                           </View>
                         ) : (
@@ -1033,9 +1101,19 @@ export default function HomeScreen() {
                 placeholder="Ask Mume or write a message…"
                 placeholderTextColor={THEME.colors.textMuted}
                 value={chatInput}
-                onChangeText={setChatInput}
-                onFocus={() => setIsInputFocused(true)}
-                onBlur={() => setIsInputFocused(false)}
+                onChangeText={handleTyping}
+                onFocus={() => {
+                  setIsInputFocused(true);
+                  if (activeTab !== 'today') setActiveTab('today');
+                  scrollToConversation(true);
+                }}
+                onBlur={() => {
+                  setIsInputFocused(false);
+                  if (typingTimeoutRef.current) {
+                    clearTimeout(typingTimeoutRef.current);
+                  }
+                  setIsTyping(false);
+                }}
                 multiline
                 maxLength={400}
                 returnKeyType="send"
