@@ -145,6 +145,8 @@ Complies with the **Cross-Platform Mobile Responsiveness and Ergonomics Directiv
 - **1.5-Second Startup Intro**: Fluid cross-fade startup transition between `mume-black.svg` (white canvas) and `mume-white.svg` (obsidian black canvas), flowing directly into the app header.
 - **Constant-Height Mume AI Chat with Auto-Follow**: Locked container height (13.8rem / 220px) with internal gray scrollbar, automatic scroll adjustment so the merchant clearly sees conversation history while typing, and transient active-typing electric blue highlight that triggers during keystrokes and automatically dismisses after pausing.
 - **Ergonomic Spacing & Vertical Rhythm**: Generous bottom margin (18dp / 1.25rem) between pending actions / "All Caught Up!" cards and the Mume AI Chat stream to prevent cramped element stacking.
+- **Full-Message Draft Reply Editing**: Merchants can edit the complete text of any suggested customer reply before granting approval, directly in-place using a multiline editor or single tap.
+- **"Action Needed to Approve" Visual System**: High-contrast amber alert state with an animated pulsating status dot (`#FBBC04`), `ACTION NEEDED TO APPROVE` eyebrow, subtle amber border styling, and a dynamic action count badge (`1 action to approve` -> `0 actions`) ensuring urgent messages are never overlooked.
 - **Product Catalog Management (CRUD)**: Interactive modal CRUD with custom photo upload, live image preview, stock status indicators (`In stock`, `Low stock`, `Out of stock`), and international USD ($) pricing.
 - **Official Meta Branding**: Integrated `baseline-facebook.svg` across all Facebook login and linking touchpoints.
 - **Official Google Antigravity Palette**:

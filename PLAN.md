@@ -118,6 +118,8 @@ The integration strictly satisfies Meta Developer Policies, Platform Terms, and 
 - **Dynamic Conversation Auto-Follow**: Automatically tracks and scrolls the conversation card into clear view as the merchant types or dictates, preventing keyboard occlusion.
 - **Transient Active-Typing Electric Blue Highlight**: A glowing `#3279F9` focus ring activates solely during active keystrokes or active speech recognition and gracefully dismisses 1.0s after typing pauses.
 - **Ergonomic Vertical Rhythm**: An 18dp (1.25rem) bottom margin is enforced below the pending action / "All Caught Up!" cards to ensure breathing room above the AI conversation stream.
+- **Full-Message Draft Reply Editing**: Prior to approving and dispatching customer responses via the Meta Graph API, merchants can edit the complete reply text in-place (multiline editor or direct message tap)—not just isolated price fields. Includes instant "Edit message" / "Done editing" controls.
+- **"Action Needed to Approve" Visual System**: High-priority amber visual state featuring an animated pulsing amber indicator dot (`#FBBC04`), uppercase `ACTION NEEDED TO APPROVE` card eyebrow, amber border highlight (`rgba(251, 188, 4, 0.45)`), dynamic section badge (`1 action to approve` in amber vs. `0 actions` in emerald green), and smooth transition into the verified "All Caught Up!" state upon merchant confirmation.
 - **Interactive Product Catalog CRUD**: Add, edit, and delete modal interface with real fruit assets (apple, mango, banana) and custom photo uploads with live preview, stock status toggles, and international USD ($) pricing.
 
 ### 3.3 Official Google Antigravity Color Palette (`https://antigravity.google/`)
@@ -203,6 +205,8 @@ pending_actions (id, conversation_id, product_id, draft_reply, suggested_price, 
 - [x] Dynamic conversation auto-follow & position adjustment while typing, keeping conversation history clearly visible above input capsule.
 - [x] Transient active typing blue highlight: triggers solely during active keystrokes, smoothly turns off after typing pause, and returns immediately upon resumed typing.
 - [x] Ergonomic vertical rhythm: Added breathing room margin bottom (18dp / 1.25rem) to "All Caught Up!" and pending action cards above the conversation stream.
+- [x] Full-message draft reply editing: Empowered merchants to edit the entire outgoing reply before approval, replacing single-field price editing with in-place multiline text modification.
+- [x] "Action needed to approve" visual design: Implemented pulsing amber indicator, card eyebrow, accent borders, dynamic action badge count (`1 action to approve` -> `0 actions`), and instant "All Caught Up!" dispatch transition.
 
 ### Phase 6: Comprehensive Security, Compliance & Distribution Audit [COMPLETED]
 - [x] **Secrets & Key Quarantine**: Conducted full-repository regex scan (`git log` history & working tree) verifying zero production API keys, secrets, tokens, or credentials are hardcoded or tracked.

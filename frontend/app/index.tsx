@@ -192,8 +192,8 @@ export default function HomeScreen() {
   }, [chatMessages, isAiThinking]);
 
   // Pending action state from Figma Make prototype
-  const [editingPrice, setEditingPrice] = useState(false);
-  const [price, setPrice] = useState('$2.50 / kg');
+  const [isEditingDraft, setIsEditingDraft] = useState(false);
+  const [draftReply, setDraftReply] = useState('Hi! Our red apples are $2.50 / kg. Fresh delivery today.');
   const [isApproved, setIsApproved] = useState(false);
 
   // Manual page link state (Settings tab)
@@ -455,6 +455,7 @@ export default function HomeScreen() {
   };
 
   const handleApprove = () => {
+    setIsEditingDraft(false);
     setIsApproved(true);
     setSentToast(true);
     setTimeout(() => {
@@ -628,12 +629,26 @@ export default function HomeScreen() {
                   {/* Section Heading */}
                   <View style={styles.sectionHeaderRow}>
                     <Text style={styles.sectionHeading}>Ready for you</Text>
-                    <Text style={styles.sectionBadge}>{isApproved ? '0 actions' : '1 action'}</Text>
+                    <View style={[styles.sectionBadgePill, isApproved ? styles.sectionBadgeApproved : styles.sectionBadgePending]}>
+                      {!isApproved && <View style={styles.statusDotAmber} />}
+                      <Text style={[styles.sectionBadgeText, isApproved ? styles.sectionBadgeTextApproved : styles.sectionBadgeTextPending]}>
+                        {isApproved ? '0 actions' : '1 action to approve'}
+                      </Text>
+                    </View>
                   </View>
 
                   {/* Pending Action Card */}
                   {!isApproved ? (
                     <View style={styles.approvalCard}>
+                      {/* Card Topline: Shows urgency & "Action needed to approve" */}
+                      <View style={styles.cardTopline}>
+                        <View style={styles.eyebrow}>
+                          <View style={styles.statusDotAmber} />
+                          <Text style={styles.eyebrowText}>Action needed to approve</Text>
+                        </View>
+                        <Text style={styles.timeLabel}>now</Text>
+                      </View>
+
                       <View style={styles.customerRow}>
                         <View style={styles.avatar}>
                           <Text style={styles.avatarText}>MA</Text>
@@ -642,47 +657,67 @@ export default function HomeScreen() {
                           <Text style={styles.customerName}>Maria A.</Text>
                           <Text style={styles.customerContext}>Messenger · Price inquiry</Text>
                         </View>
-                        <Text style={styles.timeLabel}>now</Text>
                       </View>
 
                       <View style={styles.messageBubble}>
                         <Text style={styles.messageBubbleText}>“Hi, how much are the red apples?”</Text>
                       </View>
 
-                      <View style={styles.draftBlock}>
+                      {/* Draft Block: Full text editable */}
+                      <View style={[styles.draftBlock, isEditingDraft && styles.draftBlockEditing]}>
                         <View style={styles.draftLabelRow}>
-                          <AppIcon name="bot" size={16} color={THEME.colors.primary} />
-                          <Text style={styles.draftLabelText}>Mume’s suggested reply</Text>
+                          <View style={styles.draftLabelLeft}>
+                            <AppIcon name="bot" size={16} color={THEME.colors.primary} />
+                            <Text style={styles.draftLabelText}>Mume’s suggested reply</Text>
+                          </View>
+                          <Pressable
+                            onPress={() => setIsEditingDraft((v) => !v)}
+                            style={styles.draftEditPill}
+                            accessibilityRole="button"
+                            accessibilityLabel={isEditingDraft ? 'Done editing' : 'Edit message text'}
+                          >
+                            <AppIcon name={isEditingDraft ? 'check' : 'edit'} size={12} color={THEME.colors.primary} />
+                            <Text style={styles.draftEditPillText}>{isEditingDraft ? 'Done' : 'Edit text'}</Text>
+                          </Pressable>
                         </View>
 
-                        {editingPrice ? (
-                          <View style={styles.priceEditor}>
-                            <Text style={styles.priceEditorLabel}>Update price</Text>
+                        {isEditingDraft ? (
+                          <View style={styles.draftEditorWrapper}>
+                            <Text style={styles.draftEditorHint}>Edit message to send to customer:</Text>
                             <TextInput
                               autoFocus
-                              style={styles.priceInput}
-                              value={price}
-                              onChangeText={setPrice}
+                              multiline
+                              numberOfLines={3}
+                              style={styles.draftTextInput}
+                              value={draftReply}
+                              onChangeText={setDraftReply}
+                              placeholder="Type message to customer…"
+                              placeholderTextColor={THEME.colors.textMuted}
                             />
                           </View>
                         ) : (
-                          <Text style={styles.draftText}>
-                            Hi! Our red apples are{' '}
-                            <Text style={styles.draftPriceHighlight}>{price}</Text>. Fresh delivery today.
-                          </Text>
+                          <Pressable
+                            style={styles.draftTextContainer}
+                            onPress={() => setIsEditingDraft(true)}
+                            accessibilityRole="button"
+                            accessibilityLabel="Tap to edit full message text"
+                          >
+                            <Text style={styles.draftText}>{draftReply}</Text>
+                            <Text style={styles.tapToEditHint}>Tap to edit full message</Text>
+                          </Pressable>
                         )}
                       </View>
 
                       <View style={styles.approvalActions}>
                         <Pressable
                           accessibilityRole="button"
-                          style={styles.secondaryButton}
-                          onPress={() => setEditingPrice((v) => !v)}
+                          style={[styles.secondaryButton, isEditingDraft && styles.secondaryButtonActive]}
+                          onPress={() => setIsEditingDraft((v) => !v)}
                         >
                           <View style={styles.buttonInnerRow}>
-                            <AppIcon name="edit" size={15} color={THEME.colors.text} />
+                            <AppIcon name={isEditingDraft ? 'check' : 'edit'} size={15} color={THEME.colors.text} />
                             <Text style={styles.secondaryButtonText}>
-                              {editingPrice ? 'Done' : 'Edit'}
+                              {isEditingDraft ? 'Done editing' : 'Edit message'}
                             </Text>
                           </View>
                         </Pressable>
@@ -690,7 +725,10 @@ export default function HomeScreen() {
                         <Pressable
                           accessibilityRole="button"
                           style={styles.primaryButton}
-                          onPress={handleApprove}
+                          onPress={() => {
+                            setIsEditingDraft(false);
+                            handleApprove();
+                          }}
                         >
                           <View style={styles.buttonInnerRow}>
                             <Text style={styles.primaryButtonText}>Approve & send</Text>
@@ -699,7 +737,7 @@ export default function HomeScreen() {
                         </Pressable>
                       </View>
 
-                      <Text style={styles.safetyNote}>Nothing is sent without your approval.</Text>
+                      <Text style={styles.safetyNote}>🛡️ Nothing is sent without your approval.</Text>
                     </View>
                   ) : (
                     <View style={styles.emptyCard}>
@@ -2068,35 +2106,76 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
+  sectionBadgePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  sectionBadgePending: {
+    backgroundColor: 'rgba(251, 188, 4, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(251, 188, 4, 0.35)',
+  },
+  sectionBadgeApproved: {
+    backgroundColor: 'rgba(0, 185, 92, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 185, 92, 0.35)',
+  },
+  sectionBadgeTextPending: {
+    color: '#B45309',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  sectionBadgeTextApproved: {
+    color: '#00B95C',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   approvalCard: {
     backgroundColor: THEME.colors.card,
     borderRadius: 18,
     padding: 18,
     borderWidth: 1.5,
-    borderColor: THEME.colors.cardBorder,
+    borderColor: 'rgba(251, 188, 4, 0.45)',
     marginBottom: 16,
+    shadowColor: '#FBBC04',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
   },
   cardTopline: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 14,
+    width: '100%',
   },
   eyebrow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    backgroundColor: 'rgba(251, 188, 4, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(251, 188, 4, 0.35)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
   },
   statusDotAmber: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: THEME.colors.pending,
   },
   eyebrowText: {
-    color: THEME.colors.text,
-    fontSize: 12,
+    color: '#B45309',
+    fontSize: 11,
     fontWeight: '700',
+    letterSpacing: 0.3,
   },
   timeLabel: {
     color: THEME.colors.textMuted,
@@ -2148,17 +2227,47 @@ const styles = StyleSheet.create({
   },
   draftBlock: {
     backgroundColor: THEME.colors.cardElevated,
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 14,
     marginBottom: 16,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: THEME.colors.cardBorder,
+  },
+  draftBlockEditing: {
+    borderColor: THEME.colors.primary,
+    backgroundColor: '#FFFFFF',
+    shadowColor: THEME.colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 2,
   },
   draftLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'space-between',
     marginBottom: 8,
+  },
+  draftLabelLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  draftEditPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(50, 121, 249, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(50, 121, 249, 0.25)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+  },
+  draftEditPillText: {
+    color: THEME.colors.primary,
+    fontSize: 11,
+    fontWeight: '700',
   },
   draftIconText: {
     fontSize: 14,
@@ -2168,37 +2277,41 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  draftText: {
-    color: THEME.colors.text,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  draftPriceHighlight: {
-    fontWeight: '800',
-    color: THEME.colors.primaryDark,
-    backgroundColor: THEME.colors.primaryTint,
-    paddingHorizontal: 4,
-    borderRadius: 4,
-  },
-  priceEditor: {
+  draftEditorWrapper: {
     marginTop: 4,
   },
-  priceEditorLabel: {
+  draftEditorHint: {
     color: THEME.colors.textMuted,
     fontSize: 11,
     fontWeight: '600',
-    marginBottom: 4,
+    marginBottom: 6,
   },
-  priceInput: {
+  draftTextInput: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 1.5,
     borderColor: THEME.colors.primary,
     color: THEME.colors.text,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 15,
-    fontWeight: '700',
+    paddingVertical: 10,
+    fontSize: 14,
+    lineHeight: 20,
+    minHeight: 74,
+    textAlignVertical: 'top',
+  },
+  draftTextContainer: {
+    paddingVertical: 2,
+  },
+  draftText: {
+    color: THEME.colors.text,
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  tapToEditHint: {
+    color: THEME.colors.primary,
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 6,
   },
   approvalActions: {
     flexDirection: 'row',
@@ -2214,6 +2327,10 @@ const styles = StyleSheet.create({
     borderColor: THEME.colors.cardBorder,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  secondaryButtonActive: {
+    borderColor: THEME.colors.primary,
+    backgroundColor: 'rgba(50, 121, 249, 0.08)',
   },
   secondaryButtonText: {
     color: THEME.colors.text,

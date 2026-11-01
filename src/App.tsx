@@ -94,12 +94,41 @@ function VoiceWave() {
   );
 }
 
-function PendingAction({ onApproved }: { onApproved: () => void }) {
+function PendingAction({
+  onApproved,
+  isApproved = false,
+}: {
+  onApproved: () => void;
+  isApproved?: boolean;
+}) {
   const [editing, setEditing] = useState(false);
-  const [price, setPrice] = useState('$2.50 / kg');
+  const [draftReply, setDraftReply] = useState('Hi! Our red apples are $2.50 / kg. Fresh delivery today.');
+
+  if (isApproved) {
+    return (
+      <div className="empty-card-approved">
+        <div className="empty-check-badge">
+          <Icon name="check" size={26} />
+        </div>
+        <h3 className="empty-card-approved-title">All Caught Up!</h3>
+        <p className="empty-card-approved-subtitle">
+          Reply confirmed and dispatched to Maria via Meta Graph API.
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <section className="approval-card" aria-labelledby="approval-title">
+    <section className="approval-card action-needed-card" aria-labelledby="approval-title">
+      {/* Topline: Status dot & "Action needed to approve" */}
+      <div className="card-topline">
+        <div className="eyebrow action-needed-eyebrow">
+          <span className="status-dot-amber" />
+          <span>Action needed to approve</span>
+        </div>
+        <span className="time-label">now</span>
+      </div>
+
       <div className="customer-row">
         <div className="avatar" aria-hidden="true">
           MA
@@ -108,50 +137,81 @@ function PendingAction({ onApproved }: { onApproved: () => void }) {
           <p className="customer-name">Maria A.</p>
           <p className="customer-context">Messenger · Price inquiry</p>
         </div>
-        <span className="time-label">now</span>
       </div>
 
       <div className="message-bubble">
         <p>“Hi, how much are the red apples?”</p>
       </div>
 
-      <div className="draft-block">
-        <div className="draft-label flex items-center gap-1.5">
-          <Icon name="bot-svg" size={16} />
-          <span>Mume’s suggested reply</span>
+      {/* Draft block: Entire text is editable */}
+      <div className={`draft-block ${editing ? 'draft-block-editing' : ''}`}>
+        <div className="draft-label flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <Icon name="bot-svg" size={16} />
+            <span>Mume’s suggested reply</span>
+          </div>
+          <button
+            type="button"
+            className="draft-edit-pill-btn"
+            onClick={() => setEditing((v) => !v)}
+            aria-label={editing ? 'Save draft changes' : 'Edit message text'}
+          >
+            <Icon name={editing ? 'check' : 'edit'} size={12} />
+            <span>{editing ? 'Done' : 'Edit text'}</span>
+          </button>
         </div>
+
         {editing ? (
-          <label className="price-editor">
-            <span>Update price</span>
-            <input autoFocus onChange={(event) => setPrice(event.target.value)} value={price} />
-          </label>
+          <div className="draft-editor-wrapper">
+            <label htmlFor="draft-reply-input" className="draft-editor-hint">
+              Edit message to send to customer:
+            </label>
+            <textarea
+              id="draft-reply-input"
+              className="draft-textarea-input"
+              value={draftReply}
+              onChange={(e) => setDraftReply(e.target.value)}
+              rows={3}
+              autoFocus
+            />
+          </div>
         ) : (
-          <p id="approval-title">
-            Hi! Our red apples are <strong>{price}</strong>. Fresh delivery today.
-          </p>
+          <div
+            className="draft-message-display-box"
+            onClick={() => setEditing(true)}
+            title="Click to edit full message text"
+          >
+            <p id="approval-title" className="draft-message-display">
+              {draftReply}
+            </p>
+            <span className="tap-to-edit-hint">Tap to edit full message</span>
+          </div>
         )}
       </div>
 
       <div className="approval-actions">
         <button
-          className="secondary-button min-h-[48px] flex items-center justify-center gap-1.5"
+          className={`secondary-button min-h-[48px] flex items-center justify-center gap-1.5 ${editing ? 'active' : ''}`}
           onClick={() => setEditing((value) => !value)}
           type="button"
         >
-          <Icon name="edit" size={16} />
-          <span>{editing ? 'Done editing' : 'Edit'}</span>
+          <Icon name={editing ? 'check' : 'edit'} size={16} />
+          <span>{editing ? 'Done editing' : 'Edit message'}</span>
         </button>
 
         <button
           className="primary-button min-h-[48px] flex items-center justify-center gap-1.5"
-          onClick={onApproved}
+          onClick={() => {
+            setEditing(false);
+            onApproved();
+          }}
           type="button"
         >
           <span>Approve & send</span>
           <Icon name="check" size={18} />
         </button>
       </div>
-      <p className="safety-note">Nothing is sent without your approval.</p>
+      <p className="safety-note">🛡️ Nothing is sent without your approval.</p>
     </section>
   );
 }
@@ -170,6 +230,7 @@ function HomeScreen({
   voiceState = 'idle',
   chatCardRef,
   chatScrollRef,
+  isApproved = false,
 }: {
   userName: string;
   isLoggedIn: boolean;
@@ -184,6 +245,7 @@ function HomeScreen({
   voiceState?: VoiceState;
   chatCardRef?: React.RefObject<HTMLDivElement | null>;
   chatScrollRef?: React.RefObject<HTMLDivElement | null>;
+  isApproved?: boolean;
 }) {
   const localChatScrollRef = useRef<HTMLDivElement>(null);
   const activeChatScrollRef = chatScrollRef || localChatScrollRef;
@@ -223,9 +285,12 @@ function HomeScreen({
         <>
           <div className="section-heading">
             <h2>Ready for you</h2>
-            <span>1 action</span>
+            <span className={isApproved ? 'badge-approved' : 'badge-pending'}>
+              {!isApproved && <span className="status-dot-amber-inline" />}
+              {isApproved ? '0 actions' : '1 action to approve'}
+            </span>
           </div>
-          <PendingAction onApproved={onApproved} />
+          <PendingAction onApproved={onApproved} isApproved={isApproved} />
 
           {/* Mume AI Chat Thread Stream (Positioned below Pending Action Card) */}
           {chatMessages.length > 0 && (
@@ -707,9 +772,11 @@ export default function App() {
     else setVoiceState('idle');
   };
 
+  const [isApproved, setIsApproved] = useState(false);
   const handleApproved = () => {
+    setIsApproved(true);
     setSent(true);
-    window.setTimeout(() => setSent(false), 3200);
+    window.setTimeout(() => setSent(false), 3500);
   };
 
   const handleLogout = () => {
@@ -774,6 +841,7 @@ export default function App() {
               voiceState={voiceState}
               chatCardRef={chatCardRef}
               chatScrollRef={chatScrollRef}
+              isApproved={isApproved}
             />
           )}
           {activeTab === 'inbox' && (
