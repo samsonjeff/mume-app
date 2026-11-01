@@ -148,11 +148,6 @@ function PendingAction({
       className={`approval-card action-needed-card ${editing ? 'is-editing' : ''}`}
       aria-labelledby="approval-title"
     >
-      {/* Topline: Timestamp */}
-      <div className="card-topline">
-        <span className="time-label">now</span>
-      </div>
-
       <div className="customer-row">
         <div className="avatar" aria-hidden="true">
           MA
@@ -161,6 +156,7 @@ function PendingAction({
           <p className="customer-name">Maria A.</p>
           <p className="customer-context">Messenger · Price inquiry</p>
         </div>
+        <span className="time-label">now</span>
       </div>
 
       <div className="message-bubble">
@@ -247,6 +243,7 @@ function HomeScreen({
   chatCardRef,
   chatScrollRef,
   isApproved = false,
+  showApprovedCard = false,
   onEditingChange,
 }: {
   userName: string;
@@ -263,6 +260,7 @@ function HomeScreen({
   chatCardRef?: React.RefObject<HTMLDivElement | null>;
   chatScrollRef?: React.RefObject<HTMLDivElement | null>;
   isApproved?: boolean;
+  showApprovedCard?: boolean;
   onEditingChange?: (isEditing: boolean) => void;
 }) {
   const localChatScrollRef = useRef<HTMLDivElement>(null);
@@ -301,24 +299,28 @@ function HomeScreen({
 
       {isLoggedIn ? (
         <>
-          <div className="section-heading">
-            <h2>Ready for you</h2>
-            <span className={isApproved ? 'badge-approved' : 'badge-pending'}>
-              {!isApproved && <span className="status-dot-amber-inline" />}
-              {isApproved ? '0 actions' : '1 action to approve'}
-            </span>
-          </div>
-          <PendingAction
-            onApproved={onApproved}
-            isApproved={isApproved}
-            onEditingChange={onEditingChange}
-          />
+          {(!isApproved || showApprovedCard) && (
+            <>
+              <div className="section-heading">
+                <h2>Ready for you</h2>
+                <span className={isApproved ? 'badge-approved' : 'badge-pending'}>
+                  {!isApproved && <span className="status-dot-amber-inline" />}
+                  {isApproved ? '0 actions' : '1 action to approve'}
+                </span>
+              </div>
+              <PendingAction
+                onApproved={onApproved}
+                isApproved={isApproved}
+                onEditingChange={onEditingChange}
+              />
+            </>
+          )}
 
           {/* Mume AI Chat Thread Stream (Positioned below Pending Action Card) */}
           {chatMessages.length > 0 && (
             <div
               ref={chatCardRef}
-              className={`chat-section-card ${isChattingOrTyping ? 'highlighted-active' : ''}`}
+              className={`chat-section-card ${isChattingOrTyping ? 'highlighted-active' : ''} ${isApproved && !showApprovedCard ? 'expanded' : ''}`}
             >
               <div className="chat-section-header">
                 <div className="chat-header-left">
@@ -457,22 +459,12 @@ function CatalogScreen({
           <h1>Catalog & Inventory</h1>
           <span>{isLoggedIn ? `${products.length} products` : '0 products'}</span>
         </div>
-        {isLoggedIn && (
-          <button
-            type="button"
-            className="add-product-btn"
-            onClick={onOpenCreateProduct}
-          >
-            <Icon name="round-plus" size={15} />
-            <span>Add</span>
-          </button>
-        )}
       </div>
       {isLoggedIn ? (
         products.length === 0 ? (
           <div className="empty-catalog-box">
             <p className="font-semibold text-gray-800">No products in catalog</p>
-            <p className="text-xs text-gray-500 mt-1">Click "Add Product" above to create an item.</p>
+            <p className="text-xs text-gray-500 mt-1">Click the "+" button below to create an item.</p>
           </div>
         ) : (
           <div className="catalog-grid">
@@ -623,11 +615,37 @@ export default function App() {
     };
   }, []);
 
+  // Pro Subscription Upgrade modal state
+  const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
+  const [isProUser, setIsProUser] = useState(false);
+  const [proToast, setProToast] = useState(false);
+  const proAutoCloseTimerRef = useRef<number | null>(null);
+
+  const closeSubscriptionModal = useCallback(() => {
+    if (proAutoCloseTimerRef.current !== null) {
+      window.clearTimeout(proAutoCloseTimerRef.current);
+      proAutoCloseTimerRef.current = null;
+    }
+    setSubscriptionModalOpen(false);
+  }, []);
+
   useEffect(() => {
-    const timer = setTimeout(() => {
+    const splashTimer = window.setTimeout(() => {
       setShowSplash(false);
-    }, 2500);
-    return () => clearTimeout(timer);
+      // Auto-show Pro upgrade modal on the home screen for 3 seconds right after the 3s splash
+      setSubscriptionModalOpen(true);
+      proAutoCloseTimerRef.current = window.setTimeout(() => {
+        setSubscriptionModalOpen(false);
+        proAutoCloseTimerRef.current = null;
+      }, 3000);
+    }, 3000);
+
+    return () => {
+      window.clearTimeout(splashTimer);
+      if (proAutoCloseTimerRef.current !== null) {
+        window.clearTimeout(proAutoCloseTimerRef.current);
+      }
+    };
   }, []);
 
   // Products / Catalog state
@@ -652,6 +670,12 @@ export default function App() {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
+    input.style.position = 'fixed';
+    input.style.top = '-1000px';
+    input.style.left = '-1000px';
+    input.style.opacity = '0';
+    document.body.appendChild(input);
+
     input.onchange = (e: any) => {
       const file = e.target?.files?.[0];
       if (file) {
@@ -668,7 +692,11 @@ export default function App() {
         };
         reader.readAsDataURL(file);
       }
+      try {
+        document.body.removeChild(input);
+      } catch {}
     };
+
     input.click();
   };
 
@@ -796,21 +824,28 @@ export default function App() {
   };
 
   const [isApproved, setIsApproved] = useState(false);
+  const [showApprovedCard, setShowApprovedCard] = useState(false);
   const handleApproved = () => {
     setIsApproved(true);
+    setShowApprovedCard(true);
     setSent(true);
+    window.setTimeout(() => setShowApprovedCard(false), 2000);
     window.setTimeout(() => setSent(false), 3500);
   };
 
   const handleLogout = () => {
     setIsLoggedIn(false);
     setUserName('');
+    setIsApproved(false);
+    setShowApprovedCard(false);
     setMenuOpen(false);
   };
 
   const handleLogin = () => {
     setIsLoggedIn(true);
     setUserName('Jefferson');
+    setIsApproved(false);
+    setShowApprovedCard(false);
     setMenuOpen(false);
   };
 
@@ -844,12 +879,18 @@ export default function App() {
           userInitials={userInitials}
           onBack={() => setActiveTab('home')}
           onMenuClick={() => setMenuOpen(true)}
-          onProfileClick={() => setActiveTab('settings')}
+          onProfileClick={() => {
+            if (proAutoCloseTimerRef.current !== null) {
+              window.clearTimeout(proAutoCloseTimerRef.current);
+              proAutoCloseTimerRef.current = null;
+            }
+            setSubscriptionModalOpen(true);
+          }}
         />
 
         {/* Content Scroll View (Ergonomic layout for Android 360dp - 412dp) */}
         <div
-          className={`content-scroll ${isEditingActionDraft ? 'editing-draft' : ''} ${activeTab === 'catalog' ? 'catalog-view-scroll' : ''}`}
+          className={`content-scroll ${isEditingActionDraft ? 'editing-draft' : ''} ${activeTab === 'catalog' ? 'catalog-view-scroll' : ''} ${isApproved && !showApprovedCard ? 'chat-expanded-scroll' : ''}`}
           ref={contentScrollRef}
         >
           {activeTab === 'home' && (
@@ -868,6 +909,7 @@ export default function App() {
               chatCardRef={chatCardRef}
               chatScrollRef={chatScrollRef}
               isApproved={isApproved}
+              showApprovedCard={showApprovedCard}
               onEditingChange={setIsEditingActionDraft}
             />
           )}
@@ -987,6 +1029,18 @@ export default function App() {
             </div>
             <p className="capsule-disclaimer">Nothing is sent without your approval.</p>
           </div>
+        )}
+
+        {/* Floating Add Product Button at Bottom for Catalog */}
+        {activeTab === 'catalog' && isLoggedIn && (
+          <button
+            type="button"
+            className="add-product-fab"
+            aria-label="Add"
+            onClick={handleOpenCreateProduct}
+          >
+            <Icon name="round-plus" size={24} />
+          </button>
         )}
 
         {/* Slide-out Menu Drawer containing all navigation options */}
@@ -1410,6 +1464,110 @@ export default function App() {
           </div>
         )}
 
+        {/* Subscription Upgrade to Pro Modal */}
+        {subscriptionModalOpen && (
+          <div className="product-modal-overlay" onClick={closeSubscriptionModal}>
+            <div className="pro-modal-card" onClick={(e) => e.stopPropagation()}>
+              {/* Header with badge and close button */}
+              <div className="pro-modal-header">
+                <div className="pro-plan-badge">
+                  <Icon name="subscription-upgrade" size={14} className="text-white" />
+                  <span>MUME PRO</span>
+                </div>
+                <button
+                  type="button"
+                  className="pro-modal-close-btn"
+                  onClick={closeSubscriptionModal}
+                  aria-label="Close"
+                >
+                  <Icon name="x" size={18} />
+                </button>
+              </div>
+
+              <h2 className="pro-modal-title">Upgrade to Pro</h2>
+              <p className="pro-modal-subtitle">
+                Unlock unlimited capabilities to scale your store catalog and chat with AI effortlessly.
+              </p>
+
+              {/* Price card */}
+              <div className="pro-price-box">
+                <div className="pro-price-header">
+                  <span className="pro-price-tier">Pro Store Membership</span>
+                  <span className="pro-price-tag">Most Popular</span>
+                </div>
+                <div className="pro-price-amount-row">
+                  <span className="pro-price-currency">$</span>
+                  <span className="pro-price-number">9.99</span>
+                  <span className="pro-price-period">/ month</span>
+                </div>
+                <p className="pro-price-guarantee">7-day free trial · Cancel anytime with 1-click</p>
+              </div>
+
+              {/* Feature Highlights */}
+              <div className="pro-features-list">
+                <div className="pro-feature-item">
+                  <div className="pro-feature-icon-circle">
+                    <Icon name="folder" size={18} />
+                  </div>
+                  <div className="pro-feature-text-col">
+                    <h4>Additional Product Space for Catalog</h4>
+                    <p>Unlimited inventory items, custom photos, and high-res variants without restrictions.</p>
+                  </div>
+                </div>
+
+                <div className="pro-feature-item">
+                  <div className="pro-feature-icon-circle">
+                    <Icon name="audio-waveform" size={18} />
+                  </div>
+                  <div className="pro-feature-text-col">
+                    <h4>Unlimited Voice Chat</h4>
+                    <p>Dictate commands, inquire about stock, and draft replies with zero audio limits.</p>
+                  </div>
+                </div>
+
+                <div className="pro-feature-item">
+                  <div className="pro-feature-icon-circle">
+                    <Icon name="bot-svg" size={18} />
+                  </div>
+                  <div className="pro-feature-text-col">
+                    <h4>24/7 Meta Messenger Auto-Sync</h4>
+                    <p>Instant price inquiry detection and automated smart reply generation.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="pro-modal-actions">
+                <button
+                  type="button"
+                  className={`pro-upgrade-btn ${isProUser ? 'active' : ''}`}
+                  onClick={() => {
+                    if (proAutoCloseTimerRef.current !== null) {
+                      window.clearTimeout(proAutoCloseTimerRef.current);
+                      proAutoCloseTimerRef.current = null;
+                    }
+                    setIsProUser(true);
+                    setSubscriptionModalOpen(false);
+                    setProToast(true);
+                    window.setTimeout(() => setProToast(false), 3500);
+                  }}
+                >
+                  <Icon name={isProUser ? 'check' : 'subscription-upgrade'} size={18} />
+                  <span>{isProUser ? 'Pro Plan Active' : 'Start 7-Day Free Trial'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="pro-dismiss-btn"
+                  onClick={closeSubscriptionModal}
+                >
+                  Maybe Later
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Approval Confirmation Toast */}
         {sent && (
           <div className="toast" role="status">
@@ -1417,6 +1575,16 @@ export default function App() {
               <Icon name="check" size={18} />
             </span>
             <span>Reply sent to Maria</span>
+          </div>
+        )}
+
+        {/* Pro Subscription Toast */}
+        {proToast && (
+          <div className="toast" role="status">
+            <span>
+              <Icon name="subscription-upgrade" size={18} className="text-yellow-400" />
+            </span>
+            <span>Welcome to Mume Pro! Unlimited features unlocked.</span>
           </div>
         )}
       </main>

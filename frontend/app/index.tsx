@@ -17,6 +17,8 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
+import * as SplashScreen from 'expo-splash-screen';
 import { THEME } from '../constants/theme';
 import { VoiceWave } from '../components/VoiceWave';
 import { AppIcon } from '../components/AppIcon';
@@ -205,6 +207,21 @@ export default function HomeScreen() {
   const [isEditingDraft, setIsEditingDraft] = useState(false);
   const [draftReply, setDraftReply] = useState('Hi! Our red apples are $2.50 / kg. Fresh delivery today.');
   const [isApproved, setIsApproved] = useState(false);
+  const [showApprovedCard, setShowApprovedCard] = useState(false);
+
+  // Pro Subscription Upgrade modal state
+  const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
+  const [isProUser, setIsProUser] = useState(false);
+  const [proToast, setProToast] = useState(false);
+  const proAutoCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const closeSubscriptionModal = useCallback(() => {
+    if (proAutoCloseTimerRef.current) {
+      clearTimeout(proAutoCloseTimerRef.current);
+      proAutoCloseTimerRef.current = null;
+    }
+    setSubscriptionModalOpen(false);
+  }, []);
 
   // Manual page link state (Settings tab)
   const [fbPageId, setFbPageId] = useState('1447275391796820');
@@ -213,19 +230,34 @@ export default function HomeScreen() {
   const [submittingLink, setSubmittingLink] = useState(false);
   const [linkMessage, setLinkMessage] = useState('');
 
-  // Opening splash screen animation (2.5s) using mume-black.svg and mume-white.svg
+  // Opening splash screen animation (3s) using mume-black.svg and mume-white.svg
   const [showSplash, setShowSplash] = useState(true);
   const splashAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    // Dismiss native splash screen so the animated SVG logo transition takes over cleanly
+    SplashScreen.hideAsync().catch(() => {});
+
     Animated.timing(splashAnim, {
       toValue: 1,
-      duration: 2500,
+      duration: 3000,
       useNativeDriver: false,
       easing: Easing.bezier(0.4, 0, 0.2, 1),
     }).start(() => {
       setShowSplash(false);
+      // Auto-show Pro upgrade modal on the home screen for 3 seconds right after splash
+      setSubscriptionModalOpen(true);
+      proAutoCloseTimerRef.current = setTimeout(() => {
+        setSubscriptionModalOpen(false);
+        proAutoCloseTimerRef.current = null;
+      }, 3000);
     });
+
+    return () => {
+      if (proAutoCloseTimerRef.current) {
+        clearTimeout(proAutoCloseTimerRef.current);
+      }
+    };
   }, [splashAnim]);
 
   const splashBg = splashAnim.interpolate({
@@ -271,29 +303,59 @@ export default function HomeScreen() {
     imageUri: undefined,
   });
 
-  const handlePickCustomImage = () => {
-    if (typeof document !== 'undefined') {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/*';
-      input.onchange = (e: any) => {
-        const file = e.target?.files?.[0];
-        if (file) {
-          const reader = new FileReader();
-          reader.onload = (event) => {
-            const result = event.target?.result as string;
-            if (result) {
-              setProductForm((prev) => ({
-                ...prev,
-                imageUri: result,
-                imageKey: 'custom',
-              }));
-            }
-          };
-          reader.readAsDataURL(file);
-        }
-      };
-      input.click();
+  const handlePickCustomImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const uri = result.assets[0].uri;
+        setProductForm((prev) => ({
+          ...prev,
+          imageUri: uri,
+          imageKey: 'custom',
+        }));
+        return;
+      }
+    } catch (err) {
+      console.warn('ImagePicker launch failed, falling back to web file input:', err);
+      if (typeof document !== 'undefined') {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.style.position = 'fixed';
+        input.style.top = '-1000px';
+        input.style.left = '-1000px';
+        input.style.opacity = '0';
+        document.body.appendChild(input);
+
+        input.onchange = (e: any) => {
+          const file = e.target?.files?.[0];
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+              const res = event.target?.result as string;
+              if (res) {
+                setProductForm((prev) => ({
+                  ...prev,
+                  imageUri: res,
+                  imageKey: 'custom',
+                }));
+              }
+            };
+            reader.readAsDataURL(file);
+          }
+          try {
+            document.body.removeChild(input);
+          } catch {}
+        };
+
+        input.click();
+      }
     }
   };
 
@@ -467,7 +529,11 @@ export default function HomeScreen() {
   const handleApprove = () => {
     setIsEditingDraft(false);
     setIsApproved(true);
+    setShowApprovedCard(true);
     setSentToast(true);
+    setTimeout(() => {
+      setShowApprovedCard(false);
+    }, 2000);
     setTimeout(() => {
       setSentToast(false);
     }, 3500);
@@ -488,6 +554,7 @@ export default function HomeScreen() {
       setUserName('Jefferson');
       setUnreadCount(2);
       setIsApproved(false);
+      setShowApprovedCard(false);
       setSubmittingLink(false);
       setMenuOpen(false);
       loadLinkedPages();
@@ -500,6 +567,7 @@ export default function HomeScreen() {
     setPages([]);
     setUnreadCount(0);
     setIsApproved(false);
+    setShowApprovedCard(false);
     setMenuOpen(false);
   };
 
@@ -584,11 +652,17 @@ export default function HomeScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Subscription upgrade"
-            onPress={() => setActiveTab('settings')}
-            style={styles.profileBadge}
+            onPress={() => {
+              if (proAutoCloseTimerRef.current) {
+                clearTimeout(proAutoCloseTimerRef.current);
+                proAutoCloseTimerRef.current = null;
+              }
+              setSubscriptionModalOpen(true);
+            }}
+            style={[styles.profileBadge, isProUser && styles.profileBadgePro]}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
-            <AppIcon name="subscription-upgrade" size={20} color="#FFFFFF" strokeWidth={2} />
+            <AppIcon name="subscription-upgrade" size={20} color={isProUser ? '#FACC15' : '#FFFFFF'} strokeWidth={2} />
           </Pressable>
         </View>
       </SafeAreaView>
@@ -599,13 +673,14 @@ export default function HomeScreen() {
           ref={mainScrollRef}
           contentContainerStyle={[
             styles.scrollContent,
+            isApproved && !showApprovedCard && styles.scrollContentExpanded,
             activeTab === 'catalog' && styles.scrollContentCatalog,
             isEditingDraft && styles.scrollContentEditingDraft,
           ]}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={THEME.colors.primary} />}
         >
         {activeTab === 'today' && (
-          <View style={styles.screenContainer}>
+          <View style={[styles.screenContainer, isApproved && !showApprovedCard && styles.screenContainerExpanded]}>
             {/* Zero-State Hero Section with Message Chip on the Right Side */}
             <View style={styles.geminiZeroStateContainer}>
               <View style={styles.geminiHeroCopy}>
@@ -640,134 +715,143 @@ export default function HomeScreen() {
 
               {isLoggedIn ? (
                 <>
-                  {/* Section Heading */}
-                  <View style={styles.sectionHeaderRow}>
-                    <Text style={styles.sectionHeading}>Ready for you</Text>
-                    <View style={[styles.sectionBadgePill, isApproved ? styles.sectionBadgeApproved : styles.sectionBadgePending]}>
-                      {!isApproved && <View style={styles.statusDotAmber} />}
-                      <Text style={[styles.sectionBadgeText, isApproved ? styles.sectionBadgeTextApproved : styles.sectionBadgeTextPending]}>
-                        {isApproved ? '0 actions' : '1 action to approve'}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Pending Action Card */}
+                  {/* Section Heading & Action / Feedback Card */}
                   {!isApproved ? (
-                    <View
-                      onLayout={(e) => {
-                        actionCardY.current = e.nativeEvent.layout.y;
-                      }}
-                      style={[styles.approvalCard, isEditingDraft && styles.approvalCardEditing]}
-                    >
-                      {/* Card Topline: Timestamp */}
-                      <View style={styles.cardTopline}>
-                        <Text style={styles.timeLabel}>now</Text>
-                      </View>
-
-                      <View style={styles.customerRow}>
-                        <View style={styles.avatar}>
-                          <Text style={styles.avatarText}>MA</Text>
-                        </View>
-                        <View style={styles.customerInfoCol}>
-                          <Text style={styles.customerName}>Maria A.</Text>
-                          <Text style={styles.customerContext}>Messenger · Price inquiry</Text>
+                    <>
+                      <View style={styles.sectionHeaderRow}>
+                        <Text style={styles.sectionHeading}>Ready for you</Text>
+                        <View style={[styles.sectionBadgePill, styles.sectionBadgePending]}>
+                          <View style={styles.statusDotAmber} />
+                          <Text style={[styles.sectionBadgeText, styles.sectionBadgeTextPending]}>
+                            1 action to approve
+                          </Text>
                         </View>
                       </View>
 
-                      <View style={styles.messageBubble}>
-                        <Text style={styles.messageBubbleText}>“Hi, how much are the red apples?”</Text>
-                      </View>
-
-                      {/* Draft Block: Full text editable */}
-                      <View style={[styles.draftBlock, isEditingDraft && styles.draftBlockEditing]}>
-                        <View style={styles.draftLabelRow}>
-                          <View style={styles.draftLabelLeft}>
-                            <AppIcon name="bot" size={16} color={THEME.colors.primary} />
-                            <Text style={styles.draftLabelText}>Mume’s suggested reply</Text>
+                      {/* Pending Action Card */}
+                      <View
+                        onLayout={(e) => {
+                          actionCardY.current = e.nativeEvent.layout.y;
+                        }}
+                        style={[styles.approvalCard, isEditingDraft && styles.approvalCardEditing]}
+                      >
+                        <View style={styles.customerRow}>
+                          <View style={styles.avatar}>
+                            <Text style={styles.avatarText}>MA</Text>
                           </View>
+                          <View style={styles.customerInfoCol}>
+                            <Text style={styles.customerName}>Maria A.</Text>
+                            <Text style={styles.customerContext}>Messenger · Price inquiry</Text>
+                          </View>
+                          <Text style={styles.timeLabel}>now</Text>
                         </View>
 
-                        {isEditingDraft ? (
-                          <View style={styles.draftEditorWrapper}>
-                            <Text style={styles.draftEditorHint}>Edit message to send to customer:</Text>
-                            <TextInput
-                              autoFocus
-                              multiline
-                              numberOfLines={3}
-                              style={styles.draftTextInput}
-                              value={draftReply}
-                              onChangeText={setDraftReply}
-                              placeholder="Type message to customer…"
-                              placeholderTextColor={THEME.colors.textMuted}
-                              onFocus={() => {
-                                scrollToActionCard(true);
-                              }}
-                            />
-                          </View>
-                        ) : (
-                          <Pressable
-                            style={styles.draftTextContainer}
-                            onPress={() => {
-                              setIsEditingDraft(true);
-                              setTimeout(() => scrollToActionCard(true), 60);
-                            }}
-                            accessibilityRole="button"
-                            accessibilityLabel="Tap to edit full message text"
-                          >
-                            <Text style={styles.draftText}>{draftReply}</Text>
-                            <Text style={styles.tapToEditHint}>Tap to edit full message</Text>
-                          </Pressable>
-                        )}
-                      </View>
+                        <View style={styles.messageBubble}>
+                          <Text style={styles.messageBubbleText}>“Hi, how much are the red apples?”</Text>
+                        </View>
 
-                      <View style={styles.approvalActions}>
-                        <Pressable
-                          accessibilityRole="button"
-                          style={[styles.secondaryButton, isEditingDraft && styles.secondaryButtonActive]}
-                          onPress={() => {
-                            setIsEditingDraft((v) => {
-                              const next = !v;
-                              if (next) {
+                        {/* Draft Block: Full text editable */}
+                        <View style={[styles.draftBlock, isEditingDraft && styles.draftBlockEditing]}>
+                          <View style={styles.draftLabelRow}>
+                            <View style={styles.draftLabelLeft}>
+                              <AppIcon name="bot" size={16} color={THEME.colors.primary} />
+                              <Text style={styles.draftLabelText}>Mume’s suggested reply</Text>
+                            </View>
+                          </View>
+
+                          {isEditingDraft ? (
+                            <View style={styles.draftEditorWrapper}>
+                              <Text style={styles.draftEditorHint}>Edit message to send to customer:</Text>
+                              <TextInput
+                                autoFocus
+                                multiline
+                                numberOfLines={3}
+                                style={styles.draftTextInput}
+                                value={draftReply}
+                                onChangeText={setDraftReply}
+                                placeholder="Type message to customer…"
+                                placeholderTextColor={THEME.colors.textMuted}
+                                onFocus={() => {
+                                  scrollToActionCard(true);
+                                }}
+                              />
+                            </View>
+                          ) : (
+                            <Pressable
+                              style={styles.draftTextContainer}
+                              onPress={() => {
+                                setIsEditingDraft(true);
                                 setTimeout(() => scrollToActionCard(true), 60);
-                              }
-                              return next;
-                            });
-                          }}
-                        >
-                          <View style={styles.buttonInnerRow}>
-                            <AppIcon name={isEditingDraft ? 'check' : 'edit'} size={15} color={THEME.colors.text} />
-                            <Text style={styles.secondaryButtonText}>
-                              {isEditingDraft ? 'Done editing' : 'Edit message'}
-                            </Text>
-                          </View>
-                        </Pressable>
+                              }}
+                              accessibilityRole="button"
+                              accessibilityLabel="Tap to edit full message text"
+                            >
+                              <Text style={styles.draftText}>{draftReply}</Text>
+                              <Text style={styles.tapToEditHint}>Tap to edit full message</Text>
+                            </Pressable>
+                          )}
+                        </View>
 
-                        <Pressable
-                          accessibilityRole="button"
-                          style={styles.primaryButton}
-                          onPress={() => {
-                            setIsEditingDraft(false);
-                            handleApprove();
-                          }}
-                        >
-                          <View style={styles.buttonInnerRow}>
-                            <Text style={styles.primaryButtonText}>Approve & send</Text>
-                            <AppIcon name="check" size={16} color="#FFFFFF" strokeWidth={2.5} />
-                          </View>
-                        </Pressable>
+                        <View style={styles.approvalActions}>
+                          <Pressable
+                            accessibilityRole="button"
+                            style={[styles.secondaryButton, isEditingDraft && styles.secondaryButtonActive]}
+                            onPress={() => {
+                              setIsEditingDraft((v) => {
+                                const next = !v;
+                                if (next) {
+                                  setTimeout(() => scrollToActionCard(true), 60);
+                                }
+                                return next;
+                              });
+                            }}
+                          >
+                            <View style={styles.buttonInnerRow}>
+                              <AppIcon name={isEditingDraft ? 'check' : 'edit'} size={15} color={THEME.colors.text} />
+                              <Text style={styles.secondaryButtonText}>
+                                {isEditingDraft ? 'Done editing' : 'Edit message'}
+                              </Text>
+                            </View>
+                          </Pressable>
+
+                          <Pressable
+                            accessibilityRole="button"
+                            style={styles.primaryButton}
+                            onPress={() => {
+                              setIsEditingDraft(false);
+                              handleApprove();
+                            }}
+                          >
+                            <View style={styles.buttonInnerRow}>
+                              <Text style={styles.primaryButtonText}>Approve & send</Text>
+                              <AppIcon name="check" size={16} color="#FFFFFF" strokeWidth={2.5} />
+                            </View>
+                          </Pressable>
+                        </View>
                       </View>
-                    </View>
-                  ) : (
-                    <View style={styles.emptyCard}>
-                      <View style={styles.emptyCheckBadge}>
-                        <AppIcon name="check" size={28} color={THEME.colors.speaking} strokeWidth={2.5} />
+                    </>
+                  ) : showApprovedCard ? (
+                    <>
+                      <View style={styles.sectionHeaderRow}>
+                        <Text style={styles.sectionHeading}>Ready for you</Text>
+                        <View style={[styles.sectionBadgePill, styles.sectionBadgeApproved]}>
+                          <Text style={[styles.sectionBadgeText, styles.sectionBadgeTextApproved]}>
+                            0 actions
+                          </Text>
+                        </View>
                       </View>
-                      <Text style={styles.emptyCardTitle}>All Caught Up!</Text>
-                      <Text style={styles.emptyCardSubtitle}>
-                        Reply confirmed and dispatched to Maria via Meta Graph API.
-                      </Text>
-                    </View>
-                  )}
+
+                      <View style={styles.emptyCard}>
+                        <View style={styles.emptyCheckBadge}>
+                          <AppIcon name="check" size={28} color={THEME.colors.speaking} strokeWidth={2.5} />
+                        </View>
+                        <Text style={styles.emptyCardTitle}>All Caught Up!</Text>
+                        <Text style={styles.emptyCardSubtitle}>
+                          Reply confirmed and dispatched to Maria via Meta Graph API.
+                        </Text>
+                      </View>
+                    </>
+                  ) : null}
 
                   {/* Mume AI Chat Stream (Positioned below Pending Action Card) */}
                   {chatMessages.length > 0 && (
@@ -775,7 +859,11 @@ export default function HomeScreen() {
                       onLayout={(e) => {
                         chatCardY.current = e.nativeEvent.layout.y;
                       }}
-                      style={[styles.chatSectionCard, isChattingOrTyping && styles.chatSectionCardHighlighted]}
+                      style={[
+                        styles.chatSectionCard,
+                        isApproved && !showApprovedCard && styles.chatSectionCardExpanded,
+                        isChattingOrTyping && styles.chatSectionCardHighlighted,
+                      ]}
                     >
                       <View style={styles.chatSectionHeader}>
                         <View style={styles.chatHeaderLeft}>
@@ -953,17 +1041,6 @@ export default function HomeScreen() {
                   <Text style={styles.sectionHeading}>Catalog</Text>
                   <Text style={styles.sectionBadgeText}>{isLoggedIn ? `${products.length} products` : '0 products'}</Text>
                 </View>
-                {isLoggedIn && (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Add"
-                    style={styles.addProductBtn}
-                    onPress={handleOpenCreateProduct}
-                  >
-                    <AppIcon name="round-plus" size={15} color="#FFFFFF" />
-                    <Text style={styles.addProductBtnText}>Add</Text>
-                  </Pressable>
-                )}
               </View>
 
               {isLoggedIn ? (
@@ -971,7 +1048,7 @@ export default function HomeScreen() {
                   <View style={styles.emptyCatalogCard}>
                     <Text style={styles.emptyCatalogTitle}>No products in catalog</Text>
                     <Text style={styles.emptyCatalogSubtitle}>
-                      Tap "Add Product" above to create your first fruit item.
+                      Tap the "+" button below to create your first fruit item.
                     </Text>
                   </View>
                 ) : (
@@ -1255,6 +1332,18 @@ export default function HomeScreen() {
             Nothing is sent to customers without your approval.
           </Text>
         </View>
+        )}
+
+        {/* Floating Add Product Button at Bottom for Catalog */}
+        {activeTab === 'catalog' && isLoggedIn && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Add"
+            style={styles.addProductFab}
+            onPress={handleOpenCreateProduct}
+          >
+            <AppIcon name="round-plus" size={24} color="#FFFFFF" />
+          </Pressable>
         )}
       </SafeAreaView>
 
@@ -1878,11 +1967,145 @@ export default function HomeScreen() {
         </Pressable>
       </Modal>
 
+      {/* 8. Subscription Upgrade to Pro Modal */}
+      <Modal
+        visible={subscriptionModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={closeSubscriptionModal}
+      >
+        <Pressable
+          style={styles.proModalOverlay}
+          onPress={closeSubscriptionModal}
+        >
+          <Pressable style={styles.proModalCard} onPress={(e) => e.stopPropagation()}>
+            {/* Top Bar with Badge & Close Button */}
+            <View style={styles.proModalHeader}>
+              <View style={styles.proPlanBadge}>
+                <AppIcon name="sparkles" size={14} color="#FFFFFF" strokeWidth={2.5} />
+                <Text style={styles.proPlanBadgeText}>MUME PRO</Text>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+                style={styles.proModalCloseBtn}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                onPress={closeSubscriptionModal}
+              >
+                <AppIcon name="x" size={18} color="#121317" strokeWidth={2.2} />
+              </Pressable>
+            </View>
+
+            {/* Title & Value Proposition */}
+            <Text style={styles.proModalTitle}>Upgrade to Pro</Text>
+            <Text style={styles.proModalSubtitle}>
+              Unlock unlimited capabilities to scale your store catalog and chat with AI effortlessly.
+            </Text>
+
+            {/* Pricing Banner */}
+            <View style={styles.proPriceBox}>
+              <View style={styles.proPriceHeader}>
+                <Text style={styles.proPriceTier}>Pro Store Membership</Text>
+                <View style={styles.proPriceTag}>
+                  <Text style={styles.proPriceTagText}>Most Popular</Text>
+                </View>
+              </View>
+              <View style={styles.proPriceAmountRow}>
+                <Text style={styles.proPriceCurrency}>$</Text>
+                <Text style={styles.proPriceNumber}>9.99</Text>
+                <Text style={styles.proPricePeriod}>/ month</Text>
+              </View>
+              <Text style={styles.proPriceGuarantee}>7-day free trial · Cancel anytime with 1-tap</Text>
+            </View>
+
+            {/* Feature Highlights */}
+            <View style={styles.proFeaturesList}>
+              <View style={styles.proFeatureItem}>
+                <View style={styles.proFeatureIconCircle}>
+                  <AppIcon name="folder" size={18} color="#121317" strokeWidth={2.2} />
+                </View>
+                <View style={styles.proFeatureTextCol}>
+                  <Text style={styles.proFeatureTitle}>Additional Product Space for Catalog</Text>
+                  <Text style={styles.proFeatureDesc}>
+                    Unlimited inventory items, high-res custom photo uploads, and variant management.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.proFeatureItem}>
+                <View style={styles.proFeatureIconCircle}>
+                  <AppIcon name="mic" size={18} color="#121317" strokeWidth={2.2} />
+                </View>
+                <View style={styles.proFeatureTextCol}>
+                  <Text style={styles.proFeatureTitle}>Unlimited Voice Chat</Text>
+                  <Text style={styles.proFeatureDesc}>
+                    Dictate commands, inquire about stock, and draft replies with zero audio timeouts.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.proFeatureItem}>
+                <View style={styles.proFeatureIconCircle}>
+                  <AppIcon name="bot" size={18} color="#121317" strokeWidth={2.2} />
+                </View>
+                <View style={styles.proFeatureTextCol}>
+                  <Text style={styles.proFeatureTitle}>24/7 Meta Messenger Auto-Sync</Text>
+                  <Text style={styles.proFeatureDesc}>
+                    Instant price inquiry detection and automated smart reply generation.
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Action Buttons */}
+            <View style={styles.proModalActions}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={isProUser ? 'Pro Activated' : 'Start 7-Day Free Trial'}
+                style={[styles.proUpgradeBtn, isProUser && styles.proUpgradeBtnActive]}
+                onPress={() => {
+                  if (proAutoCloseTimerRef.current) {
+                    clearTimeout(proAutoCloseTimerRef.current);
+                    proAutoCloseTimerRef.current = null;
+                  }
+                  setIsProUser(true);
+                  setSubscriptionModalOpen(false);
+                  setProToast(true);
+                  setTimeout(() => setProToast(false), 3500);
+                }}
+              >
+                <AppIcon name={isProUser ? 'check' : 'subscription-upgrade'} size={18} color="#FFFFFF" strokeWidth={2.2} />
+                <Text style={styles.proUpgradeBtnText}>
+                  {isProUser ? 'Pro Plan Active' : 'Start 7-Day Free Trial'}
+                </Text>
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Maybe Later"
+                style={styles.proDismissBtn}
+                onPress={closeSubscriptionModal}
+              >
+                <Text style={styles.proDismissBtnText}>Maybe Later</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       {/* 5. Animated Success Toast */}
       {sentToast && (
         <View style={styles.toast}>
           <AppIcon name="check" size={18} color="#FFFFFF" strokeWidth={2.5} />
           <Text style={styles.toastText}>Reply sent to Maria A.</Text>
+        </View>
+      )}
+
+      {/* Pro Subscription Toast */}
+      {proToast && (
+        <View style={styles.toast}>
+          <AppIcon name="sparkles" size={18} color="#FACC15" strokeWidth={2.5} />
+          <Text style={styles.toastText}>Welcome to Mume Pro! Unlimited features unlocked.</Text>
         </View>
       )}
     </View>
@@ -1950,18 +2173,30 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     borderWidth: 0,
   },
+  profileBadgePro: {
+    backgroundColor: 'rgba(250, 204, 21, 0.2)',
+    borderRadius: 19,
+    borderWidth: 1.5,
+    borderColor: '#FACC15',
+  },
   scrollContent: {
     padding: 16,
     paddingBottom: 175,
   },
+  scrollContentExpanded: {
+    flexGrow: 1,
+  },
   scrollContentCatalog: {
-    paddingBottom: 40,
+    paddingBottom: 90,
   },
   scrollContentEditingDraft: {
     paddingBottom: 60,
   },
   screenContainer: {
     width: '100%',
+  },
+  screenContainerExpanded: {
+    flex: 1,
   },
   geminiZeroStateContainer: {
     flexDirection: 'row',
@@ -2517,6 +2752,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
+  addProductFab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 20,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#121317',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
+    zIndex: 20,
+    cursor: (Platform.OS === 'web' ? 'pointer' : 'auto') as any,
+  },
   emptyCatalogCard: {
     backgroundColor: THEME.colors.card,
     borderRadius: 16,
@@ -3014,6 +3267,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.18,
     shadowRadius: 10,
     elevation: 4,
+  },
+  chatSectionCardExpanded: {
+    flex: 1,
+    minHeight: 460,
+    height: undefined,
+    marginBottom: 0,
   },
   chatSectionHeader: {
     flexDirection: 'row',
@@ -3540,5 +3799,191 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '700',
+  },
+  proModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  proModalCard: {
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 22,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.28,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  proModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  proPlanBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#121317',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+  },
+  proPlanBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  proModalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F4F4F5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  proModalTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#121317',
+    marginBottom: 6,
+    letterSpacing: -0.3,
+  },
+  proModalSubtitle: {
+    fontSize: 13,
+    color: THEME.colors.textMuted,
+    lineHeight: 18,
+    marginBottom: 18,
+  },
+  proPriceBox: {
+    backgroundColor: '#FAFAFA',
+    borderWidth: 1.5,
+    borderColor: '#E4E4E7',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 16,
+  },
+  proPriceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  proPriceTier: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#121317',
+  },
+  proPriceTag: {
+    backgroundColor: '#E0EAFF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  proPriceTagText: {
+    color: '#2563EB',
+    fontSize: 10.5,
+    fontWeight: '700',
+  },
+  proPriceAmountRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 2,
+    marginBottom: 4,
+  },
+  proPriceCurrency: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#121317',
+  },
+  proPriceNumber: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#121317',
+    letterSpacing: -0.5,
+  },
+  proPricePeriod: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: THEME.colors.textMuted,
+    marginLeft: 2,
+  },
+  proPriceGuarantee: {
+    fontSize: 11.5,
+    color: '#71717A',
+    fontWeight: '500',
+  },
+  proFeaturesList: {
+    gap: 12,
+    marginBottom: 20,
+  },
+  proFeatureItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  proFeatureIconCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#F4F4F5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  proFeatureTextCol: {
+    flex: 1,
+  },
+  proFeatureTitle: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#121317',
+    marginBottom: 2,
+  },
+  proFeatureDesc: {
+    fontSize: 11.5,
+    color: THEME.colors.textMuted,
+    lineHeight: 16,
+  },
+  proModalActions: {
+    gap: 8,
+  },
+  proUpgradeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#121317',
+    paddingVertical: 13,
+    borderRadius: 14,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  proUpgradeBtnActive: {
+    backgroundColor: '#16A34A',
+  },
+  proUpgradeBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  proDismissBtn: {
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  proDismissBtnText: {
+    color: THEME.colors.textMuted,
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

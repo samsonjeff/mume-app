@@ -2,8 +2,14 @@ import React from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import * as SplashScreen from 'expo-splash-screen';
 import { THEME } from '../constants/theme';
 import { MumeLogo } from '../components/MumeLogo';
+
+// Prevent the native splash screen from auto-hiding until the app is ready
+SplashScreen.preventAutoHideAsync().catch(() => {
+  /* Reload/dev mode safeguard */
+});
 
 export default function RootLayout() {
   return (
