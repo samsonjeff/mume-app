@@ -142,7 +142,7 @@ Complies with the **Cross-Platform Mobile Responsiveness and Ergonomics Directiv
 - **Responsive Slide-Out Drawer**: Safe-area aware full-height modal (`ScrollView` + `useSafeAreaInsets`) replacing bottom bar clutter, containing navigation items, store connection info, and session controls.
 - **Log-Out Confirmation & Session Toggle**: Features `log-out.svg` in the drawer footer with a safety confirmation modal (`Log Out?`) that clears session state and transforms into an official Meta "Login using Facebook" button.
 - **60 FPS Reanimated UI**: Smooth, UI-thread audio waveform animations with zero frame drop.
-- **1.5-Second Startup Intro**: Fluid cross-fade startup transition between `mume-black.svg` (white canvas) and `mume-white.svg` (obsidian black canvas), flowing directly into the app header.
+- **2.5-Second Startup Intro**: Fluid cross-fade startup transition between `mume-black.svg` (white canvas) and `mume-white.svg` (obsidian black canvas), flowing directly into the app header.
 - **Constant-Height Mume AI Chat with Auto-Follow**: Locked container height (13.8rem / 220px) with internal gray scrollbar, automatic scroll adjustment so the merchant clearly sees conversation history while typing, and transient active-typing electric blue highlight that triggers during keystrokes and automatically dismisses after pausing.
 - **Ergonomic Spacing & Vertical Rhythm**: Generous bottom margin (18dp / 1.25rem) between pending actions / "All Caught Up!" cards and the Mume AI Chat stream to prevent cramped element stacking.
 - **Full-Message Draft Reply Editing**: Merchants can edit the complete text of any suggested customer reply before granting approval, directly in-place using a multiline editor or single tap.

@@ -112,7 +112,7 @@ The integration strictly satisfies Meta Developer Policies, Platform Terms, and 
 - **Logout Confirmation & Session Toggle**: Replaced generic chevrons with `log-out.svg` in the drawer footer. Tapping triggers a safety confirmation modal (`Log Out?`) that resets the session, displays clear empty states across tabs, and transforms the drawer footer into an official Meta "Login using Facebook" CTA.
 
 ### 3.2 Dynamic Visuals & Interaction Architecture
-- **1.5-Second Startup Intro**: Fluid cross-fade startup transition between `mume-black.svg` (white canvas) and `mume-white.svg` (obsidian canvas), transitioning smoothly into the top navigation header.
+- **2.5-Second Startup Intro**: Fluid cross-fade startup transition between `mume-black.svg` (white canvas) and `mume-white.svg` (obsidian canvas), transitioning smoothly into the top navigation header.
 - **Obsidian Top Header Bar**: Polished obsidian black bar (`#121317`) featuring a centered white Mume vector logo, left menu toggle, and right silver-to-white gradient avatar badge with dynamic initials.
 - **Constant-Height Mume AI Chat (13.8rem / 220px)**: Locked container height with custom internal gray scrollbar, ensuring conversation history remains accessible without jumping layout height.
 - **Dynamic Conversation Auto-Follow**: Automatically tracks and scrolls the conversation card into clear view as the merchant types or dictates, preventing keyboard occlusion.
@@ -202,7 +202,7 @@ pending_actions (id, conversation_id, product_id, draft_reply, suggested_price, 
 - [x] Locked Mume AI Chat container to a constant height (+10%, 13.8rem / 220px) with internal color gray scrollbar.
 - [x] Active conversation highlighting: dynamic Electric Blue focus glow and live status pill (`Typing…` · `Listening` · `Thinking`) when actively composing or dictating.
 - [x] Integrated visible color gray scrollbar for smooth review of full conversation history while composing messages.
-- [x] Engineered 1.5-second startup animation with smooth cross-fade transition using `mume-black.svg` and `mume-white.svg`.
+- [x] Engineered 2.5-second startup animation with smooth cross-fade transition using `mume-black.svg` and `mume-white.svg`.
 - [x] Dynamic conversation auto-follow & position adjustment while typing, keeping conversation history clearly visible above input capsule.
 - [x] Transient active typing blue highlight: triggers solely during active keystrokes, smoothly turns off after typing pause, and returns immediately upon resumed typing.
 - [x] Ergonomic vertical rhythm: Added breathing room margin bottom (18dp / 1.25rem) to "All Caught Up!" and pending action cards above the conversation stream.

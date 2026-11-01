@@ -213,14 +213,14 @@ export default function HomeScreen() {
   const [submittingLink, setSubmittingLink] = useState(false);
   const [linkMessage, setLinkMessage] = useState('');
 
-  // Opening splash screen animation (1.5s) using mume-black.svg and mume-white.svg
+  // Opening splash screen animation (2.5s) using mume-black.svg and mume-white.svg
   const [showSplash, setShowSplash] = useState(true);
   const splashAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.timing(splashAnim, {
       toValue: 1,
-      duration: 1500,
+      duration: 2500,
       useNativeDriver: false,
       easing: Easing.bezier(0.4, 0, 0.2, 1),
     }).start(() => {
