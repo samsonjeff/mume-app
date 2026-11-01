@@ -1211,18 +1211,20 @@ export default function App() {
                 <label className="product-field-label">Product Photo</label>
                 <button
                   type="button"
-                  className={`upload-photo-btn ${productForm.imageKey === 'custom' ? 'active' : ''}`}
+                  className={`upload-photo-btn ${(productForm.imageUri || productForm.imageKey) ? 'active' : ''}`}
                   onClick={handlePickCustomImage}
                 >
-                  {productForm.imageKey === 'custom' && productForm.imageUri ? (
+                  {(productForm.imageUri || (productForm.imageKey && FRUIT_IMAGE_MAP[productForm.imageKey as 'apple' | 'mango' | 'banana'])) ? (
                     <div className="upload-photo-preview-row">
                       <img
-                        src={productForm.imageUri}
-                        alt="Custom preview"
+                        src={productForm.imageUri || FRUIT_IMAGE_MAP[productForm.imageKey as 'apple' | 'mango' | 'banana']}
+                        alt="Product preview"
                         className="upload-photo-preview-thumb"
                       />
                       <div className="text-left flex-1">
-                        <strong className="text-xs text-gray-900 block">Custom Photo Added</strong>
+                        <strong className="text-xs text-gray-900 block">
+                          {productForm.imageUri ? 'Custom Photo Added' : 'Product Photo'}
+                        </strong>
                         <span className="text-[11px] text-gray-500">Click to change photo</span>
                       </div>
                       <span className="upload-photo-badge">
@@ -1242,21 +1244,6 @@ export default function App() {
                     </div>
                   )}
                 </button>
-
-                <span className="product-field-sublabel">Or pick a preset fruit:</span>
-                <div className="image-picker-row">
-                  {(['apple', 'mango', 'banana'] as const).map((key) => (
-                    <button
-                      key={key}
-                      type="button"
-                      className={`image-picker-option ${productForm.imageKey === key ? 'active' : ''}`}
-                      onClick={() => setProductForm((prev) => ({ ...prev, imageKey: key, imageUri: undefined }))}
-                    >
-                      <img src={FRUIT_IMAGE_MAP[key]} alt={key} className="image-picker-thumb" />
-                      <span>{key.charAt(0).toUpperCase() + key.slice(1)}</span>
-                    </button>
-                  ))}
-                </div>
 
                 <label className="product-field-label">Product Name</label>
                 <input
@@ -1345,18 +1332,20 @@ export default function App() {
                 <label className="product-field-label">Product Photo</label>
                 <button
                   type="button"
-                  className={`upload-photo-btn ${productForm.imageKey === 'custom' ? 'active' : ''}`}
+                  className={`upload-photo-btn ${productForm.imageUri ? 'active' : ''}`}
                   onClick={handlePickCustomImage}
                 >
-                  {productForm.imageKey === 'custom' && productForm.imageUri ? (
+                  {productForm.imageUri ? (
                     <div className="upload-photo-preview-row">
                       <img
                         src={productForm.imageUri}
-                        alt="Custom preview"
+                        alt="Product preview"
                         className="upload-photo-preview-thumb"
                       />
                       <div className="text-left flex-1">
-                        <strong className="text-xs text-gray-900 block">Custom Photo Added</strong>
+                        <strong className="text-xs text-gray-900 block">
+                          Custom Photo Added
+                        </strong>
                         <span className="text-[11px] text-gray-500">Click to change photo</span>
                       </div>
                       <span className="upload-photo-badge">
@@ -1376,21 +1365,6 @@ export default function App() {
                     </div>
                   )}
                 </button>
-
-                <span className="product-field-sublabel">Or pick a preset fruit:</span>
-                <div className="image-picker-row">
-                  {(['apple', 'mango', 'banana'] as const).map((key) => (
-                    <button
-                      key={key}
-                      type="button"
-                      className={`image-picker-option ${productForm.imageKey === key ? 'active' : ''}`}
-                      onClick={() => setProductForm((prev) => ({ ...prev, imageKey: key, imageUri: undefined }))}
-                    >
-                      <img src={FRUIT_IMAGE_MAP[key]} alt={key} className="image-picker-thumb" />
-                      <span>{key.charAt(0).toUpperCase() + key.slice(1)}</span>
-                    </button>
-                  ))}
-                </div>
 
                 <label className="product-field-label">Product Name</label>
                 <input

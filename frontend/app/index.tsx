@@ -1632,26 +1632,32 @@ export default function HomeScreen() {
             </View>
 
             <ScrollView style={styles.productModalScroll} showsVerticalScrollIndicator={false}>
-              {/* Image Picker */}
+              {/* Product Photo */}
               <Text style={styles.productFieldLabel}>Product Photo</Text>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Upload Custom Photo"
                 style={[
                   styles.uploadPhotoBtn,
-                  productForm.imageKey === 'custom' && styles.uploadPhotoBtnActive,
+                  (productForm.imageUri || productForm.imageKey) && styles.uploadPhotoBtnActive,
                 ]}
                 onPress={handlePickCustomImage}
               >
-                {productForm.imageKey === 'custom' && productForm.imageUri ? (
+                {productForm.imageUri || (productForm.imageKey && FRUIT_IMAGES[productForm.imageKey as 'apple' | 'mango' | 'banana']) ? (
                   <View style={styles.uploadPhotoPreviewRow}>
                     <Image
-                      source={{ uri: productForm.imageUri }}
+                      source={
+                        productForm.imageUri
+                          ? { uri: productForm.imageUri }
+                          : FRUIT_IMAGES[productForm.imageKey as 'apple' | 'mango' | 'banana']
+                      }
                       style={styles.uploadPhotoPreviewThumb as any}
                       resizeMode="cover"
                     />
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.uploadPhotoSuccessTitle}>Custom Photo Added</Text>
+                      <Text style={styles.uploadPhotoSuccessTitle}>
+                        {productForm.imageUri ? 'Custom Photo Added' : 'Product Photo'}
+                      </Text>
                       <Text style={styles.uploadPhotoSuccessSub}>Tap to change photo</Text>
                     </View>
                     <View style={styles.uploadPhotoChangeBadge}>
@@ -1671,26 +1677,6 @@ export default function HomeScreen() {
                   </View>
                 )}
               </Pressable>
-
-              <Text style={styles.productFieldSubLabel}>Or pick a preset fruit:</Text>
-              <View style={styles.imagePickerRow}>
-                {(['apple', 'mango', 'banana'] as const).map((key) => (
-                  <Pressable
-                    key={key}
-                    accessibilityRole="button"
-                    style={[
-                      styles.imagePickerOption,
-                      productForm.imageKey === key && styles.imagePickerOptionActive,
-                    ]}
-                    onPress={() => setProductForm((prev) => ({ ...prev, imageKey: key, imageUri: undefined }))}
-                  >
-                    <Image source={FRUIT_IMAGES[key]} style={styles.imagePickerThumb as any} resizeMode="cover" />
-                    <Text style={[styles.imagePickerText, productForm.imageKey === key && styles.imagePickerTextActive]}>
-                      {key.charAt(0).toUpperCase() + key.slice(1)}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
 
               {/* Name Input */}
               <Text style={styles.productFieldLabel}>Product Name</Text>
@@ -1801,18 +1787,18 @@ export default function HomeScreen() {
             </View>
 
             <ScrollView style={styles.productModalScroll} showsVerticalScrollIndicator={false}>
-              {/* Image Picker */}
+              {/* Product Photo */}
               <Text style={styles.productFieldLabel}>Product Photo</Text>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Upload Custom Photo"
                 style={[
                   styles.uploadPhotoBtn,
-                  productForm.imageKey === 'custom' && styles.uploadPhotoBtnActive,
+                  productForm.imageUri && styles.uploadPhotoBtnActive,
                 ]}
                 onPress={handlePickCustomImage}
               >
-                {productForm.imageKey === 'custom' && productForm.imageUri ? (
+                {productForm.imageUri ? (
                   <View style={styles.uploadPhotoPreviewRow}>
                     <Image
                       source={{ uri: productForm.imageUri }}
@@ -1840,26 +1826,6 @@ export default function HomeScreen() {
                   </View>
                 )}
               </Pressable>
-
-              <Text style={styles.productFieldSubLabel}>Or pick a preset fruit:</Text>
-              <View style={styles.imagePickerRow}>
-                {(['apple', 'mango', 'banana'] as const).map((key) => (
-                  <Pressable
-                    key={key}
-                    accessibilityRole="button"
-                    style={[
-                      styles.imagePickerOption,
-                      productForm.imageKey === key && styles.imagePickerOptionActive,
-                    ]}
-                    onPress={() => setProductForm((prev) => ({ ...prev, imageKey: key, imageUri: undefined }))}
-                  >
-                    <Image source={FRUIT_IMAGES[key]} style={styles.imagePickerThumb as any} resizeMode="cover" />
-                    <Text style={[styles.imagePickerText, productForm.imageKey === key && styles.imagePickerTextActive]}>
-                      {key.charAt(0).toUpperCase() + key.slice(1)}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
 
               {/* Name Input */}
               <Text style={styles.productFieldLabel}>Product Name</Text>
@@ -2689,13 +2655,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  productFieldSubLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: THEME.colors.textMuted,
-    marginTop: 10,
-    marginBottom: 6,
-  },
   uploadPhotoBtn: {
     borderWidth: 1.5,
     borderStyle: 'dashed',
@@ -2778,39 +2737,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: THEME.colors.text,
     backgroundColor: '#F9FAFB',
-  },
-  imagePickerRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 4,
-  },
-  imagePickerOption: {
-    flex: 1,
-    borderWidth: 1.5,
-    borderColor: '#E4E4E7',
-    borderRadius: 12,
-    padding: 6,
-    alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-  },
-  imagePickerOptionActive: {
-    borderColor: THEME.colors.primary,
-    backgroundColor: '#EFF6FF',
-  },
-  imagePickerThumb: {
-    width: 44,
-    height: 44,
-    borderRadius: 8,
-    marginBottom: 4,
-  },
-  imagePickerText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: THEME.colors.textMuted,
-  },
-  imagePickerTextActive: {
-    color: THEME.colors.primary,
-    fontWeight: '700',
   },
   stockStatusRow: {
     flexDirection: 'row',

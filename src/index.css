@@ -1897,15 +1897,6 @@
   margin-top: 0.5rem;
 }
 
-.product-field-sublabel {
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: var(--muted);
-  margin-top: 0.6rem;
-  margin-bottom: 0.35rem;
-  display: block;
-}
-
 .upload-photo-btn {
   width: 100%;
   border: 1.5px dashed #d4d4d8;
@@ -1989,53 +1980,6 @@
 .product-modal-input:focus {
   border-color: #1877f2;
   background: #ffffff;
-}
-
-.image-picker-row {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 0.4rem;
-}
-
-.image-picker-option {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 0.4rem;
-  border: 1.5px solid #e4e4e7;
-  border-radius: 0.75rem;
-  background: #f9fafb;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.image-picker-option:hover {
-  border-color: #cbd5e1;
-}
-
-.image-picker-option.active {
-  border-color: #1877f2;
-  background: #eff6ff;
-}
-
-.image-picker-thumb {
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 0.5rem;
-  object-fit: cover;
-  margin-bottom: 0.25rem;
-}
-
-.image-picker-option span {
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: #676a72;
-}
-
-.image-picker-option.active span {
-  color: #1877f2;
-  font-weight: 700;
 }
 
 .stock-status-row {
