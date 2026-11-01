@@ -613,7 +613,7 @@ export default function HomeScreen() {
                 </Text>
                 <Text style={styles.geminiHeroSubtitle}>
                   {isLoggedIn
-                    ? 'Welcome to Muse!'
+                    ? 'Welcome to Mume!'
                     : 'Connect your Facebook Page to start managing inquiries.'}
                 </Text>
               </View>

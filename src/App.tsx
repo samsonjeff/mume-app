@@ -296,7 +296,7 @@ function HomeScreen({
           <h1>{isLoggedIn ? `Hello, ${userName.trim().split(/\s+/)[0] || userName}` : 'Welcome to Mume'}</h1>
           <p>
             {isLoggedIn
-              ? 'Welcome to Muse!'
+              ? 'Welcome to Mume!'
               : 'Connect your Facebook Page to start managing inquiries.'}
           </p>
         </div>
