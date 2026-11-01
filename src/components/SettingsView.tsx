@@ -121,8 +121,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       id: 'monetization',
       icon: 'dollar-sign' as const,
       title: 'Monetization & Ad Spend Summary',
-      desc: 'Product pricing rules (₱/kg) and order revenue sync',
-      badge: '₱14,250',
+      desc: 'Product pricing rules ($/kg) and order revenue sync',
+      badge: '$14,250',
     },
     {
       id: 'audio-diagnostics',
@@ -178,12 +178,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               Page ID: {pageData.pageId} · {pageData.category}
             </p>
 
-            <div className="flex items-center justify-between text-xs text-[var(--muted)] bg-[var(--surface-raised)] p-2.5 rounded-xl border border-[var(--line)] mb-4">
+            <div className="flex items-center justify-between text-xs text-[var(--muted)] mb-3">
               <span>Last synced: {lastSyncTime}</span>
-              <span className="inline-flex items-center gap-1 font-semibold text-blue-700">
-                <Icon name="check" size={13} />
-                AES-256 Token
-              </span>
             </div>
 
             <div className="flex gap-2">
@@ -224,7 +220,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               disabled={syncState === 'syncing'}
               className="w-full flex items-center justify-center gap-2.5 min-h-[48px] px-4 rounded-xl font-bold text-sm bg-[#1877F2] text-white shadow-xs active:scale-98 transition-transform"
             >
-              <Icon name="meta-facebook" size={18} />
+              <Icon name="baseline-facebook" size={18} />
               <span>{syncState === 'syncing' ? 'Connecting to Meta…' : 'Connect & Sync Page'}</span>
             </button>
           </div>

@@ -5,14 +5,17 @@ import { THEME } from '../constants/theme';
 
 export type AppIconName =
   | 'audio-waveform'
+  | 'baseline-facebook'
   | 'bookmark'
   | 'bot'
+  | 'camera'
   | 'check'
   | 'chevron-down'
   | 'chevron-left'
   | 'chevron-right'
   | 'dollar-sign'
   | 'edit'
+  | 'facebook'
   | 'folder'
   | 'home'
   | 'log-in'
@@ -26,7 +29,9 @@ export type AppIconName =
   | 'pin'
   | 'plus'
   | 'radio'
+  | 'round-plus'
   | 'scan-line'
+  | 'send'
   | 'share'
   | 'sparkles'
   | 'trash'
@@ -61,7 +66,7 @@ export const AppIcon: React.FC<AppIconProps> = ({
       <Svg
         width={size * 3}
         height={size}
-        viewBox="0 0 600 600"
+        viewBox="50 170 500 260"
         preserveAspectRatio="xMidYMid meet"
         style={style}
         accessibilityRole="image"
@@ -316,12 +321,19 @@ export const AppIcon: React.FC<AppIconProps> = ({
       {name === 'menu' && (
         <Path
           fill="none"
-          stroke={color}
+          stroke={color || '#FFFFFF'}
           strokeLinecap="round"
           strokeLinejoin="round"
           strokeWidth={strokeWidth}
-          d="M4 6h16M4 12h16M4 18h16"
+          d="M10 6h10M4 12h16M7 12h13M4 18h10"
         />
+      )}
+
+      {name === 'send' && (
+        <G fill="none" stroke={color} strokeLinecap="round" strokeLinejoin="round" strokeWidth={strokeWidth}>
+          <Path d="m22 2-7 20-4-9-9-4Z" />
+          <Path d="M22 2 11 13" />
+        </G>
       )}
 
       {name === 'plus' && (
@@ -335,6 +347,20 @@ export const AppIcon: React.FC<AppIconProps> = ({
         />
       )}
 
+      {name === 'round-plus' && (
+        <Path
+          fill={color}
+          d="M18 12.998h-5v5a1 1 0 0 1-2 0v-5H6a1 1 0 0 1 0-2h5v-5a1 1 0 0 1 2 0v5h5a1 1 0 0 1 0 2"
+        />
+      )}
+
+      {(name === 'baseline-facebook' || name === 'facebook') && (
+        <Path
+          fill={color}
+          d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3v3h-3v6.95c5.05-.5 9-4.76 9-9.95"
+        />
+      )}
+
       {name === 'chevron-down' && (
         <Path
           fill="none"
@@ -344,6 +370,13 @@ export const AppIcon: React.FC<AppIconProps> = ({
           strokeWidth={strokeWidth}
           d="m6 9 6 6 6-6"
         />
+      )}
+
+      {name === 'camera' && (
+        <G fill="none" stroke={color} strokeLinecap="round" strokeLinejoin="round" strokeWidth={strokeWidth}>
+          <Path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+          <Circle cx="12" cy="13" r="3" />
+        </G>
       )}
 
       {name === 'sparkles' && (

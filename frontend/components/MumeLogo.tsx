@@ -6,20 +6,23 @@ interface MumeLogoProps {
   width?: number;
   height?: number;
   color?: string;
+  style?: any;
 }
 
 export function MumeLogo({
   width = 96,
   height = 32,
   color = THEME.colors.obsidian,
+  style,
 }: MumeLogoProps) {
   return (
     <Svg
       width={width}
       height={height}
-      viewBox="0 0 600 600"
+      viewBox="50 170 500 260"
       preserveAspectRatio="xMidYMid meet"
       aria-label="Mume"
+      style={style}
     >
       <G
         transform="translate(0, 600) scale(0.1, -0.1)"

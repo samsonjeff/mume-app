@@ -178,6 +178,15 @@ pending_actions (id, conversation_id, product_id, draft_reply, suggested_price, 
 - [x] Update `.gitignore` with comprehensive rules for `.env`, mobile keystores, and credentials.
 - [x] Align `PLAN.md` and `README.md` with current production architecture.
 
+### Phase 5: Internationalization, Product CRUD & Startup Experience [COMPLETED]
+- [x] Product CRUD modal interface (Add, Edit, Delete) with custom photo upload and live image preview.
+- [x] International currency conversion: Standardized all pricing, inquiry drafts, and AI responses to USD ($).
+- [x] Cleaned up Connected Facebook Page card to reduce vertical space while maintaining active sync indicators.
+- [x] Integrated official `baseline-facebook.svg` across all Facebook login and linking touchpoints.
+- [x] Polished header bar with centered white Mume vector logo and high-visibility silver-to-white gradient avatar badge.
+- [x] Harmonized Mume AI Chat typography hierarchy with container dimensions.
+- [x] Engineered 0.8-second startup animation with smooth cross-fade transition using `mume-black.svg` and `mume-white.svg`.
+
 ---
 
 ## 6. Verification Checklist

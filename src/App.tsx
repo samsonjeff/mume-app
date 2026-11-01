@@ -5,9 +5,83 @@ import Icon from './components/Icon';
 import appleImg from './assets/apple.jpg';
 import mangoImg from './assets/mango.jpg';
 import bananaImg from './assets/banana.jpg';
+import mumeBlackSvg from './assets/mume-black.svg';
+import mumeWhiteSvg from './assets/mume-white.svg';
+
+export interface Product {
+  id: string;
+  name: string;
+  price: string;
+  stock: 'In stock' | 'Low stock' | 'Out of stock';
+  imageKey: 'apple' | 'mango' | 'banana' | 'custom';
+  imageUri?: string;
+}
+
+const FRUIT_IMAGE_MAP: Record<'apple' | 'mango' | 'banana', string> = {
+  apple: appleImg,
+  mango: mangoImg,
+  banana: bananaImg,
+};
+
+const INITIAL_PRODUCTS: Product[] = [
+  {
+    id: 'prod-1',
+    name: 'Red apples',
+    price: '$2.50 / kg',
+    stock: 'In stock',
+    imageKey: 'apple',
+  },
+  {
+    id: 'prod-2',
+    name: 'Carabao mango',
+    price: '$4.00 / kg',
+    stock: 'In stock',
+    imageKey: 'mango',
+  },
+  {
+    id: 'prod-3',
+    name: 'Lakatan banana',
+    price: '$1.80 / kg',
+    stock: 'Low stock',
+    imageKey: 'banana',
+  },
+];
 
 type Tab = 'home' | 'inbox' | 'catalog' | 'settings';
 type VoiceState = 'idle' | 'listening' | 'thinking';
+
+interface ChatMessage {
+  id: string;
+  sender: 'user' | 'mume';
+  text: string;
+  time: string;
+}
+
+function getMumeAiReply(query: string): string {
+  const q = query.toLowerCase().trim();
+  if (q.includes('apple') || q.includes('mansanas')) {
+    return 'Red apples are $2.50 per kilo. In stock with 45 kg ready for delivery. Maria A. asked about this earlier!';
+  }
+  if (q.includes('mango') || q.includes('mangga')) {
+    return 'Carabao mangoes are priced at $4.00 per kilo. We have 30 kg fresh Guimaras harvest in stock.';
+  }
+  if (q.includes('banana') || q.includes('saging')) {
+    return 'Lakatan bananas are $1.80 per kilo. Notice: Stock is currently low (only 8 kg remaining).';
+  }
+  if (q.includes('order') || q.includes('maria') || q.includes('customer') || q.includes('inquiry')) {
+    return "Maria A. wants to buy Red apples ($2.50). You can approve the pre-drafted reply with one tap on your Home screen!";
+  }
+  if (q.includes('price') || q.includes('catalog') || q.includes('inventory') || q.includes('stock')) {
+    return 'Your catalog has 3 items: Red apples ($2.50/kg - In stock), Carabao mango ($4.00/kg - In stock), and Lakatan banana ($1.80/kg - Low stock).';
+  }
+  if (q.includes('magkano') || q.includes('kumusta') || q.includes('meron') || q.includes('salamat') || q.includes('po')) {
+    return 'Hello! Your Facebook Page is synced. Reply ready for Maria A. regarding red apples ($2.50 / kg). Let me know if you want to make changes!';
+  }
+  if (q.includes('hi') || q.includes('hello') || q.includes('hey') || q.includes('mume')) {
+    return "Hello! I'm Mume, your Page AI assistant. Ask me about your customer messages, fruit inventory, or tell me what to draft!";
+  }
+  return "Got it! I checked your store and Page inquiries. Maria A.'s inquiry for $2.50/kg apples is waiting for approval, and your 3 catalog items are synced. How else can I assist?";
+}
 
 function VoiceWave() {
   return (
@@ -21,30 +95,23 @@ function VoiceWave() {
 
 function PendingAction({ onApproved }: { onApproved: () => void }) {
   const [editing, setEditing] = useState(false);
-  const [price, setPrice] = useState('₱120 / kg');
+  const [price, setPrice] = useState('$2.50 / kg');
 
   return (
     <section className="approval-card" aria-labelledby="approval-title">
-      <div className="card-topline">
-        <div className="eyebrow">
-          <span className="status-dot" />
-          Needs your approval
-        </div>
-        <span className="time-label">now</span>
-      </div>
-
       <div className="customer-row">
         <div className="avatar" aria-hidden="true">
           MA
         </div>
-        <div>
+        <div className="flex-1">
           <p className="customer-name">Maria A.</p>
           <p className="customer-context">Messenger · Price inquiry</p>
         </div>
+        <span className="time-label">now</span>
       </div>
 
       <div className="message-bubble">
-        <p>“Hi po, how much ang red apples?”</p>
+        <p>“Hi, how much are the red apples?”</p>
       </div>
 
       <div className="draft-block">
@@ -59,7 +126,7 @@ function PendingAction({ onApproved }: { onApproved: () => void }) {
           </label>
         ) : (
           <p id="approval-title">
-            Hi po! Our red apples are <strong>{price}</strong>. Fresh delivery today.
+            Hi! Our red apples are <strong>{price}</strong>. Fresh delivery today.
           </p>
         )}
       </div>
@@ -96,6 +163,8 @@ function HomeScreen({
   onOpenInbox,
   onOpenCatalog,
   onOpenSettings,
+  chatMessages,
+  isAiThinking,
 }: {
   userName: string;
   isLoggedIn: boolean;
@@ -104,41 +173,33 @@ function HomeScreen({
   onOpenInbox: () => void;
   onOpenCatalog: () => void;
   onOpenSettings: () => void;
+  chatMessages: ChatMessage[];
+  isAiThinking: boolean;
 }) {
   return (
     <>
       <div className="zero-state-hero">
-        <h1>{isLoggedIn ? `Hello, ${userName.trim().split(/\s+/)[0] || userName}` : 'Welcome to Mume'}</h1>
-        <p>
-          {isLoggedIn
-            ? 'Where should we start with Santa Ana Sari-Sari Store?'
-            : 'Connect your Facebook Page to start managing inquiries.'}
-        </p>
-      </div>
+        <div className="hero-copy">
+          <h1>{isLoggedIn ? `Hello, ${userName.trim().split(/\s+/)[0] || userName}` : 'Welcome to Mume'}</h1>
+          <p>
+            {isLoggedIn
+              ? 'Where should we start with Mume Fresh - Fruit Store?'
+              : 'Connect your Facebook Page to start managing inquiries.'}
+          </p>
+        </div>
 
-      {isLoggedIn ? (
-        <div className="chips-container">
+        {isLoggedIn ? (
           <button type="button" className="action-chip" onClick={onOpenInbox}>
             <Icon name="bookmark" size={14} />
-            <span>Maria's inquiry (₱120)</span>
+            <span>Message (2)</span>
           </button>
-          <button type="button" className="action-chip" onClick={onOpenCatalog}>
-            <Icon name="folder" size={14} />
-            <span>Fruit catalog (3 items)</span>
-          </button>
-          <button type="button" className="action-chip" onClick={onOpenSettings}>
-            <Icon name="check" size={14} />
-            <span>Page live & encrypted</span>
-          </button>
-        </div>
-      ) : (
-        <div className="chips-container">
+        ) : (
           <button type="button" className="action-chip" onClick={onLogin}>
-            <Icon name="log-in" size={14} />
+            <Icon name="baseline-facebook" size={14} className="text-[#1877F2]" />
             <span>Login using Facebook</span>
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
       {isLoggedIn ? (
         <>
@@ -147,6 +208,52 @@ function HomeScreen({
             <span>1 action</span>
           </div>
           <PendingAction onApproved={onApproved} />
+
+          {/* Mume AI Chat Thread Stream (Positioned below Pending Action Card) */}
+          {chatMessages.length > 0 && (
+            <div className="chat-section-card">
+              <div className="chat-section-header">
+                <div className="chat-header-left">
+                  <span className="chat-header-badge">
+                    <Icon name="bot-svg" size={18} />
+                  </span>
+                  <strong>Mume AI Chat</strong>
+                </div>
+                <span className="chat-header-subtitle">Talk to AI</span>
+              </div>
+
+              <div className="chat-messages-list">
+                {chatMessages.map((msg) => (
+                  <div
+                    key={msg.id}
+                    className={`chat-bubble-row ${msg.sender === 'user' ? 'user-row' : 'mume-row'}`}
+                  >
+                    {msg.sender === 'mume' && (
+                      <span className="chat-avatar-ai">
+                        <Icon name="bot-svg" size={15} />
+                      </span>
+                    )}
+                    <div className={`chat-bubble ${msg.sender === 'user' ? 'user-bubble' : 'mume-bubble'}`}>
+                      <p className="chat-bubble-text">{msg.text}</p>
+                      <span className="chat-bubble-time">{msg.time}</span>
+                    </div>
+                  </div>
+                ))}
+
+                {isAiThinking && (
+                  <div className="chat-bubble-row mume-row">
+                    <span className="chat-avatar-ai">
+                      <Icon name="bot-svg" size={15} />
+                    </span>
+                    <div className="chat-bubble mume-bubble thinking-bubble">
+                      <span className="thinking-dot" />
+                      <span className="thinking-text">Mume is thinking…</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </>
       ) : (
         <div className="empty-state-card">
@@ -158,7 +265,7 @@ function HomeScreen({
             You are currently logged out. Connect your Facebook account to view customer messages, approve drafts, and manage store catalog.
           </p>
           <button type="button" className="fb-login-btn" onClick={onLogin}>
-            <Icon name="log-in" size={18} />
+            <Icon name="baseline-facebook" size={18} />
             <span>Login using Facebook</span>
           </button>
         </div>
@@ -177,7 +284,7 @@ function InboxScreen({
   return (
     <section className="panel-screen">
       <div className="section-heading">
-        <h1>Inbox</h1>
+        <h1>Message</h1>
         <span>{isLoggedIn ? '2 unread' : '0 unread'}</span>
       </div>
       {isLoggedIn ? (
@@ -206,7 +313,7 @@ function InboxScreen({
           <h3>No Conversations</h3>
           <p>No customer messages to show. Log in using your Facebook account to synchronize inquiries.</p>
           <button type="button" className="fb-login-btn" onClick={onLogin}>
-            <Icon name="log-in" size={18} />
+            <Icon name="baseline-facebook" size={18} />
             <span>Login using Facebook</span>
           </button>
         </div>
@@ -218,34 +325,80 @@ function InboxScreen({
 function CatalogScreen({
   isLoggedIn,
   onLogin,
+  products,
+  onOpenEditProduct,
+  onOpenCreateProduct,
 }: {
   isLoggedIn: boolean;
   onLogin: () => void;
+  products: Product[];
+  onOpenEditProduct: (product: Product) => void;
+  onOpenCreateProduct: () => void;
 }) {
   return (
     <section className="panel-screen">
-      <div className="section-heading">
-        <h1>Catalog & Inventory</h1>
-        <span>{isLoggedIn ? '3 products' : '0 products'}</span>
+      <div className="section-heading flex items-center justify-between">
+        <div>
+          <h1>Catalog & Inventory</h1>
+          <span>{isLoggedIn ? `${products.length} products` : '0 products'}</span>
+        </div>
+        {isLoggedIn && (
+          <button
+            type="button"
+            className="add-product-btn"
+            onClick={onOpenCreateProduct}
+          >
+            <Icon name="round-plus" size={15} />
+            <span>Add</span>
+          </button>
+        )}
       </div>
       {isLoggedIn ? (
-        <div className="catalog-grid">
-          {[
-            [appleImg, 'Red apples', '₱120 / kg', 'In stock'],
-            [mangoImg, 'Carabao mango', '₱180 / kg', 'In stock'],
-            [bananaImg, 'Lakatan banana', '₱85 / kg', 'Low stock'],
-          ].map(([imgSrc, name, price, stock]) => (
-            <button className="product-card min-h-[140px]" key={name} type="button">
-              <img src={imgSrc} alt={name} className="product-image" />
-              <strong>{name}</strong>
-              <span className="flex items-center justify-center gap-1 text-sm font-bold text-blue-600">
-                <Icon name="dollar-sign" size={14} />
-                {price}
-              </span>
-              <small>{stock}</small>
-            </button>
-          ))}
-        </div>
+        products.length === 0 ? (
+          <div className="empty-catalog-box">
+            <p className="font-semibold text-gray-800">No products in catalog</p>
+            <p className="text-xs text-gray-500 mt-1">Click "Add Product" above to create an item.</p>
+          </div>
+        ) : (
+          <div className="catalog-grid">
+            {products.map((item) => (
+              <button
+                className="product-card min-h-[140px]"
+                key={item.id}
+                type="button"
+                onClick={() => onOpenEditProduct(item)}
+              >
+                <div className="product-image-container relative w-full">
+                  <img
+                    src={
+                      item.imageUri ||
+                      FRUIT_IMAGE_MAP[item.imageKey as 'apple' | 'mango' | 'banana'] ||
+                      appleImg
+                    }
+                    alt={item.name}
+                    className="product-image"
+                  />
+                  <span
+                    className={`stock-badge ${
+                      item.stock === 'In stock'
+                        ? 'stock-in'
+                        : item.stock === 'Low stock'
+                        ? 'stock-low'
+                        : 'stock-out'
+                    }`}
+                  >
+                    {item.stock}
+                  </span>
+                </div>
+                <strong>{item.name}</strong>
+                <span className="flex items-center justify-center gap-1 text-sm font-bold text-blue-600">
+                  <Icon name="dollar-sign" size={14} />
+                  {item.price}
+                </span>
+              </button>
+            ))}
+          </div>
+        )
       ) : (
         <div className="empty-state-card">
           <div className="empty-icon-circle">
@@ -254,7 +407,7 @@ function CatalogScreen({
           <h3>Catalog is Empty</h3>
           <p>No products found. Log in using your Facebook account to link and manage your store inventory.</p>
           <button type="button" className="fb-login-btn" onClick={onLogin}>
-            <Icon name="log-in" size={18} />
+            <Icon name="baseline-facebook" size={18} />
             <span>Login using Facebook</span>
           </button>
         </div>
@@ -264,12 +417,169 @@ function CatalogScreen({
 }
 
 export default function App() {
+  const [showSplash, setShowSplash] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>('home');
   const [menuOpen, setMenuOpen] = useState(false);
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
   const [userName, setUserName] = useState<string>('Jefferson');
   const [isLoggedIn, setIsLoggedIn] = useState(true);
   const [sent, setSent] = useState(false);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  const [chatInput, setChatInput] = useState('');
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
+    {
+      id: 'welcome-1',
+      sender: 'mume',
+      text: "Hi Jefferson! I'm Mume, your store assistant. You can write any message to me here or tap mic to talk.",
+      time: 'Just now',
+    },
+  ]);
+  const [isAiThinking, setIsAiThinking] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Products / Catalog state
+  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [productForm, setProductForm] = useState<{
+    name: string;
+    price: string;
+    stock: 'In stock' | 'Low stock' | 'Out of stock';
+    imageKey: 'apple' | 'mango' | 'banana' | 'custom';
+    imageUri?: string;
+  }>({
+    name: '',
+    price: '',
+    stock: 'In stock',
+    imageKey: 'apple',
+    imageUri: undefined,
+  });
+
+  const handlePickCustomImage = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = (e: any) => {
+      const file = e.target?.files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const result = event.target?.result as string;
+          if (result) {
+            setProductForm((prev) => ({
+              ...prev,
+              imageUri: result,
+              imageKey: 'custom',
+            }));
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+    input.click();
+  };
+
+  const handleOpenEditProduct = (prod: Product) => {
+    setSelectedProduct(prod);
+    setProductForm({
+      name: prod.name,
+      price: prod.price,
+      stock: prod.stock,
+      imageKey: prod.imageKey || 'apple',
+      imageUri: prod.imageUri,
+    });
+  };
+
+  const handleSaveProductEdit = () => {
+    if (!selectedProduct) return;
+    const trimmed = productForm.name.trim();
+    if (!trimmed) return;
+
+    setProducts((prev) =>
+      prev.map((item) =>
+        item.id === selectedProduct.id
+          ? {
+              ...item,
+              name: trimmed,
+              price: productForm.price.trim() || '$0 / kg',
+              stock: productForm.stock,
+              isStock: productForm.stock === 'In stock',
+              imageKey: productForm.imageKey,
+              imageUri: productForm.imageKey === 'custom' ? productForm.imageUri : undefined,
+            }
+          : item
+      )
+    );
+    setSelectedProduct(null);
+  };
+
+  const handleDeleteProduct = () => {
+    if (!selectedProduct) return;
+    setProducts((prev) => prev.filter((item) => item.id !== selectedProduct.id));
+    setSelectedProduct(null);
+  };
+
+  const handleOpenCreateProduct = () => {
+    setProductForm({
+      name: '',
+      price: '$',
+      stock: 'In stock',
+      imageKey: 'apple',
+      imageUri: undefined,
+    });
+    setIsCreateModalOpen(true);
+  };
+
+  const handleSaveCreateProduct = () => {
+    const trimmed = productForm.name.trim();
+    if (!trimmed) return;
+
+    const newProd: Product = {
+      id: `prod-${Date.now()}`,
+      name: trimmed,
+      price: productForm.price.trim() || '$0 / kg',
+      stock: productForm.stock,
+      isStock: productForm.stock === 'In stock',
+      imageKey: productForm.imageKey,
+      imageUri: productForm.imageKey === 'custom' ? productForm.imageUri : undefined,
+    };
+    setProducts((prev) => [...prev, newProd]);
+    setIsCreateModalOpen(false);
+  };
+
+  const handleSendMessage = () => {
+    const trimmed = chatInput.trim();
+    if (!trimmed || isAiThinking) return;
+
+    const userMsg: ChatMessage = {
+      id: `user-${Date.now()}`,
+      sender: 'user',
+      text: trimmed,
+      time: 'Just now',
+    };
+
+    setChatMessages((prev) => [...prev, userMsg]);
+    setChatInput('');
+    setIsAiThinking(true);
+
+    window.setTimeout(() => {
+      const reply = getMumeAiReply(trimmed);
+      const aiMsg: ChatMessage = {
+        id: `ai-${Date.now()}`,
+        sender: 'mume',
+        text: reply,
+        time: 'Just now',
+      };
+      setChatMessages((prev) => [...prev, aiMsg]);
+      setIsAiThinking(false);
+    }, 700);
+  };
 
   const userInitials = isLoggedIn
     ? userName.trim().split(/\s+/).filter(Boolean).map(n => n[0]?.toUpperCase()).slice(0, 2).join('') || 'JS'
@@ -307,10 +617,29 @@ export default function App() {
   return (
     <div className="app-shell">
       <main className="phone-stage max-w-[412px] min-w-[360px] mx-auto border-x border-[var(--line)] shadow-2xl relative">
+        {/* Opening Splash Animation (0.8s) */}
+        {showSplash && (
+          <div className="mume-splash-screen" aria-label="Mume">
+            <div className="mume-splash-backdrop" />
+            <div className="mume-splash-logo-container">
+              <img
+                src={mumeBlackSvg}
+                alt="Mume"
+                className="mume-splash-logo mume-splash-logo-black"
+              />
+              <img
+                src={mumeWhiteSvg}
+                alt="Mume"
+                className="mume-splash-logo mume-splash-logo-white"
+              />
+            </div>
+          </div>
+        )}
+
         {/* Dynamic Top Header */}
         <Header
-          title={activeTab === 'settings' ? 'Settings' : activeTab === 'inbox' ? 'Inbox' : activeTab === 'catalog' ? 'Catalog' : 'Mume'}
-          subtitle={isLoggedIn ? 'Santa Ana Sari-Sari Store' : 'No Store Linked'}
+          title={activeTab === 'settings' ? 'Settings' : activeTab === 'inbox' ? 'Message' : activeTab === 'catalog' ? 'Catalog' : 'Mume'}
+          subtitle={isLoggedIn ? 'Mume Fresh - Fruit Store' : 'No Store Linked'}
           showBack={activeTab !== 'home'}
           userInitials={userInitials}
           onBack={() => setActiveTab('home')}
@@ -329,6 +658,8 @@ export default function App() {
               onOpenInbox={() => setActiveTab('inbox')}
               onOpenCatalog={() => setActiveTab('catalog')}
               onOpenSettings={() => setActiveTab('settings')}
+              chatMessages={chatMessages}
+              isAiThinking={isAiThinking}
             />
           )}
           {activeTab === 'inbox' && (
@@ -341,6 +672,9 @@ export default function App() {
             <CatalogScreen
               isLoggedIn={isLoggedIn}
               onLogin={handleLogin}
+              products={products}
+              onOpenEditProduct={handleOpenEditProduct}
+              onOpenCreateProduct={handleOpenCreateProduct}
             />
           )}
           {activeTab === 'settings' && (
@@ -352,56 +686,83 @@ export default function App() {
           )}
         </div>
 
-        {/* Gemini-Style Floating Bottom Input Capsule Dock */}
+        {/* Gemini-Style Floating Bottom Input Capsule Dock (Size x 2 with Multi-Line Text Input & Send) */}
         {activeTab !== 'settings' && (
           <div className="input-capsule-container">
-            <div className="input-capsule">
-              <button
-                type="button"
-                className="capsule-plus-button"
-                onClick={() => setActiveTab('catalog')}
-                aria-label="Upload and quick actions"
-              >
-                +
-              </button>
+            <div className="input-capsule size-x2">
+              {/* Top Row: Merchant can write a message to talk to AI */}
+              <div className="capsule-text-container">
+                <textarea
+                  className="capsule-text-input"
+                  placeholder="Ask Mume or write a message…"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
+                  rows={2}
+                />
+              </div>
 
-              <button
-                type="button"
-                className="capsule-input-area"
-                onClick={handleVoice}
-                aria-label="Voice dictate or ask Mume"
-              >
-                {voiceState === 'idle' && (
-                  <span className="capsule-placeholder">Ask Mume or tap mic…</span>
-                )}
-                {voiceState === 'listening' && (
-                  <div className="capsule-voice-row">
-                    <VoiceWave />
-                    <span className="capsule-status">Listening…</span>
-                  </div>
-                )}
-                {voiceState === 'thinking' && (
-                  <div className="capsule-voice-row">
-                    <Icon name="bot-svg" size={16} />
-                    <span className="capsule-status">Checking your page…</span>
-                  </div>
-                )}
-              </button>
+              {/* Bottom Row: Quick Tools, Status & Controls */}
+              <div className="capsule-controls-row">
+                <button
+                  type="button"
+                  className="capsule-plus-button"
+                  onClick={() => setActiveTab('catalog')}
+                  aria-label="Upload and quick actions"
+                >
+                  +
+                </button>
 
-              <button
-                type="button"
-                className={`capsule-mic-button ${voiceState === 'listening' ? 'active' : ''}`}
-                onClick={handleVoice}
-                aria-label="Dictate and talk to Mume"
-              >
-                {voiceState === 'thinking' ? (
-                  <Icon name="bot-svg" size={20} />
-                ) : voiceState === 'listening' ? (
-                  <Icon name="audio-waveform" size={20} />
-                ) : (
-                  <span>🎙️</span>
-                )}
-              </button>
+                <div className="capsule-status-area">
+                  {voiceState === 'listening' && (
+                    <div className="capsule-voice-row">
+                      <VoiceWave />
+                      <span className="capsule-status">Listening…</span>
+                    </div>
+                  )}
+                  {voiceState === 'thinking' && (
+                    <div className="capsule-voice-row">
+                      <Icon name="bot-svg" size={15} />
+                      <span className="capsule-status">Checking your page…</span>
+                    </div>
+                  )}
+                  {voiceState === 'idle' && !chatInput && (
+                    <span className="capsule-hint">Tap mic or write to AI</span>
+                  )}
+                </div>
+
+                <div className="capsule-actions-right">
+                  <button
+                    type="button"
+                    className={`capsule-mic-button-small ${voiceState === 'listening' ? 'active' : ''}`}
+                    onClick={handleVoice}
+                    aria-label="Dictate and talk to Mume"
+                  >
+                    {voiceState === 'thinking' ? (
+                      <Icon name="bot-svg" size={17} />
+                    ) : voiceState === 'listening' ? (
+                      <Icon name="audio-waveform" size={17} />
+                    ) : (
+                      <span>🎙️</span>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`capsule-send-button ${chatInput.trim() ? 'active' : ''}`}
+                    onClick={handleSendMessage}
+                    disabled={!chatInput.trim() || isAiThinking}
+                    aria-label="Send message to AI"
+                  >
+                    <Icon name="send" size={15} />
+                  </button>
+                </div>
+              </div>
             </div>
             <p className="capsule-disclaimer">Nothing is sent without your approval.</p>
           </div>
@@ -433,7 +794,7 @@ export default function App() {
 
               {/* Store details */}
               <div className="drawer-store-card">
-                <strong>{isLoggedIn ? 'Santa Ana Sari-Sari Store' : 'No Store Linked'}</strong>
+                <strong>{isLoggedIn ? 'Mume Fresh - Fruit Store' : 'No Store Linked'}</strong>
                 <span>{isLoggedIn ? 'Messenger AI Assistant · Meta Synced' : 'Log in with Facebook to sync store'}</span>
               </div>
 
@@ -453,7 +814,7 @@ export default function App() {
                     <Icon name="home" size={18} />
                   </span>
                   <div className="drawer-nav-copy">
-                    <strong>Today</strong>
+                    <strong>Home</strong>
                     <span>Overview & action items</span>
                   </div>
                   {activeTab === 'home' && <i className="drawer-active-bar" />}
@@ -471,7 +832,7 @@ export default function App() {
                     <Icon name="bookmark" size={18} />
                   </span>
                   <div className="drawer-nav-copy">
-                    <strong>Inbox</strong>
+                    <strong>Message</strong>
                     <span>Customer inquiries</span>
                   </div>
                   <span className="drawer-badge">{isLoggedIn ? 2 : 0}</span>
@@ -492,7 +853,7 @@ export default function App() {
                     <strong>Catalog</strong>
                     <span>Products & prices</span>
                   </div>
-                  <span className="drawer-badge-secondary">{isLoggedIn ? 3 : 0}</span>
+                  <span className="drawer-badge-secondary">{isLoggedIn ? products.length : 0}</span>
                 </button>
 
                 <button
@@ -536,7 +897,7 @@ export default function App() {
                   <button
                     type="button"
                     className="drawer-logout-btn"
-                    onClick={handleLogout}
+                    onClick={() => setLogoutConfirmOpen(true)}
                     aria-label="Log out"
                     title="Log out"
                   >
@@ -550,11 +911,306 @@ export default function App() {
                     className="drawer-login-btn"
                     onClick={handleLogin}
                   >
-                    <Icon name="log-in" size={18} />
+                    <Icon name="baseline-facebook" size={18} />
                     <span>Login using Facebook</span>
                   </button>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Logout Confirmation Dialog Modal */}
+        {logoutConfirmOpen && (
+          <div className="confirm-modal-overlay" onClick={() => setLogoutConfirmOpen(false)}>
+            <div className="confirm-modal-card" onClick={(e) => e.stopPropagation()}>
+              <div className="confirm-modal-icon-circle">
+                <Icon name="log-out" size={24} />
+              </div>
+              <h3>Log Out of Mume?</h3>
+              <p>Are you sure you want to log out? You will need to reconnect to manage your store inquiries.</p>
+              <div className="confirm-modal-actions-row">
+                <button
+                  type="button"
+                  className="confirm-modal-cancel-btn"
+                  onClick={() => setLogoutConfirmOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="confirm-modal-logout-btn"
+                  onClick={() => {
+                    setLogoutConfirmOpen(false);
+                    handleLogout();
+                  }}
+                >
+                  Log Out
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Product Modal */}
+        {selectedProduct && (
+          <div className="product-modal-overlay" onClick={() => setSelectedProduct(null)}>
+            <div className="product-modal-card" onClick={(e) => e.stopPropagation()}>
+              <div className="product-modal-header">
+                <div>
+                  <h3>Edit Product</h3>
+                  <p>Update fruit details or delete item</p>
+                </div>
+                <button
+                  type="button"
+                  className="product-modal-close-btn"
+                  onClick={() => setSelectedProduct(null)}
+                  aria-label="Close"
+                >
+                  <Icon name="x" size={20} />
+                </button>
+              </div>
+
+              <div className="product-modal-body">
+                <label className="product-field-label">Product Photo</label>
+                <button
+                  type="button"
+                  className={`upload-photo-btn ${productForm.imageKey === 'custom' ? 'active' : ''}`}
+                  onClick={handlePickCustomImage}
+                >
+                  {productForm.imageKey === 'custom' && productForm.imageUri ? (
+                    <div className="upload-photo-preview-row">
+                      <img
+                        src={productForm.imageUri}
+                        alt="Custom preview"
+                        className="upload-photo-preview-thumb"
+                      />
+                      <div className="text-left flex-1">
+                        <strong className="text-xs text-gray-900 block">Custom Photo Added</strong>
+                        <span className="text-[11px] text-gray-500">Click to change photo</span>
+                      </div>
+                      <span className="upload-photo-badge">
+                        <Icon name="camera" size={13} />
+                        Change
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="upload-photo-placeholder-row">
+                      <div className="upload-photo-icon-circle">
+                        <Icon name="camera" size={18} />
+                      </div>
+                      <div className="text-left flex-1">
+                        <strong className="text-xs text-gray-900 block">Upload from Device / Camera</strong>
+                        <span className="text-[11px] text-gray-500">Select any image or take a photo</span>
+                      </div>
+                    </div>
+                  )}
+                </button>
+
+                <span className="product-field-sublabel">Or pick a preset fruit:</span>
+                <div className="image-picker-row">
+                  {(['apple', 'mango', 'banana'] as const).map((key) => (
+                    <button
+                      key={key}
+                      type="button"
+                      className={`image-picker-option ${productForm.imageKey === key ? 'active' : ''}`}
+                      onClick={() => setProductForm((prev) => ({ ...prev, imageKey: key, imageUri: undefined }))}
+                    >
+                      <img src={FRUIT_IMAGE_MAP[key]} alt={key} className="image-picker-thumb" />
+                      <span>{key.charAt(0).toUpperCase() + key.slice(1)}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <label className="product-field-label">Product Name</label>
+                <input
+                  type="text"
+                  className="product-modal-input"
+                  value={productForm.name}
+                  onChange={(e) => setProductForm((prev) => ({ ...prev, name: e.target.value }))}
+                  placeholder="e.g. Red apples"
+                />
+
+                <label className="product-field-label">Price</label>
+                <input
+                  type="text"
+                  className="product-modal-input"
+                  value={productForm.price}
+                  onChange={(e) => setProductForm((prev) => ({ ...prev, price: e.target.value }))}
+                  placeholder="e.g. $2.50 / kg"
+                />
+
+                <label className="product-field-label">Stock Status</label>
+                <div className="stock-status-row">
+                  {(['In stock', 'Low stock', 'Out of stock'] as const).map((st) => (
+                    <button
+                      key={st}
+                      type="button"
+                      className={`stock-status-btn ${productForm.stock === st ? 'active' : ''}`}
+                      onClick={() => setProductForm((prev) => ({ ...prev, stock: st }))}
+                    >
+                      {st}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="product-modal-actions">
+                <button
+                  type="button"
+                  className="product-delete-btn"
+                  onClick={handleDeleteProduct}
+                >
+                  <Icon name="trash" size={16} />
+                  <span>Delete</span>
+                </button>
+
+                <div className="product-modal-right-btns">
+                  <button
+                    type="button"
+                    className="product-cancel-btn"
+                    onClick={() => setSelectedProduct(null)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="product-save-btn"
+                    onClick={handleSaveProductEdit}
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Create Product Modal */}
+        {isCreateModalOpen && (
+          <div className="product-modal-overlay" onClick={() => setIsCreateModalOpen(false)}>
+            <div className="product-modal-card" onClick={(e) => e.stopPropagation()}>
+              <div className="product-modal-header">
+                <div>
+                  <h3>Add New Product</h3>
+                  <p>Create a new item in your catalog</p>
+                </div>
+                <button
+                  type="button"
+                  className="product-modal-close-btn"
+                  onClick={() => setIsCreateModalOpen(false)}
+                  aria-label="Close"
+                >
+                  <Icon name="x" size={20} />
+                </button>
+              </div>
+
+              <div className="product-modal-body">
+                <label className="product-field-label">Product Photo</label>
+                <button
+                  type="button"
+                  className={`upload-photo-btn ${productForm.imageKey === 'custom' ? 'active' : ''}`}
+                  onClick={handlePickCustomImage}
+                >
+                  {productForm.imageKey === 'custom' && productForm.imageUri ? (
+                    <div className="upload-photo-preview-row">
+                      <img
+                        src={productForm.imageUri}
+                        alt="Custom preview"
+                        className="upload-photo-preview-thumb"
+                      />
+                      <div className="text-left flex-1">
+                        <strong className="text-xs text-gray-900 block">Custom Photo Added</strong>
+                        <span className="text-[11px] text-gray-500">Click to change photo</span>
+                      </div>
+                      <span className="upload-photo-badge">
+                        <Icon name="camera" size={13} />
+                        Change
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="upload-photo-placeholder-row">
+                      <div className="upload-photo-icon-circle">
+                        <Icon name="camera" size={18} />
+                      </div>
+                      <div className="text-left flex-1">
+                        <strong className="text-xs text-gray-900 block">Upload from Device / Camera</strong>
+                        <span className="text-[11px] text-gray-500">Select any image or take a photo</span>
+                      </div>
+                    </div>
+                  )}
+                </button>
+
+                <span className="product-field-sublabel">Or pick a preset fruit:</span>
+                <div className="image-picker-row">
+                  {(['apple', 'mango', 'banana'] as const).map((key) => (
+                    <button
+                      key={key}
+                      type="button"
+                      className={`image-picker-option ${productForm.imageKey === key ? 'active' : ''}`}
+                      onClick={() => setProductForm((prev) => ({ ...prev, imageKey: key, imageUri: undefined }))}
+                    >
+                      <img src={FRUIT_IMAGE_MAP[key]} alt={key} className="image-picker-thumb" />
+                      <span>{key.charAt(0).toUpperCase() + key.slice(1)}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <label className="product-field-label">Product Name</label>
+                <input
+                  type="text"
+                  autoFocus
+                  className="product-modal-input"
+                  value={productForm.name}
+                  onChange={(e) => setProductForm((prev) => ({ ...prev, name: e.target.value }))}
+                  placeholder="e.g. Fuji Apple"
+                />
+
+                <label className="product-field-label">Price</label>
+                <input
+                  type="text"
+                  className="product-modal-input"
+                  value={productForm.price}
+                  onChange={(e) => setProductForm((prev) => ({ ...prev, price: e.target.value }))}
+                  placeholder="e.g. $3.00 / kg"
+                />
+
+                <label className="product-field-label">Stock Status</label>
+                <div className="stock-status-row">
+                  {(['In stock', 'Low stock', 'Out of stock'] as const).map((st) => (
+                    <button
+                      key={st}
+                      type="button"
+                      className={`stock-status-btn ${productForm.stock === st ? 'active' : ''}`}
+                      onClick={() => setProductForm((prev) => ({ ...prev, stock: st }))}
+                    >
+                      {st}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="product-modal-actions">
+                <div className="flex-1" />
+                <div className="product-modal-right-btns">
+                  <button
+                    type="button"
+                    className="product-cancel-btn"
+                    onClick={() => setIsCreateModalOpen(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="product-save-btn"
+                    disabled={!productForm.name.trim()}
+                    style={!productForm.name.trim() ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
+                    onClick={handleSaveCreateProduct}
+                  >
+                    Add Product
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
