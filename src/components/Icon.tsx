@@ -46,7 +46,8 @@ export type MissingIconName =
   | 'trash'
   | 'plus'
   | 'round-plus'
-  | 'camera';
+  | 'camera'
+  | 'subscription-upgrade';
 
 export type IconName = VerifiedIconName | MissingIconName;
 
@@ -236,6 +237,28 @@ export const Icon: React.FC<IconProps> = ({
         aria-label={accessibilityLabel || 'Facebook'}
       >
         <path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3v3h-3v6.95c5.05-.5 9-4.76 9-9.95" />
+      </svg>
+    );
+  }
+
+  if (name === 'subscription-upgrade') {
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={`inline-block shrink-0 ${className}`}
+        style={{ width: size, height: size, ...style }}
+        aria-label={accessibilityLabel || 'Subscription upgrade'}
+      >
+        <path d="M4 5h16a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1 -2 2H4a2 2 0 0 1 -2 -2v-3a2 2 0 0 0 0 -4V7a2 2 0 0 1 2 -2" />
+        <path d="M9.5 11 12 8.5l2.5 2.5" />
+        <path d="m9.5 15 2.5 -2.5 2.5 2.5" />
       </svg>
     );
   }

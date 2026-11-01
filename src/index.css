@@ -619,9 +619,14 @@
   font-size: 0.78rem;
   font-weight: 700;
   box-shadow: 0 0.2rem 0.7rem rgba(0, 0, 0, 0.35);
-  cursor: default;
-  pointer-events: none;
+  cursor: pointer;
   user-select: none;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.profile-button:hover {
+  transform: scale(1.05);
+  opacity: 0.95;
 }
 
 .content-scroll {

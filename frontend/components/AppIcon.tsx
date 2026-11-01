@@ -34,6 +34,7 @@ export type AppIconName =
   | 'send'
   | 'share'
   | 'sparkles'
+  | 'subscription-upgrade'
   | 'trash'
   | 'user-round'
   | 'wrench'
@@ -388,6 +389,14 @@ export const AppIcon: React.FC<AppIconProps> = ({
           strokeWidth={strokeWidth}
           d="m12 3 1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3z"
         />
+      )}
+
+      {name === 'subscription-upgrade' && (
+        <G fill="none" stroke={color} strokeLinecap="round" strokeLinejoin="round" strokeWidth={strokeWidth}>
+          <Path d="M4 5h16a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1 -2 2H4a2 2 0 0 1 -2 -2v-3a2 2 0 0 0 0 -4V7a2 2 0 0 1 2 -2" />
+          <Path d="M9.5 11 12 8.5l2.5 2.5" />
+          <Path d="m9.5 15 2.5 -2.5 2.5 2.5" />
+        </G>
       )}
     </Svg>
   );

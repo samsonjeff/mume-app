@@ -113,7 +113,7 @@ The integration strictly satisfies Meta Developer Policies, Platform Terms, and 
 
 ### 3.2 Dynamic Visuals & Interaction Architecture
 - **2.5-Second Startup Intro**: Fluid cross-fade startup transition between `mume-black.svg` (white canvas) and `mume-white.svg` (obsidian canvas), transitioning smoothly into the top navigation header.
-- **Obsidian Top Header Bar**: Polished obsidian black bar (`#121317`) featuring a centered white Mume vector logo, left menu toggle, and right silver-to-white gradient avatar badge with dynamic initials.
+- **Obsidian Top Header Bar**: Polished obsidian black bar (`#121317`) featuring a centered white Mume vector logo, left menu toggle, and right silver-to-white gradient badge rendering `subscription-upgrade.svg`.
 - **Constant-Height Mume AI Chat (13.8rem / 220px)**: Locked container height with custom internal gray scrollbar, ensuring conversation history remains accessible without jumping layout height.
 - **Dynamic Conversation Auto-Follow**: Automatically tracks and scrolls the conversation card into clear view as the merchant types or dictates, preventing keyboard occlusion.
 - **Transient Active-Typing Electric Blue Highlight**: A glowing `#3279F9` focus ring activates solely during active keystrokes or active speech recognition and gracefully dismisses 1.0s after typing pauses.
@@ -197,7 +197,7 @@ pending_actions (id, conversation_id, product_id, draft_reply, suggested_price, 
 - [x] International currency conversion: Standardized all pricing, inquiry drafts, and AI responses to USD ($).
 - [x] Cleaned up Connected Facebook Page card to reduce vertical space while maintaining active sync indicators.
 - [x] Integrated official `baseline-facebook.svg` across all Facebook login and linking touchpoints.
-- [x] Polished header bar with centered white Mume vector logo and high-visibility silver-to-white gradient avatar badge.
+- [x] Polished header bar with centered white Mume vector logo and high-visibility silver-to-white gradient badge rendering `subscription-upgrade.svg`.
 - [x] Standardized hero greeting subtitle to "Welcome to Mume!".
 - [x] Locked Mume AI Chat container to a constant height (+10%, 13.8rem / 220px) with internal color gray scrollbar.
 - [x] Active conversation highlighting: dynamic Electric Blue focus glow and live status pill (`Typing…` · `Listening` · `Thinking`) when actively composing or dictating.

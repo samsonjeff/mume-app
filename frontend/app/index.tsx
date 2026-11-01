@@ -581,15 +581,17 @@ export default function HomeScreen() {
             <MumeLogo width={80} height={30} color="#FFFFFF" />
           </View>
 
-          <View
-            accessibilityLabel="Profile avatar"
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Subscription upgrade"
+            onPress={() => setActiveTab('settings')}
             style={[
               styles.profileBadge,
               { backgroundImage: 'linear-gradient(135deg, #FFFFFF 0%, #9CA3AF 100%)' } as any,
             ]}
           >
-            <Text style={styles.profileBadgeText}>{userInitials}</Text>
-          </View>
+            <AppIcon name="subscription-upgrade" size={20} color="#121317" strokeWidth={2} />
+          </Pressable>
         </View>
       </SafeAreaView>
 

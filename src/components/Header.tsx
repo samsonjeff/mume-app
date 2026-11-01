@@ -54,12 +54,14 @@ export const Header: React.FC<HeaderProps> = ({
         </svg>
       </div>
 
-      <div
-        aria-label="Profile"
-        className="profile-button"
+      <button
+        type="button"
+        onClick={onProfileClick}
+        aria-label="Subscription upgrade"
+        className="profile-button subscription-upgrade-button cursor-pointer"
       >
-        {userInitials}
-      </div>
+        <Icon name="subscription-upgrade" size={20} />
+      </button>
     </header>
   );
 };
