@@ -188,7 +188,7 @@ pending_actions (id, conversation_id, product_id, draft_reply, suggested_price, 
 - [x] Locked Mume AI Chat container to a constant height (+10%) with internal message scrolling.
 - [x] Active conversation highlighting: dynamic Electric Blue focus glow and live status pill (`Chatting` · `Listening` · `Thinking`) when typing or dictating.
 - [x] Integrated visible color gray scrollbar for smooth review of full conversation history while composing messages.
-- [x] Engineered 0.8-second startup animation with smooth cross-fade transition using `mume-black.svg` and `mume-white.svg`.
+- [x] Engineered 1.5-second startup animation with smooth cross-fade transition using `mume-black.svg` and `mume-white.svg`.
 
 ---
 
