@@ -7,6 +7,8 @@ import mangoImg from './assets/mango.jpg';
 import bananaImg from './assets/banana.jpg';
 import mumeBlackSvg from './assets/mume-black.svg';
 import mumeWhiteSvg from './assets/mume-white.svg';
+import { supabase } from './lib/supabase';
+import { api } from './lib/api';
 
 export interface Product {
   id: string;
@@ -576,6 +578,7 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(true);
   const [sent, setSent] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [chatInput, setChatInput] = useState('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
