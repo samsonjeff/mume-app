@@ -695,6 +695,89 @@ export default function App() {
     };
   }, []);
 
+  // Load persistent chat history from Supabase / API and subscribe to real-time messages
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadChat() {
+      try {
+        const chatData = await api.getChatMessages();
+        if (isMounted && chatData?.messages && chatData.messages.length > 0) {
+          setActiveConversationId(chatData.conversationId);
+          setChatMessages(chatData.messages);
+          return;
+        }
+      } catch (apiErr) {
+        console.warn('Backend chat API offline, checking Supabase directly:', apiErr);
+      }
+
+      // Supabase direct fallback
+      try {
+        const { data: conv } = await supabase
+          .from('conversations')
+          .select('id')
+          .eq('customer_psid', 'mume_assistant')
+          .maybeSingle();
+
+        if (conv && isMounted) {
+          setActiveConversationId(conv.id);
+          const { data: msgs } = await supabase
+            .from('messages')
+            .select('id, sender, text, created_at')
+            .eq('conversation_id', conv.id)
+            .order('created_at', { ascending: true });
+
+          if (msgs && msgs.length > 0 && isMounted) {
+            setChatMessages(
+              msgs.map((m) => ({
+                id: m.id,
+                sender: m.sender === 'mume' ? 'mume' : 'user',
+                text: m.text,
+                time: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              }))
+            );
+          }
+        }
+      } catch (sbErr) {
+        console.warn('Supabase direct query failed:', sbErr);
+      }
+    }
+
+    loadChat();
+
+    // Subscribe to real-time messages across Supabase Realtime CDC
+    const channel = supabase
+      .channel('web_realtime_chat')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages' },
+        (payload) => {
+          const newMsg = payload.new as any;
+          if (!newMsg) return;
+
+          setChatMessages((prev) => {
+            if (prev.some((m) => m.id === newMsg.id)) return prev;
+            return [
+              ...prev,
+              {
+                id: newMsg.id,
+                sender: newMsg.sender === 'mume' ? 'mume' : 'user',
+                text: newMsg.text,
+                time: new Date(newMsg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              },
+            ];
+          });
+          setTimeout(() => adjustConversationPosition(true), 50);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(channel);
+    };
+  }, [adjustConversationPosition]);
+
   // Products / Catalog state
   const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -815,7 +898,7 @@ export default function App() {
     setIsCreateModalOpen(false);
   };
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     const trimmed = chatInput.trim();
     if (!trimmed || isAiThinking) return;
 
@@ -824,8 +907,9 @@ export default function App() {
     }
     setIsTyping(false);
 
+    const tempUserId = `user-${Date.now()}`;
     const userMsg: ChatMessage = {
-      id: `user-${Date.now()}`,
+      id: tempUserId,
       sender: 'user',
       text: trimmed,
       time: 'Just now',
@@ -840,8 +924,95 @@ export default function App() {
     }
     setTimeout(() => adjustConversationPosition(true), 50);
 
-    window.setTimeout(() => {
+    try {
+      // 1. Send via Backend API (persists in Supabase)
+      const res = await api.sendChatMessage(trimmed);
+      if (res?.aiMessage) {
+        setChatMessages((prev) => {
+          const withoutTemp = prev.filter((m) => m.id !== tempUserId);
+          return [
+            ...withoutTemp,
+            {
+              id: res.userMessage.id,
+              sender: 'user',
+              text: res.userMessage.text,
+              time: 'Just now',
+            },
+            {
+              id: res.aiMessage.id,
+              sender: 'mume',
+              text: res.aiMessage.text,
+              time: 'Just now',
+            },
+          ];
+        });
+      }
+    } catch {
+      // 2. Direct Supabase persistence fallback
       const reply = getMumeAiReply(trimmed);
+      try {
+        let convId = activeConversationId;
+        if (!convId) {
+          const { data: firstPage } = await supabase.from('pages').select('id').limit(1).maybeSingle();
+          if (firstPage) {
+            const { data: conv } = await supabase
+              .from('conversations')
+              .upsert(
+                {
+                  page_id: firstPage.id,
+                  customer_psid: 'mume_assistant',
+                  customer_name: 'Mume AI Assistant',
+                  last_message_at: new Date().toISOString(),
+                },
+                { onConflict: 'page_id,customer_psid' }
+              )
+              .select('id')
+              .single();
+            convId = conv?.id || null;
+            if (convId) setActiveConversationId(convId);
+          }
+        }
+
+        if (convId) {
+          const { data: uMsg } = await supabase
+            .from('messages')
+            .insert({
+              conversation_id: convId,
+              sender: 'user',
+              text: trimmed,
+              is_from_customer: false,
+            })
+            .select()
+            .single();
+
+          const { data: aMsg } = await supabase
+            .from('messages')
+            .insert({
+              conversation_id: convId,
+              sender: 'mume',
+              text: reply,
+              is_from_customer: false,
+            })
+            .select()
+            .single();
+
+          if (uMsg && aMsg) {
+            setChatMessages((prev) => {
+              const withoutTemp = prev.filter((m) => m.id !== tempUserId);
+              return [
+                ...withoutTemp,
+                { id: uMsg.id, sender: 'user', text: uMsg.text, time: 'Just now' },
+                { id: aMsg.id, sender: 'mume', text: aMsg.text, time: 'Just now' },
+              ];
+            });
+            return;
+          }
+        }
+      } catch (persistErr) {
+        console.warn('Direct Supabase persistence warning:', persistErr);
+      }
+
+      // 3. In-memory fallback if network completely offline
       const aiMsg: ChatMessage = {
         id: `ai-${Date.now()}`,
         sender: 'mume',
@@ -849,9 +1020,10 @@ export default function App() {
         time: 'Just now',
       };
       setChatMessages((prev) => [...prev, aiMsg]);
+    } finally {
       setIsAiThinking(false);
       setTimeout(() => adjustConversationPosition(true), 50);
-    }, 700);
+    }
   };
 
   const userInitials = isLoggedIn
