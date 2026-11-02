@@ -2028,7 +2028,13 @@
 }
 
 .pro-upgrade-btn.active {
-  background: #16a34a;
+  background: #121317;
+  color: #ffffff;
+  border: 1px solid #27272a;
+}
+
+.pro-upgrade-btn.active:hover {
+  background: #1a1b20;
 }
 
 .pro-dismiss-btn {

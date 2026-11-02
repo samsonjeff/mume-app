@@ -1759,6 +1759,7 @@ export default function App() {
               <div className="pro-modal-actions">
                 <button
                   type="button"
+                  aria-label={isProUser ? 'Pro Plan' : 'Start 7-Day Free Trial'}
                   className={`pro-upgrade-btn ${isProUser ? 'active' : ''}`}
                   onClick={() => {
                     if (proAutoCloseTimerRef.current !== null) {
@@ -1772,7 +1773,7 @@ export default function App() {
                   }}
                 >
                   <Icon name={isProUser ? 'check' : 'subscription-upgrade'} size={18} />
-                  <span>{isProUser ? 'Pro Plan Active' : 'Start 7-Day Free Trial'}</span>
+                  <span>{isProUser ? 'Pro Plan' : 'Start 7-Day Free Trial'}</span>
                 </button>
 
                 <button

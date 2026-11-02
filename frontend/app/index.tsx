@@ -861,13 +861,23 @@ export default function HomeScreen() {
       <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.bodySafeArea}>
         <ScrollView
           ref={mainScrollRef}
+          style={styles.mainScrollView}
+          bounces={false}
+          overScrollMode="never"
+          scrollEnabled={activeTab !== 'today' || isEditingDraft}
+          showsVerticalScrollIndicator={activeTab !== 'today'}
           contentContainerStyle={[
             styles.scrollContent,
+            activeTab === 'today' && !isEditingDraft && styles.scrollContentToday,
             isApproved && !showApprovedCard && styles.scrollContentExpanded,
             activeTab === 'catalog' && styles.scrollContentCatalog,
             isEditingDraft && styles.scrollContentEditingDraft,
           ]}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={THEME.colors.primary} />}
+          refreshControl={
+            activeTab !== 'today' ? (
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={THEME.colors.primary} />
+            ) : undefined
+          }
         >
         {activeTab === 'today' && (
           <View style={[styles.screenContainer, isApproved && !showApprovedCard && styles.screenContainerExpanded]}>
@@ -1095,12 +1105,15 @@ export default function HomeScreen() {
                             ? ({
                                 scrollbarWidth: 'none',
                                 msOverflowStyle: 'none',
+                                overscrollBehavior: 'contain',
                               } as any)
                             : null,
                         ]}
                         contentContainerStyle={styles.chatMessagesList}
                         nestedScrollEnabled={true}
                         showsVerticalScrollIndicator={false}
+                        bounces={true}
+                        overScrollMode="always"
                         onScroll={handleChatScroll}
                         onScrollBeginDrag={handleStartReading}
                         onScrollEndDrag={handleStopReadingWithDelay}
@@ -2269,7 +2282,7 @@ export default function HomeScreen() {
             <View style={styles.proModalActions}>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={isProUser ? 'Pro Activated' : 'Start 7-Day Free Trial'}
+                accessibilityLabel={isProUser ? 'Pro Plan' : 'Start 7-Day Free Trial'}
                 style={[styles.proUpgradeBtn, isProUser && styles.proUpgradeBtnActive]}
                 onPress={() => {
                   if (proAutoCloseTimerRef.current) {
@@ -2284,7 +2297,7 @@ export default function HomeScreen() {
               >
                 <AppIcon name={isProUser ? 'check' : 'subscription-upgrade'} size={18} color="#FFFFFF" strokeWidth={2.2} />
                 <Text style={styles.proUpgradeBtnText}>
-                  {isProUser ? 'Pro Plan Active' : 'Start 7-Day Free Trial'}
+                  {isProUser ? 'Pro Plan' : 'Start 7-Day Free Trial'}
                 </Text>
               </Pressable>
 
@@ -2325,6 +2338,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: THEME.colors.bg,
     position: 'relative',
+    overflow: 'hidden',
+    height: (Platform.OS === 'web' ? '100vh' : '100%') as any,
+    maxHeight: (Platform.OS === 'web' ? '100vh' : '100%') as any,
   },
   splashOverlay: {
     ...StyleSheet.absoluteFill,
@@ -2359,7 +2375,14 @@ const styles = StyleSheet.create({
   bodySafeArea: {
     flex: 1,
     backgroundColor: THEME.colors.bg,
+    flexDirection: 'column',
     position: 'relative',
+    overflow: 'hidden',
+  },
+  mainScrollView: {
+    flex: 1,
+    overflow: 'hidden',
+    overscrollBehavior: 'none' as any,
   },
   headerLogoContainer: {
     alignItems: 'center',
@@ -2388,20 +2411,27 @@ const styles = StyleSheet.create({
     borderColor: '#FACC15',
   },
   scrollContent: {
-    padding: 16,
-    paddingBottom: 175,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 8,
+    flexGrow: 1,
+  },
+  scrollContentToday: {
+    flex: 1,
+    paddingBottom: 4,
   },
   scrollContentExpanded: {
     flexGrow: 1,
   },
   scrollContentCatalog: {
-    paddingBottom: 90,
+    paddingBottom: 72,
   },
   scrollContentEditingDraft: {
-    paddingBottom: 60,
+    paddingBottom: 12,
   },
   screenContainer: {
     width: '100%',
+    flex: 1,
   },
   screenContainerExpanded: {
     flex: 1,
@@ -2410,9 +2440,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: 12,
-    marginTop: 8,
-    marginBottom: 16,
+    gap: 10,
+    marginTop: 4,
+    marginBottom: 8,
   },
   geminiHeroCopy: {
     flex: 1,
@@ -2428,15 +2458,15 @@ const styles = StyleSheet.create({
   },
   geminiHeroTitle: {
     color: THEME.colors.text,
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: '800',
     letterSpacing: -0.5,
   },
   geminiHeroSubtitle: {
     color: THEME.colors.textMuted,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '500',
-    marginTop: 4,
+    marginTop: 2,
   },
   geminiChipsScroll: {
     flexDirection: 'row',
@@ -2520,7 +2550,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 6,
   },
   sectionHeading: {
     color: THEME.colors.text,
@@ -2563,10 +2593,10 @@ const styles = StyleSheet.create({
   approvalCard: {
     backgroundColor: THEME.colors.card,
     borderRadius: 18,
-    padding: 18,
+    padding: 12,
     borderWidth: 1,
     borderColor: THEME.colors.cardBorder,
-    marginBottom: 16,
+    marginBottom: 8,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
@@ -2582,7 +2612,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 6,
     width: '100%',
   },
   statusDotAmber: {
@@ -2598,52 +2628,52 @@ const styles = StyleSheet.create({
   customerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 12,
+    gap: 10,
+    marginBottom: 8,
   },
   customerInfoCol: {
     flex: 1,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: THEME.colors.primaryTint,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
     color: THEME.colors.primaryDark,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
   },
   customerName: {
     color: THEME.colors.text,
-    fontSize: 15,
+    fontSize: 14.5,
     fontWeight: '700',
   },
   customerContext: {
     color: THEME.colors.textMuted,
-    fontSize: 12,
+    fontSize: 11.5,
   },
   messageBubble: {
     backgroundColor: THEME.colors.bg,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 14,
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 8,
     borderLeftWidth: 3,
     borderLeftColor: THEME.colors.primary,
   },
   messageBubbleText: {
     color: THEME.colors.text,
-    fontSize: 14,
+    fontSize: 13.5,
     fontStyle: 'italic',
   },
   draftBlock: {
     backgroundColor: THEME.colors.cardElevated,
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 16,
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 8,
     borderWidth: 1.5,
     borderColor: THEME.colors.cardBorder,
   },
@@ -2660,7 +2690,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 8,
+    marginBottom: 4,
   },
   draftLabelLeft: {
     flexDirection: 'row',
@@ -2668,33 +2698,33 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   draftIconText: {
-    fontSize: 14,
+    fontSize: 13,
   },
   draftLabelText: {
     color: THEME.colors.text,
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '700',
   },
   draftEditorWrapper: {
-    marginTop: 4,
+    marginTop: 2,
   },
   draftEditorHint: {
     color: THEME.colors.textMuted,
     fontSize: 11,
     fontWeight: '600',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   draftTextInput: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 10,
+    borderRadius: 8,
     borderWidth: 1.5,
     borderColor: THEME.colors.primary,
     color: THEME.colors.text,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    lineHeight: 20,
-    minHeight: 74,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 13.5,
+    lineHeight: 18,
+    minHeight: 64,
     textAlignVertical: 'top',
   },
   draftTextContainer: {
@@ -2702,19 +2732,19 @@ const styles = StyleSheet.create({
   },
   draftText: {
     color: THEME.colors.text,
-    fontSize: 14,
-    lineHeight: 21,
+    fontSize: 13.5,
+    lineHeight: 19,
   },
   tapToEditHint: {
     color: THEME.colors.primary,
     fontSize: 11,
     fontWeight: '600',
-    marginTop: 6,
+    marginTop: 4,
   },
   approvalActions: {
     flexDirection: 'row',
     gap: 10,
-    marginBottom: 12,
+    marginBottom: 0,
   },
   secondaryButton: {
     flex: 1,
@@ -3308,48 +3338,45 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   geminiInputDockContainer: {
-    position: (Platform.OS === 'web' ? 'fixed' : 'absolute') as any,
-    bottom: 12,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    zIndex: 10,
-    paddingHorizontal: 16,
-    maxWidth: 480,
     width: '100%',
+    maxWidth: 480,
     alignSelf: 'center',
-    marginHorizontal: 'auto' as any,
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 8,
+    alignItems: 'center',
+    backgroundColor: THEME.colors.bg,
   },
   geminiInputCapsule: {
     flexDirection: 'column',
     justifyContent: 'space-between',
     backgroundColor: THEME.colors.card,
-    borderRadius: 24,
-    minHeight: 112,
+    borderRadius: 20,
+    minHeight: 96,
     width: '100%',
     paddingHorizontal: 12,
-    paddingTop: 8,
-    paddingBottom: 8,
+    paddingTop: 6,
+    paddingBottom: 6,
     borderWidth: 1,
     borderColor: THEME.colors.cardBorder,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 14,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 4,
   },
   capsuleTextInputWrapper: {
     width: '100%',
-    minHeight: 46,
-    maxHeight: 90,
+    minHeight: 40,
+    maxHeight: 80,
     justifyContent: 'center',
   },
   capsuleTextInput: {
-    fontSize: 14,
+    fontSize: 13.5,
     color: THEME.colors.text,
     paddingHorizontal: 6,
-    paddingVertical: 4,
-    minHeight: 38,
+    paddingVertical: 2,
+    minHeight: 34,
     textAlignVertical: 'top',
   },
   capsuleControlsRow: {
@@ -3454,17 +3481,18 @@ const styles = StyleSheet.create({
   // Chat stream styles
   chatSectionCard: {
     backgroundColor: THEME.colors.card,
-    borderRadius: 20,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: THEME.colors.cardBorder,
-    padding: 18,
-    marginBottom: 18,
+    padding: 12,
+    marginBottom: 6,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 6,
     elevation: 2,
-    height: 220, // Constant container size with +10% height
+    flex: 1,
+    minHeight: 120,
   },
   chatSectionCardHighlighted: {
     borderColor: '#3279F9',
@@ -3478,18 +3506,17 @@ const styles = StyleSheet.create({
   },
   chatSectionCardExpanded: {
     flex: 1,
-    minHeight: 460,
-    height: undefined,
+    minHeight: 280,
     marginBottom: 0,
   },
   chatSectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingBottom: 13,
+    paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: THEME.colors.cardBorder,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   chatHeaderLeft: {
     flexDirection: 'row',
@@ -3542,11 +3569,12 @@ const styles = StyleSheet.create({
   chatScrollView: {
     flex: 1,
     overflow: 'hidden',
+    overscrollBehavior: 'contain' as any,
   },
   chatMessagesList: {
     flexGrow: 1,
-    gap: 12,
-    paddingBottom: 4,
+    gap: 8,
+    paddingBottom: 2,
   },
   chatMessagesSpacer: {
     flex: 1,
@@ -3555,7 +3583,7 @@ const styles = StyleSheet.create({
   chatBubbleRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 10,
+    gap: 8,
   },
   chatBubbleRowUser: {
     justifyContent: 'flex-end',
@@ -3564,19 +3592,19 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   chatAvatarAi: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     backgroundColor: THEME.colors.obsidian,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 3,
+    marginBottom: 2,
   },
   chatBubble: {
     maxWidth: '85%',
-    paddingHorizontal: 15,
-    paddingVertical: 12,
-    borderRadius: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 14,
   },
   chatBubbleUser: {
     backgroundColor: THEME.colors.obsidian,
@@ -3622,10 +3650,10 @@ const styles = StyleSheet.create({
     color: THEME.colors.textMuted,
   },
   capabilitiesDisclaimer: {
-    fontSize: 13,
+    fontSize: 11,
     color: THEME.colors.textMuted,
     textAlign: 'center',
-    marginTop: 6,
+    marginTop: 4,
     fontWeight: '500',
   },
   // Side Menu Drawer Styles (Responsive Mobile First)
@@ -4183,7 +4211,9 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   proUpgradeBtnActive: {
-    backgroundColor: '#16A34A',
+    backgroundColor: '#121317',
+    borderWidth: 1,
+    borderColor: '#27272A',
   },
   proUpgradeBtnText: {
     color: '#FFFFFF',
