@@ -225,6 +225,22 @@ pending_actions (id, conversation_id, product_id, draft_reply, suggested_price, 
   - Verified 13/13 backend compliance test suite passing.
   - Verified clean TypeScript compilation and Vite production build.
 
+### Phase 7: Real-Device Tactile Ergonomics & Private Distribution via Amazon Live App Testing (LAT) [PLANNED]
+- [ ] **Real-App Native Tactile & Interaction Polish**:
+  - Tactile haptic feedback integration (`expo-haptics`) across all touchpoints (WakeWord mic tap, action approval, draft edit toggles, category changes).
+  - Native keyboard avoiding ergonomics with smooth spring physics auto-scroll and interactive dismiss (`keyboardShouldPersistTaps="handled"`).
+  - Fluid typing states and responsive button feedback using native Android ripples (`android_ripple`) and zero-latency active pressed states.
+- [ ] **Standalone Android Build Generation (.apk / .aab)**:
+  - Configure `eas.json` preview / production build profiles for standalone Android output (`apk` for direct sideloading or `aab` for store testing).
+  - Validate Android manifest permissions (microphone for voice dictation, internet for Meta Graph API sync) and app icon assets in `app.json`.
+- [ ] **Amazon Live App Testing (LAT) Private Deployment**:
+  - Set up Amazon Developer Console app container with bare minimum required metadata (App Title, Category) — strictly bypassing public review/store submission.
+  - Initiate Live App Testing (LAT) slot: 100% free, private distribution with zero public search visibility.
+  - Benefit: No 90-day expiration window (unlike TestFlight) and persistent true-production environment for invited testers.
+  - Upload compiled `.apk` / `.aab` package and trigger automated Amazon security scan.
+  - Whitelist invited merchant testers via their Amazon account emails for instant distribution through the standard Amazon Appstore client.
+  - Maintain one-click "End Test" capability to instantly withdraw the testing build whenever necessary.
+
 ---
 
 ## 6. Verification Checklist
@@ -237,3 +253,5 @@ pending_actions (id, conversation_id, product_id, draft_reply, suggested_price, 
 | **Vite Bundle Build** | Clean build | PASSED | `npm run build` |
 | **Git Working Tree** | Clean / untracked free | PASSED | `git status` |
 | **Secrets Audit** | Zero credentials | PASSED | Automated regex scan on tracked files |
+| **Standalone Android Build** | Valid .apk / .aab output | PENDING | `eas build --platform android --profile preview` |
+| **Amazon LAT Distribution** | Private email tester access | PENDING | Amazon Developer Console LAT Dashboard |
