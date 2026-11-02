@@ -10,6 +10,7 @@ const {
   getPageMessages,
   sendPageReply,
 } = require('./services/facebook');
+const { getMumeAiReply } = require('./services/ai');
 
 /**
  * Builds the Express app.
@@ -26,6 +27,17 @@ function createApp(env = process.env) {
       },
     })
   );
+
+  // Enable CORS for web and mobile clients
+  app.use((req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-hub-signature-256');
+    if (req.method === 'OPTIONS') {
+      return res.sendStatus(204);
+    }
+    next();
+  });
 
   const supabase = getSupabaseClient(env);
 
@@ -127,6 +139,37 @@ function createApp(env = process.env) {
                       text: messageText,
                       is_from_customer: true,
                     });
+
+                    // Detect price or stock inquiries to generate a human-in-the-loop pending approval card
+                    const lower = messageText.toLowerCase();
+                    const isPriceInquiry =
+                      lower.includes('magkano') ||
+                      lower.includes('price') ||
+                      lower.includes('how much') ||
+                      lower.includes('apple') ||
+                      lower.includes('mango') ||
+                      lower.includes('banana') ||
+                      lower.includes('available');
+
+                    if (isPriceInquiry) {
+                      let draft = 'Red apples are $2.50 per kg. We have fresh stock ready for delivery!';
+                      let suggestedPrice = 2.5;
+
+                      if (lower.includes('mango') || lower.includes('manga')) {
+                        draft = 'Carabao mangoes are $4.00 per kg (In stock). Would you like to reserve a basket?';
+                        suggestedPrice = 4.0;
+                      } else if (lower.includes('banana') || lower.includes('saging')) {
+                        draft = 'Lakatan bananas are $1.80 per kg (Low stock - few bunches remaining).';
+                        suggestedPrice = 1.8;
+                      }
+
+                      await supabase.from('pending_actions').insert({
+                        conversation_id: conv.id,
+                        draft_reply: draft,
+                        suggested_price: suggestedPrice,
+                        status: 'waiting_approval',
+                      });
+                    }
                   }
                 }
               }
@@ -422,9 +465,367 @@ function createApp(env = process.env) {
         approvalStatus: approvalStatus || 'approved',
       });
 
-      res.json({ status: 'sent', result });
+      // Persist outbound reply to Supabase messages & update conversation/pending_actions
+      let convId = null;
+      try {
+        const { data: conv } = await supabase
+          .from('conversations')
+          .upsert(
+            {
+              page_id: page.id,
+              customer_psid: psid,
+              last_message_at: new Date().toISOString(),
+            },
+            { onConflict: 'page_id,customer_psid' }
+          )
+          .select('id')
+          .single();
+
+        if (conv) {
+          convId = conv.id;
+          await supabase.from('messages').insert({
+            conversation_id: conv.id,
+            fb_message_id: result?.message_id || `reply-${Date.now()}`,
+            sender: 'page',
+            text,
+            is_from_customer: false,
+          });
+
+          await supabase
+            .from('pending_actions')
+            .update({
+              status: 'sent',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('conversation_id', conv.id)
+            .eq('status', 'waiting_approval');
+        }
+      } catch (dbErr) {
+        console.warn('[reply-persist] Warning:', dbErr.message);
+      }
+
+      res.json({ status: 'sent', result, conversationId: convId });
     } catch (err) {
       res.status(400).json({ error: err.message });
+    }
+  });
+
+  // 8. GET /api/chat/messages -> Fetch AI assistant conversation & chat history from Supabase
+  app.get('/api/chat/messages', async (req, res) => {
+    try {
+      if (!supabase) {
+        return res.json({
+          conversationId: 'offline-mock-convo',
+          messages: [
+            {
+              id: 'welcome-1',
+              sender: 'mume',
+              text: "Hi Jefferson! I'm Mume, your store assistant. You can write any message to me here or tap mic to talk.",
+              time: 'Just now',
+              created_at: new Date().toISOString(),
+            },
+          ],
+        });
+      }
+
+      let pageId = req.query.pageId;
+      if (!pageId) {
+        const { data: firstPage } = await supabase.from('pages').select('id').limit(1).maybeSingle();
+        pageId = firstPage?.id;
+      }
+
+      if (!pageId) {
+        return res.json({ conversationId: null, messages: [] });
+      }
+
+      // Find or create AI assistant conversation
+      let { data: conv } = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('page_id', pageId)
+        .eq('customer_psid', 'mume_assistant')
+        .maybeSingle();
+
+      if (!conv) {
+        const { data: newConv, error: createErr } = await supabase
+          .from('conversations')
+          .insert({
+            page_id: pageId,
+            customer_psid: 'mume_assistant',
+            customer_name: 'Mume AI Assistant',
+            last_message_at: new Date().toISOString(),
+          })
+          .select('id')
+          .single();
+        if (createErr) throw createErr;
+        conv = newConv;
+
+        // Seed initial greeting message
+        await supabase.from('messages').insert({
+          conversation_id: conv.id,
+          sender: 'mume',
+          text: "Hi Jefferson! I'm Mume, your store assistant. You can write any message to me here or tap mic to talk.",
+          is_from_customer: false,
+        });
+      }
+
+      const { data: dbMessages, error: msgErr } = await supabase
+        .from('messages')
+        .select('id, sender, text, created_at, is_from_customer')
+        .eq('conversation_id', conv.id)
+        .order('created_at', { ascending: true });
+
+      if (msgErr) throw msgErr;
+
+      res.json({
+        conversationId: conv.id,
+        messages: (dbMessages || []).map((m) => ({
+          id: m.id,
+          sender: m.sender === 'customer' ? 'user' : m.sender,
+          text: m.text,
+          time: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          created_at: m.created_at,
+        })),
+      });
+    } catch (err) {
+      console.error('[get-chat-messages] Error:', err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // 9. POST /api/chat/messages -> Send message to AI assistant, save both user and AI messages to Supabase
+  app.post('/api/chat/messages', async (req, res) => {
+    const { pageId: reqPageId, text } = req.body || {};
+    if (!text || !text.trim()) {
+      return res.status(400).json({ error: 'text is required' });
+    }
+
+    const trimmed = text.trim();
+    const replyText = getMumeAiReply(trimmed);
+
+    if (!supabase) {
+      return res.json({
+        userMessage: {
+          id: `user-${Date.now()}`,
+          sender: 'user',
+          text: trimmed,
+          time: 'Just now',
+          created_at: new Date().toISOString(),
+        },
+        aiMessage: {
+          id: `ai-${Date.now()}`,
+          sender: 'mume',
+          text: replyText,
+          time: 'Just now',
+          created_at: new Date().toISOString(),
+        },
+      });
+    }
+
+    try {
+      let pageId = reqPageId;
+      if (!pageId) {
+        const { data: firstPage } = await supabase.from('pages').select('id').limit(1).maybeSingle();
+        pageId = firstPage?.id;
+      }
+
+      if (!pageId) {
+        return res.status(404).json({ error: 'No linked Facebook page found' });
+      }
+
+      // Upsert conversation for AI Assistant
+      const { data: conv, error: convErr } = await supabase
+        .from('conversations')
+        .upsert(
+          {
+            page_id: pageId,
+            customer_psid: 'mume_assistant',
+            customer_name: 'Mume AI Assistant',
+            last_message_at: new Date().toISOString(),
+          },
+          { onConflict: 'page_id,customer_psid' }
+        )
+        .select('id')
+        .single();
+
+      if (convErr || !conv) {
+        throw new Error(convErr?.message || 'Failed to locate assistant conversation');
+      }
+
+      // Insert User Message into Supabase
+      const { data: userMsg, error: userMsgErr } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: conv.id,
+          sender: 'user',
+          text: trimmed,
+          is_from_customer: false,
+        })
+        .select('id, sender, text, created_at')
+        .single();
+
+      if (userMsgErr) throw userMsgErr;
+
+      // Insert AI Assistant Reply into Supabase
+      const { data: aiMsg, error: aiMsgErr } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: conv.id,
+          sender: 'mume',
+          text: replyText,
+          is_from_customer: false,
+        })
+        .select('id, sender, text, created_at')
+        .single();
+
+      if (aiMsgErr) throw aiMsgErr;
+
+      res.json({
+        conversationId: conv.id,
+        userMessage: {
+          id: userMsg.id,
+          sender: 'user',
+          text: userMsg.text,
+          time: 'Just now',
+          created_at: userMsg.created_at,
+        },
+        aiMessage: {
+          id: aiMsg.id,
+          sender: 'mume',
+          text: aiMsg.text,
+          time: 'Just now',
+          created_at: aiMsg.created_at,
+        },
+      });
+    } catch (err) {
+      console.error('[post-chat-message] Error:', err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // 10. GET /api/pages/:pageId/conversations -> List customer conversations from Supabase
+  app.get('/api/pages/:pageId/conversations', async (req, res) => {
+    const { pageId } = req.params;
+    try {
+      if (!supabase) {
+        return res.json({ conversations: [] });
+      }
+
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pageId);
+      const query = isUuid
+        ? supabase.from('pages').select('id').eq('id', pageId)
+        : supabase.from('pages').select('id').eq('fb_page_id', pageId);
+      const { data: page } = await query.maybeSingle();
+
+      if (!page) {
+        return res.status(404).json({ error: 'Page not found' });
+      }
+
+      const { data: convs, error } = await supabase
+        .from('conversations')
+        .select(`
+          id,
+          customer_psid,
+          customer_name,
+          last_message_at,
+          created_at
+        `)
+        .eq('page_id', page.id)
+        .neq('customer_psid', 'mume_assistant')
+        .order('last_message_at', { ascending: false });
+
+      if (error) throw error;
+
+      res.json({ conversations: convs || [] });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // 11. GET /api/pages/:pageId/pending-actions -> List pending customer reply approval cards
+  app.get('/api/pages/:pageId/pending-actions', async (req, res) => {
+    const { pageId } = req.params;
+    try {
+      if (!supabase) return res.json({ pendingActions: [] });
+
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pageId);
+      const query = isUuid
+        ? supabase.from('pages').select('id').eq('id', pageId)
+        : supabase.from('pages').select('id').eq('fb_page_id', pageId);
+      const { data: page } = await query.maybeSingle();
+
+      if (!page) return res.status(404).json({ error: 'Page not found' });
+
+      const { data: actions, error } = await supabase
+        .from('pending_actions')
+        .select(`
+          id,
+          conversation_id,
+          draft_reply,
+          suggested_price,
+          status,
+          created_at,
+          updated_at
+        `)
+        .eq('status', 'waiting_approval')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      res.json({ pendingActions: actions || [] });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // 12. POST /api/pending-actions/:id/approve -> Approve pending reply and dispatch
+  app.post('/api/pending-actions/:id/approve', async (req, res) => {
+    const { id } = req.params;
+    const { editedReply } = req.body || {};
+
+    try {
+      if (!supabase) return res.json({ status: 'approved' });
+
+      const { data: action, error: actErr } = await supabase
+        .from('pending_actions')
+        .select(`
+          id,
+          draft_reply,
+          conversation_id
+        `)
+        .eq('id', id)
+        .single();
+
+      if (actErr || !action) {
+        return res.status(404).json({ error: 'Pending action not found' });
+      }
+
+      const replyText = editedReply || action.draft_reply;
+
+      // Update pending action to 'sent'
+      const { data: updated } = await supabase
+        .from('pending_actions')
+        .update({
+          status: 'sent',
+          draft_reply: replyText,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      // Persist outbound reply in messages
+      await supabase.from('messages').insert({
+        conversation_id: action.conversation_id,
+        fb_message_id: `action-${Date.now()}`,
+        sender: 'page',
+        text: replyText,
+        is_from_customer: false,
+      });
+
+      res.json({ status: 'sent', action: updated });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
     }
   });
 

@@ -136,3 +136,39 @@ test('POST /api/pages/:pageId/messages/reply validates missing fields', async ()
   });
   assert.equal(res.status, 400);
 });
+
+test('CORS headers: enables cross-origin requests for web companion', async () => {
+  const res = await fetch(`${base}/health`, {
+    method: 'OPTIONS',
+  });
+  assert.equal(res.status, 204);
+  assert.equal(res.headers.get('access-control-allow-origin'), '*');
+});
+
+test('GET /api/chat/messages returns chat history', async () => {
+  const res = await fetch(`${base}/api/chat/messages`);
+  assert.equal(res.status, 200);
+  const data = await res.json();
+  assert.ok(Array.isArray(data.messages));
+  assert.ok(data.messages.length > 0);
+});
+
+test('POST /api/chat/messages validates required text and responds with AI reply', async () => {
+  const invalidRes = await fetch(`${base}/api/chat/messages`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ text: '' }),
+  });
+  assert.equal(invalidRes.status, 400);
+
+  const validRes = await fetch(`${base}/api/chat/messages`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ text: 'How much are red apples?' }),
+  });
+  assert.equal(validRes.status, 200);
+  const json = await validRes.json();
+  assert.equal(json.userMessage.sender, 'user');
+  assert.equal(json.aiMessage.sender, 'mume');
+  assert.ok(json.aiMessage.text.includes('2.50'));
+});
