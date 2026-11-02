@@ -42,4 +42,45 @@ export const api = {
     if (!res.ok) throw new Error('Failed to fetch page inbox');
     return res.json();
   },
+
+  async getChatMessages(pageId?: string): Promise<{ conversationId: string; messages: any[] }> {
+    const query = pageId ? `?pageId=${encodeURIComponent(pageId)}` : '';
+    const res = await fetch(`${API_BASE_URL}/api/chat/messages${query}`);
+    if (!res.ok) throw new Error('Failed to fetch chat messages');
+    return res.json();
+  },
+
+  async sendChatMessage(text: string, pageId?: string): Promise<{ conversationId: string; userMessage: any; aiMessage: any }> {
+    const res = await fetch(`${API_BASE_URL}/api/chat/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, pageId }),
+    });
+    if (!res.ok) throw new Error('Failed to send chat message');
+    return res.json();
+  },
+
+  async getPageConversations(pageId: string): Promise<any[]> {
+    const res = await fetch(`${API_BASE_URL}/api/pages/${pageId}/conversations`);
+    if (!res.ok) throw new Error('Failed to fetch conversations');
+    const data = await res.json();
+    return data.conversations || [];
+  },
+
+  async getPendingActions(pageId: string): Promise<any[]> {
+    const res = await fetch(`${API_BASE_URL}/api/pages/${pageId}/pending-actions`);
+    if (!res.ok) throw new Error('Failed to fetch pending actions');
+    const data = await res.json();
+    return data.pendingActions || [];
+  },
+
+  async approvePendingAction(actionId: string, editedReply?: string): Promise<any> {
+    const res = await fetch(`${API_BASE_URL}/api/pending-actions/${actionId}/approve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ editedReply }),
+    });
+    if (!res.ok) throw new Error('Failed to approve pending action');
+    return res.json();
+  },
 };
