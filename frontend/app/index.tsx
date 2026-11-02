@@ -139,8 +139,40 @@ export default function HomeScreen() {
   const chatCardY = useRef<number>(0);
   const actionCardY = useRef<number>(0);
 
-  // Blue highlight triggers only when user is actively typing or dictating via voice
+  // Blue highlight triggers when user is actively typing, dictating, or scrolling/reading conversation
+  const [isReadingOrScrolling, setIsReadingOrScrolling] = useState(false);
+  const readingTimeoutRef = useRef<any>(null);
+
+  const handleStartReading = useCallback(() => {
+    if (readingTimeoutRef.current) {
+      clearTimeout(readingTimeoutRef.current);
+      readingTimeoutRef.current = null;
+    }
+    setIsReadingOrScrolling(true);
+  }, []);
+
+  const handleStopReadingWithDelay = useCallback(() => {
+    if (readingTimeoutRef.current) {
+      clearTimeout(readingTimeoutRef.current);
+    }
+    readingTimeoutRef.current = setTimeout(() => {
+      setIsReadingOrScrolling(false);
+    }, 1500);
+  }, []);
+
+  const handleChatScroll = useCallback(() => {
+    handleStartReading();
+    handleStopReadingWithDelay();
+  }, [handleStartReading, handleStopReadingWithDelay]);
+
+  useEffect(() => {
+    return () => {
+      if (readingTimeoutRef.current) clearTimeout(readingTimeoutRef.current);
+    };
+  }, []);
+
   const isChattingOrTyping = isTyping || voiceState === 'listening';
+  const isCardHighlighted = isChattingOrTyping || isReadingOrScrolling;
 
   const scrollToActionCard = useCallback((animated = true) => {
     if (mainScrollRef.current) {
@@ -862,12 +894,20 @@ export default function HomeScreen() {
                       style={[
                         styles.chatSectionCard,
                         isApproved && !showApprovedCard && styles.chatSectionCardExpanded,
-                        isChattingOrTyping && styles.chatSectionCardHighlighted,
+                        isCardHighlighted && styles.chatSectionCardHighlighted,
                       ]}
+                      {...(Platform.OS === 'web'
+                        ? ({
+                            onMouseEnter: handleStartReading,
+                            onMouseLeave: handleStopReadingWithDelay,
+                          } as any)
+                        : {})}
+                      onTouchStart={handleStartReading}
+                      onTouchEnd={handleStopReadingWithDelay}
                     >
                       <View style={styles.chatSectionHeader}>
                         <View style={styles.chatHeaderLeft}>
-                          <View style={[styles.chatHeaderBadge, isChattingOrTyping && styles.chatHeaderBadgeActive]}>
+                          <View style={[styles.chatHeaderBadge, isCardHighlighted && styles.chatHeaderBadgeActive]}>
                             <AppIcon name="bot" size={16} color="#FFFFFF" />
                           </View>
                           <Text style={styles.chatHeaderTitle}>Mume AI Chat</Text>
@@ -878,6 +918,11 @@ export default function HomeScreen() {
                             <Text style={styles.activeHighlightText}>
                               {voiceState === 'listening' ? 'Listening' : 'Typing…'}
                             </Text>
+                          </View>
+                        ) : isReadingOrScrolling ? (
+                          <View style={styles.activeHighlightBadge}>
+                            <View style={styles.activeHighlightDot} />
+                            <Text style={styles.activeHighlightText}>Reading conversation</Text>
                           </View>
                         ) : (
                           <Text style={styles.chatHeaderSubtitle}>Talk to AI</Text>
@@ -890,17 +935,22 @@ export default function HomeScreen() {
                           styles.chatScrollView,
                           Platform.OS === 'web'
                             ? ({
-                                scrollbarWidth: 'thin',
-                                scrollbarColor: '#9CA3AF #F3F4F6',
+                                scrollbarWidth: 'none',
+                                msOverflowStyle: 'none',
                               } as any)
                             : null,
                         ]}
                         contentContainerStyle={styles.chatMessagesList}
                         nestedScrollEnabled={true}
-                        showsVerticalScrollIndicator={true}
-                        persistentScrollbar={true}
-                        indicatorStyle="black"
+                        showsVerticalScrollIndicator={false}
+                        onScroll={handleChatScroll}
+                        onScrollBeginDrag={handleStartReading}
+                        onScrollEndDrag={handleStopReadingWithDelay}
+                        onMomentumScrollBegin={handleStartReading}
+                        onMomentumScrollEnd={handleStopReadingWithDelay}
+                        scrollEventThrottle={16}
                       >
+                        <View style={styles.chatMessagesSpacer} />
                         {chatMessages.map((msg) => (
                           <View
                             key={msg.id}
@@ -3333,10 +3383,16 @@ const styles = StyleSheet.create({
   },
   chatScrollView: {
     flex: 1,
+    overflow: 'hidden',
   },
   chatMessagesList: {
+    flexGrow: 1,
     gap: 12,
     paddingBottom: 4,
+  },
+  chatMessagesSpacer: {
+    flex: 1,
+    minHeight: 0,
   },
   chatBubbleRow: {
     flexDirection: 'row',

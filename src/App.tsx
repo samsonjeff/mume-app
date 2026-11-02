@@ -265,6 +265,36 @@ function HomeScreen({
 }) {
   const localChatScrollRef = useRef<HTMLDivElement>(null);
   const activeChatScrollRef = chatScrollRef || localChatScrollRef;
+  const [isReadingOrScrolling, setIsReadingOrScrolling] = useState(false);
+  const readingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleStartReading = useCallback(() => {
+    if (readingTimeoutRef.current) {
+      clearTimeout(readingTimeoutRef.current);
+      readingTimeoutRef.current = null;
+    }
+    setIsReadingOrScrolling(true);
+  }, []);
+
+  const handleStopReadingWithDelay = useCallback(() => {
+    if (readingTimeoutRef.current) {
+      clearTimeout(readingTimeoutRef.current);
+    }
+    readingTimeoutRef.current = setTimeout(() => {
+      setIsReadingOrScrolling(false);
+    }, 1500);
+  }, []);
+
+  const handleChatScroll = useCallback(() => {
+    handleStartReading();
+    handleStopReadingWithDelay();
+  }, [handleStartReading, handleStopReadingWithDelay]);
+
+  useEffect(() => {
+    return () => {
+      if (readingTimeoutRef.current) clearTimeout(readingTimeoutRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (activeChatScrollRef.current) {
@@ -320,11 +350,15 @@ function HomeScreen({
           {chatMessages.length > 0 && (
             <div
               ref={chatCardRef}
-              className={`chat-section-card ${isChattingOrTyping ? 'highlighted-active' : ''} ${isApproved && !showApprovedCard ? 'expanded' : ''}`}
+              className={`chat-section-card ${isChattingOrTyping || isReadingOrScrolling ? 'highlighted-active' : ''} ${isApproved && !showApprovedCard ? 'expanded' : ''}`}
+              onMouseEnter={handleStartReading}
+              onMouseLeave={handleStopReadingWithDelay}
+              onTouchStart={handleStartReading}
+              onTouchEnd={handleStopReadingWithDelay}
             >
               <div className="chat-section-header">
                 <div className="chat-header-left">
-                  <span className={`chat-header-badge ${isChattingOrTyping ? 'active' : ''}`}>
+                  <span className={`chat-header-badge ${isChattingOrTyping || isReadingOrScrolling ? 'active' : ''}`}>
                     <Icon name="bot-svg" size={18} />
                   </span>
                   <strong>Mume AI Chat</strong>
@@ -334,12 +368,22 @@ function HomeScreen({
                     <span className="active-highlight-dot" />
                     <span>{voiceState === 'listening' ? 'Listening' : 'Typing…'}</span>
                   </span>
+                ) : isReadingOrScrolling ? (
+                  <span className="active-highlight-badge">
+                    <span className="active-highlight-dot" />
+                    <span>Reading conversation</span>
+                  </span>
                 ) : (
                   <span className="chat-header-subtitle">Talk to AI</span>
                 )}
               </div>
 
-              <div className="chat-messages-list" ref={activeChatScrollRef}>
+              <div
+                className="chat-messages-list"
+                ref={activeChatScrollRef}
+                onScroll={handleChatScroll}
+              >
+                <div className="chat-messages-spacer" />
                 {chatMessages.map((msg) => (
                   <div
                     key={msg.id}

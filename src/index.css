@@ -359,7 +359,9 @@
   transition: border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
 }
 
-/* Highlighted conversation when user is chatting, typing, or talking to bot */
+/* Highlighted conversation when user is chatting, typing, scrolling, or reading */
+.chat-section-card:hover,
+.chat-section-card:focus-within,
 .chat-section-card.highlighted-active {
   border-color: #3279F9;
   border-width: 1.5px;
@@ -452,7 +454,7 @@
   }
 }
 
-/* Color gray scrollbar so user can scroll the entire conversation with bot */
+/* Chat messages list: place messages below, scroll when many messages, no scrollbar */
 .chat-messages-list {
   display: flex;
   flex-direction: column;
@@ -460,28 +462,23 @@
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding-right: 0.4rem;
-  scrollbar-width: thin;
-  scrollbar-color: #9CA3AF #F3F4F6; /* Gray thumb on light gray track */
+  padding-right: 0.2rem;
+  scrollbar-width: none !important; /* Hide scrollbar Firefox */
+  -ms-overflow-style: none !important; /* Hide scrollbar IE/Edge */
 }
 
-.chat-messages-list::-webkit-scrollbar {
-  width: 6px;
-  display: block;
+.chat-messages-list::-webkit-scrollbar,
+.chat-section-card::-webkit-scrollbar,
+.chat-section-card *::-webkit-scrollbar {
+  display: none !important; /* Hide scrollbar Chrome/Safari */
+  width: 0 !important;
+  height: 0 !important;
 }
 
-.chat-messages-list::-webkit-scrollbar-track {
-  background: #F3F4F6;
-  border-radius: 999px;
-}
-
-.chat-messages-list::-webkit-scrollbar-thumb {
-  background: #9CA3AF;
-  border-radius: 999px;
-}
-
-.chat-messages-list::-webkit-scrollbar-thumb:hover {
-  background: #6B7280;
+/* Spacer that pushes few messages to the bottom while collapsing when many messages are present */
+.chat-messages-spacer {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .chat-bubble-row {
