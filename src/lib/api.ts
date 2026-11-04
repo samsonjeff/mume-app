@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3000').replace(/\/+$/, '');
 
 // Sent as `x-api-key` when the backend has API_KEY configured. The key is
 // optional in local development and required once the server enforces it.
@@ -60,7 +60,7 @@ export const api = {
 
   async getPageConversations(pageId: string): Promise<any[]> {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/pages/${pageId}/conversations`, {
+      const res = await fetch(`${API_BASE_URL}/api/pages/${encodeURIComponent(pageId)}/conversations`, {
         headers: authHeaders(),
       });
       if (!res.ok) return [];
@@ -69,6 +69,66 @@ export const api = {
     } catch {
       return [];
     }
+  },
+
+  async getPageInbox(pageId: string, limit = 10): Promise<any> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/pages/${encodeURIComponent(pageId)}/inbox?limit=${limit}`, {
+        headers: authHeaders(),
+      });
+      if (!res.ok) return { conversations: [] };
+      return res.json();
+    } catch {
+      return { conversations: [] };
+    }
+  },
+
+  async getPageThreadMessages(pageId: string, threadId: string, limit = 20): Promise<any[]> {
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/pages/${encodeURIComponent(pageId)}/conversations/${encodeURIComponent(threadId)}/messages?limit=${limit}`,
+        {
+          headers: authHeaders(),
+        }
+      );
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.messages || [];
+    } catch {
+      return [];
+    }
+  },
+
+  async getConversationMessages(conversationId: string): Promise<any[]> {
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/conversations/${encodeURIComponent(conversationId)}/messages`,
+        {
+          headers: authHeaders(),
+        }
+      );
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.messages || [];
+    } catch {
+      return [];
+    }
+  },
+
+  async replyToCustomer(
+    pageId: string,
+    payload: { psid: string; text: string; lastCustomerMessageAt: string }
+  ): Promise<any> {
+    const res = await fetch(`${API_BASE_URL}/api/pages/${encodeURIComponent(pageId)}/messages/reply`, {
+      method: 'POST',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ ...payload, approvalStatus: 'approved' }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to send reply');
+    }
+    return res.json();
   },
 
   async getPendingActions(pageId: string): Promise<any[]> {

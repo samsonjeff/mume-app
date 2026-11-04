@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Icon } from './Icon';
+import { api } from '../lib/api';
 
 interface SettingsViewProps {
   onBack: () => void;
@@ -34,23 +35,48 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const [activeSubView, setActiveSubView] = useState<string | null>(null);
 
+  useEffect(() => {
+    let mounted = true;
+    api
+      .getLinkedPages()
+      .then((pages) => {
+        if (mounted && pages.length > 0) {
+          const p = pages[0];
+          setPageData((prev) => ({
+            ...prev,
+            pageId: p.fb_page_id,
+            pageName: p.page_name,
+            syncedAt: p.updated_at || prev.syncedAt,
+            status: 'active',
+          }));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   // Meta Page Login & Sync Protocol Sequence
   const handleConnectAndSync = async () => {
     try {
       setSyncState('syncing');
 
-      // Step 1 & 2: Initiate Meta OAuth flow or call backend OAuth URL endpoint
-      // Using live Render backend URL or local fallback
-      const backendBase = 'https://mume-backend.onrender.com';
-      let oauthUrl = `${backendBase}/auth/facebook/url`;
-
       try {
-        const resp = await fetch(oauthUrl, { mode: 'cors' });
-        if (resp.ok) {
-          const json = await resp.json();
-          if (json.url && typeof window !== 'undefined') {
-            // Note: In browser environment, can navigate to Meta OAuth dialog:
-            // window.location.href = json.url;
+        const pages = await api.getLinkedPages();
+        if (pages.length > 0) {
+          const p = pages[0];
+          setPageData((prev) => ({
+            ...prev,
+            pageId: p.fb_page_id,
+            pageName: p.page_name,
+            syncedAt: p.updated_at || new Date().toISOString(),
+            status: 'active',
+          }));
+        } else {
+          const url = await api.getFacebookLoginUrl();
+          if (url && typeof window !== 'undefined') {
+            window.open(url, '_blank', 'noopener,noreferrer');
           }
         }
       } catch {

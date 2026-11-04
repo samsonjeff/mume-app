@@ -288,3 +288,19 @@ test('POST /api/pages/:pageId/messages/reply rejects non-approved approvalStatus
   });
   assert.equal(res.status, 403);
 });
+
+test('double-slash URL normalization: GET //api/chat/messages routes to /api/chat/messages', async () => {
+  const res = await fetch(`${base}//api/chat/messages`);
+  assert.equal(res.status, 200);
+  const data = await res.json();
+  assert.ok(Array.isArray(data.messages));
+});
+
+test('GET /api/conversations/:conversationId/messages returns stored conversation messages', async () => {
+  const res = await fetch(`${base}/api/conversations/test-conv-1/messages`);
+  assert.equal(res.status, 200);
+  const data = await res.json();
+  assert.equal(data.conversationId, 'test-conv-1');
+  assert.ok(Array.isArray(data.messages));
+});
+

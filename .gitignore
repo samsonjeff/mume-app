@@ -57,3 +57,10 @@ Thumbs.db
 # Project skills in skills/ ARE tracked and shared as open source.
 # Never put secrets, tokens, app IDs, or customer data in skill files.
 **/SKILLS.md
+
+# Local video project (separate Remotion project, keep untracked)
+mume-video/
+
+# Local tool caches (npm cache + temp for sandboxed installs)
+.npm-cache/
+.tmp/

@@ -433,34 +433,57 @@ function HomeScreen({
   );
 }
 
+const DUMMY_CONVOS = [
+  { id: '1', initials: 'MA', name: 'Maria A.', message: 'Hi po, how much ang red apples?', time: 'now', unread: true },
+  { id: '2', initials: 'JL', name: 'Jun L.', message: 'Available pa po ang mango?', time: '8m', unread: true },
+  { id: '3', initials: 'RS', name: 'Rica S.', message: 'Thank you po!', time: '1h', unread: false },
+];
+
+function initialsOf(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '??';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function timeAgo(iso?: string | null): string {
+  if (!iso) return 'now';
+  const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  if (mins < 1) return 'now';
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h`;
+  return `${Math.floor(hours / 24)}d`;
+}
+
 function InboxScreen({
   isLoggedIn,
   onLogin,
+  realConvos = [],
 }: {
   isLoggedIn: boolean;
   onLogin: () => void;
+  realConvos?: { id: string; initials: string; name: string; message: string; time: string; unread: boolean; psid?: string }[];
 }) {
+  const allConvos = [...realConvos, ...DUMMY_CONVOS];
+  const unreadTotal = allConvos.filter((c) => c.unread).length;
   return (
     <section className="panel-screen">
       <div className="section-heading">
         <h1>Message</h1>
-        <span>{isLoggedIn ? '2 unread' : '0 unread'}</span>
+        <span>{isLoggedIn ? `${unreadTotal} unread` : '0 unread'}</span>
       </div>
       {isLoggedIn ? (
-        [
-          ['MA', 'Maria A.', 'Hi po, how much ang red apples?', 'now'],
-          ['JL', 'Jun L.', 'Available pa po ang mango?', '8m'],
-          ['RS', 'Rica S.', 'Thank you po!', '1h'],
-        ].map(([initials, name, message, time], index) => (
-          <button className="conversation min-h-[56px]" key={name} type="button">
-            <span className={`avatar conversation-avatar tone-${index}`}>{initials}</span>
+        allConvos.map((convo, index) => (
+          <button className="conversation min-h-[56px]" key={convo.id} type="button">
+            <span className={`avatar conversation-avatar tone-${index % 3}`}>{convo.initials}</span>
             <span className="conversation-copy">
-              <strong>{name}</strong>
-              <span>{message}</span>
+              <strong>{convo.name}</strong>
+              <span>{convo.message}</span>
             </span>
             <span className="conversation-meta">
-              {time}
-              {index < 2 && <i />}
+              {convo.time}
+              {convo.unread && <i />}
             </span>
           </button>
         ))
@@ -575,6 +598,9 @@ export default function App() {
   const [sent, setSent] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [realInboxConvos, setRealInboxConvos] = useState<
+    { id: string; initials: string; name: string; message: string; time: string; unread: boolean; psid?: string }[]
+  >([]);
   const [chatInput, setChatInput] = useState('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
@@ -695,7 +721,66 @@ export default function App() {
   useEffect(() => {
     let isMounted = true;
 
-    async function loadChat() {
+    async function loadInboxAndChat() {
+      try {
+        const linkedPages = await api.getLinkedPages();
+        const pageId = linkedPages[0]?.id;
+        const fbPageIdStr = String(linkedPages[0]?.fb_page_id || '');
+        if (isMounted && pageId) {
+          const convs = await api.getPageConversations(pageId);
+          if (isMounted && convs.length > 0) {
+            const latestByConv: Record<string, any> = {};
+            for (const c of convs) {
+              if (c.latest_message) {
+                latestByConv[c.id] = c.latest_message;
+              }
+            }
+            if (Object.keys(latestByConv).length < convs.length) {
+              try {
+                const inboxData = await api.getPageInbox(pageId, 10);
+                for (const gt of inboxData?.conversations || []) {
+                  const senders = gt.senders?.data || [];
+                  const customer = senders.find((s: any) => String(s.id) !== fbPageIdStr) || senders[0];
+                  if (!customer?.id) continue;
+                  const matchConv = convs.find((c: any) => String(c.customer_psid) === String(customer.id));
+                  if (!matchConv) continue;
+                  const threadMsgs = await api.getPageThreadMessages(pageId, gt.id, 5);
+                  if (threadMsgs && threadMsgs.length > 0) {
+                    const latestGm = threadMsgs[0];
+                    latestByConv[matchConv.id] = {
+                      text: latestGm.message,
+                      created_at: latestGm.created_time,
+                      is_from_customer: String(latestGm.from?.id) === String(customer.id),
+                    };
+                  }
+                }
+              } catch {
+                // Ignore Graph fallback errors
+              }
+            }
+            if (isMounted) {
+              setRealInboxConvos(
+                convs.map((c: any) => {
+                  const name = c.customer_name || 'Customer';
+                  const latest = latestByConv[c.id] || c.latest_message;
+                  return {
+                    id: c.id,
+                    name,
+                    initials: initialsOf(name),
+                    message: latest?.text || c.last_message_text || 'New conversation',
+                    time: timeAgo(latest?.created_at || c.last_message_at),
+                    unread: typeof c.unread === 'boolean' ? c.unread : !!latest?.is_from_customer,
+                    psid: c.customer_psid,
+                  };
+                })
+              );
+            }
+          }
+        }
+      } catch (inboxErr) {
+        console.warn('Web companion inbox sync skipped:', inboxErr);
+      }
+
       try {
         const chatData = await api.getChatMessages();
         if (isMounted && chatData?.messages && chatData.messages.length > 0) {
@@ -739,7 +824,7 @@ export default function App() {
       }
     }
 
-    loadChat();
+    loadInboxAndChat();
 
     // Subscribe to real-time messages across Supabase Realtime CDC
     const channel = supabase
@@ -1132,6 +1217,7 @@ export default function App() {
             <InboxScreen
               isLoggedIn={isLoggedIn}
               onLogin={handleLogin}
+              realConvos={realInboxConvos}
             />
           )}
           {activeTab === 'catalog' && (

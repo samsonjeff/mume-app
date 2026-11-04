@@ -21,6 +21,13 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as SplashScreen from 'expo-splash-screen';
+import * as Speech from 'expo-speech';
+import {
+  useAudioRecorder,
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+} from 'expo-audio';
 import { THEME } from '../constants/theme';
 import { VoiceWave } from '../components/VoiceWave';
 import { AppIcon } from '../components/AppIcon';
@@ -110,6 +117,26 @@ function getMumeAiReply(query: string): string {
   return "Got it! I checked your store and Page inquiries. Maria A.'s inquiry for $2.50/kg apples is waiting for approval, and your 3 catalog items are synced. How else can I assist?";
 }
 
+/**
+ * Reads a recorded audio file URI into base64 for the transcription endpoint.
+ */
+async function uriToBase64(uri: string): Promise<{ base64: string; mimeType: string }> {
+  const res = await fetch(uri);
+  const blob = await res.blob();
+  const dataUrl: string = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Failed to read recording'));
+    reader.onload = () => resolve(String(reader.result));
+    reader.readAsDataURL(blob);
+  });
+  const comma = dataUrl.indexOf(',');
+  const header = comma >= 0 ? dataUrl.slice(0, comma) : '';
+  const base64 = comma >= 0 ? dataUrl.slice(comma + 1) : '';
+  const mime = /data:(.*?);base64/.exec(header)?.[1] || 'audio/m4a';
+  if (!base64) throw new Error('Failed to read recording');
+  return { base64, mimeType: mime };
+}
+
 // Demo conversations — NEVER deleted. Real synced Facebook conversations
 // are prepended on top of these by loadRealInbox, never replacing them.
 const DUMMY_CONVOS = [
@@ -140,6 +167,11 @@ export default function HomeScreen() {
   const [activeTab, setActiveTab] = useState<Tab>('today');
   const [menuOpen, setMenuOpen] = useState(false);
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
+  const voiceRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const [voiceError, setVoiceError] = useState('');
+  // Spoken replies: Mume reads AI responses aloud via on-device TTS.
+  // Tap-to-talk input stays as-is; there is no always-on wake word.
+  const [voiceOutputOn, setVoiceOutputOn] = useState(true);
   const [userName, setUserName] = useState<string>('Jefferson');
   const [isLoggedIn, setIsLoggedIn] = useState(true);
   const [pages, setPages] = useState<LinkedPage[]>([]);
@@ -162,6 +194,7 @@ export default function HomeScreen() {
   const [sendingInboxReply, setSendingInboxReply] = useState(false);
   const [inboxSendError, setInboxSendError] = useState('');
   const selectedInboxIdRef = useRef<string | null>(null);
+  const graphThreadMessagesByPsidRef = useRef<Record<string, ChatMessage[]>>({});
   // Real synced Facebook conversations — prepended above DUMMY_CONVOS, never replacing them
   const [realInboxConvos, setRealInboxConvos] = useState<
     { id: string; name: string; initials: string; time: string; message: string; unread: boolean; psid: string }[]
@@ -252,9 +285,7 @@ export default function HomeScreen() {
 
   const handleTyping = (text: string) => {
     setChatInput(text);
-    if (activeTab !== 'today') {
-      setActiveTab('today');
-    }
+    if (voiceError) setVoiceError('');
     if (text.length > 0) {
       setIsTyping(true);
       if (typingTimeoutRef.current) {
@@ -290,7 +321,15 @@ export default function HomeScreen() {
     return () => clearTimeout(timer);
   }, [chatMessages, isAiThinking]);
 
-  // Pending action state from Figma Make prototype
+  // Pending action state (synced with backend pending_actions when available, with Figma Make fallback)
+  const [activePendingAction, setActivePendingAction] = useState<{
+    id: string;
+    customerName: string;
+    customerInitials: string;
+    customerMessage: string;
+    draftReply: string;
+    time: string;
+  } | null>(null);
   const [isEditingDraft, setIsEditingDraft] = useState(false);
   const [draftReply, setDraftReply] = useState('Hi! Our red apples are $2.50 / kg. Fresh delivery today.');
   const [isApproved, setIsApproved] = useState(false);
@@ -323,7 +362,7 @@ export default function HomeScreen() {
   }, []);
 
   // Manual page link state (Settings tab)
-  const [fbPageId, setFbPageId] = useState('2165823377350527');
+  const [fbPageId, setFbPageId] = useState('1447275391796820');
   const [pageName, setPageName] = useState('Mume Fresh - Fruit Store');
   const [pageAccessToken, setPageAccessToken] = useState('');
   const [submittingLink, setSubmittingLink] = useState(false);
@@ -576,17 +615,64 @@ export default function HomeScreen() {
       }
       const ids = convs.map((c: any) => c.id);
       const latestByConv: Record<string, any> = {};
-      try {
-        const { data: msgs } = await supabase
-          .from('messages')
-          .select('conversation_id, text, created_at, is_from_customer')
-          .in('conversation_id', ids)
-          .order('created_at', { ascending: false });
-        for (const m of msgs || []) {
-          if (!latestByConv[m.conversation_id]) latestByConv[m.conversation_id] = m;
+      for (const c of convs) {
+        if (c.latest_message) {
+          latestByConv[c.id] = c.latest_message;
         }
-      } catch (msgErr) {
-        console.warn('Real inbox previews unavailable:', msgErr);
+      }
+      const missingPreviewIds = ids.filter((id: string) => !latestByConv[id]);
+      if (missingPreviewIds.length > 0) {
+        try {
+          const { data: msgs } = await supabase
+            .from('messages')
+            .select('conversation_id, text, created_at, is_from_customer')
+            .in('conversation_id', missingPreviewIds)
+            .order('created_at', { ascending: false });
+          for (const m of msgs || []) {
+            if (!latestByConv[m.conversation_id]) latestByConv[m.conversation_id] = m;
+          }
+        } catch (msgErr) {
+          console.warn('Real inbox previews unavailable:', msgErr);
+        }
+      }
+      const stillMissing = ids.filter((id: string) => !latestByConv[id]);
+      if (stillMissing.length > 0) {
+        try {
+          const inboxData = await api.getPageInbox(pageId, 10);
+          const graphThreads = inboxData?.conversations || [];
+          const fbPageIdStr = String(pages[0]?.fb_page_id || '');
+          for (const gt of graphThreads) {
+            const senders = gt.senders?.data || [];
+            const customer = senders.find((s: any) => String(s.id) !== fbPageIdStr) || senders[0];
+            if (!customer?.id) continue;
+            const matchConv = convs.find((c: any) => String(c.customer_psid) === String(customer.id));
+            if (!matchConv) continue;
+            const threadMsgs = await api.getPageThreadMessages(pageId, gt.id, 20);
+            if (threadMsgs && threadMsgs.length > 0) {
+              const latestGm = threadMsgs[0];
+              latestByConv[matchConv.id] = {
+                text: latestGm.message,
+                created_at: latestGm.created_time,
+                is_from_customer: String(latestGm.from?.id) === String(customer.id),
+              };
+              graphThreadMessagesByPsidRef.current[String(customer.id)] = threadMsgs
+                .slice()
+                .reverse()
+                .filter((gm: any) => gm.message)
+                .map((gm: any) => ({
+                  id: gm.id,
+                  sender: (String(gm.from?.id) === String(customer.id) ? 'mume' : 'user') as 'mume' | 'user',
+                  text: gm.message,
+                  time: new Date(gm.created_time).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  }),
+                }));
+            }
+          }
+        } catch (graphFallbackErr) {
+          console.warn('Graph inbox fallback skipped:', graphFallbackErr);
+        }
       }
       setRealInboxConvos(
         convs.map((c: any) => {
@@ -596,18 +682,45 @@ export default function HomeScreen() {
             id: c.id,
             name,
             initials: initialsOf(name),
-            message: latest?.text || 'New conversation',
+            message: latest?.text || c.last_message_text || 'New conversation',
             time: timeAgo(latest?.created_at || c.last_message_at),
-            unread: !!latest?.is_from_customer,
+            unread: typeof c.unread === 'boolean' ? c.unread : !!latest?.is_from_customer,
             psid: c.customer_psid,
           };
         })
       );
+
+      // Sync real pending actions for the Home approval card
+      try {
+        const actions = await api.getPendingActions(pageId);
+        if (actions && actions.length > 0) {
+          const top = actions[0];
+          const matchConv = convs.find((c: any) => c.id === top.conversation_id) || convs[0];
+          const custName = top.customer_name || matchConv?.customer_name || 'Customer';
+          const custMsg =
+            top.customer_message ||
+            latestByConv[top.conversation_id]?.text ||
+            (matchConv ? latestByConv[matchConv.id]?.text : null) ||
+            'Customer inquiry on Messenger';
+          setActivePendingAction({
+            id: top.id,
+            customerName: custName,
+            customerInitials: initialsOf(custName),
+            customerMessage: custMsg,
+            draftReply: top.draft_reply,
+            time: timeAgo(top.created_at),
+          });
+          setDraftReply((prev) => (isEditingDraft ? prev : top.draft_reply));
+          setIsApproved(false);
+        }
+      } catch (actErr) {
+        console.warn('Pending actions sync skipped:', actErr);
+      }
     } catch (err) {
       console.warn('Real inbox sync failed, showing demo conversations:', err);
       setRealInboxConvos([]);
     }
-  }, [pages, isLoggedIn]);
+  }, [pages, isLoggedIn, isEditingDraft]);
 
   useEffect(() => {
     loadLinkedPages();
@@ -747,14 +860,72 @@ export default function HomeScreen() {
     loadRealInbox();
   };
 
-  const handleVoice = () => {
-    if (voiceState === 'idle') setVoiceState('listening');
-    else if (voiceState === 'listening') setVoiceState('thinking');
-    else setVoiceState('idle');
+  // Reads a Mume reply aloud. Stops any in-progress speech first so
+  // rapid follow-ups never stack audio on top of each other.
+  const speakMumeReply = useCallback(
+    (text: string) => {
+      if (!voiceOutputOn) return;
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      try {
+        Speech.stop();
+        Speech.speak(trimmed, { language: 'en-US', rate: 1.0 });
+      } catch (err) {
+        console.warn('Voice output failed:', err);
+      }
+    },
+    [voiceOutputOn]
+  );
+
+  // Never leave speech running after the screen unmounts.
+  useEffect(() => {
+    return () => {
+      Speech.stop();
+    };
+  }, []);
+
+  // Mic toggle: tap to start recording, tap again to stop, transcribe
+  // via Muse Voice, and send the transcript to Mume as a chat message.
+  const handleVoice = async () => {
+    if (voiceState === 'thinking') return;
+    setVoiceError('');
+    if (voiceState === 'idle') {
+      try {
+        const { granted } = await requestRecordingPermissionsAsync();
+        if (!granted) {
+          setVoiceError('Microphone permission denied');
+          return;
+        }
+        await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+        await voiceRecorder.prepareToRecordAsync();
+        voiceRecorder.record();
+        Speech.stop();
+        setVoiceState('listening');
+      } catch (err: any) {
+        console.warn('Voice record start failed:', err?.message || err);
+        setVoiceError('Could not start recording');
+      }
+      return;
+    }
+    try {
+      setVoiceState('thinking');
+      await voiceRecorder.stop();
+      const uri = voiceRecorder.uri;
+      if (!uri) throw new Error('No recording captured');
+      const { base64, mimeType } = await uriToBase64(uri);
+      const { text } = await api.transcribeVoice({ audio: base64, mimeType });
+      if (!text.trim()) throw new Error("Couldn't hear that — try again.");
+      await handleSendMessage(text);
+    } catch (err: any) {
+      console.warn('Voice transcribe failed:', err?.message || err);
+      setVoiceError(err?.message || "Couldn't transcribe that — try again.");
+    } finally {
+      setVoiceState('idle');
+    }
   };
 
-  const handleSendMessage = async () => {
-    const trimmed = chatInput.trim();
+  const handleSendMessage = async (sendText?: string) => {
+    const trimmed = (sendText ?? chatInput).trim();
     if (!trimmed || isAiThinking) return;
 
     // Sending restores the normal layout: blur fires onBlur, which brings
@@ -778,15 +949,13 @@ export default function HomeScreen() {
     setChatInput('');
     setIsAiThinking(true);
 
-    if (activeTab !== 'today') {
-      setActiveTab('today');
-    }
     setTimeout(() => scrollToConversation(true), 50);
 
     try {
       // 1. Send via Backend API
       const res = await api.sendChatMessage(trimmed, pages[0]?.id);
       if (res?.aiMessage) {
+        speakMumeReply(res.aiMessage.text);
         setChatMessages((prev) => {
           const withoutTemp = prev.filter((m) => m.id !== tempUserId);
           return [
@@ -856,6 +1025,7 @@ export default function HomeScreen() {
             .single();
 
           if (uMsg && aMsg) {
+            speakMumeReply(aMsg.text);
             setChatMessages((prev) => {
               const withoutTemp = prev.filter((m) => m.id !== tempUserId);
               return [
@@ -878,6 +1048,7 @@ export default function HomeScreen() {
         text: replyText,
         time: 'Just now',
       };
+      speakMumeReply(replyText);
       setChatMessages((prev) => [...prev, aiMsg]);
     } finally {
       setIsAiThinking(false);
@@ -885,11 +1056,20 @@ export default function HomeScreen() {
     }
   };
 
-  const handleApprove = () => {
+  const handleApprove = async () => {
     setIsEditingDraft(false);
     setIsApproved(true);
     setShowApprovedCard(true);
     setSentToast(true);
+    if (activePendingAction?.id) {
+      try {
+        await api.approvePendingAction(activePendingAction.id, draftReply);
+        setActivePendingAction(null);
+        loadRealInbox();
+      } catch (err) {
+        console.warn('Pending action backend approval warning:', err);
+      }
+    }
     setTimeout(() => {
       setShowApprovedCard(false);
     }, 2000);
@@ -915,23 +1095,31 @@ export default function HomeScreen() {
     setInboxSendError('');
     // Seed with the listed message instantly so the thread never looks empty
     setInboxThread([{ id: `c-${convo.id}`, sender: 'mume', text: message, time: convo.time }]);
-    // Real conversation row: load persisted history from Supabase
+    // Real conversation row: load persisted history via backend service_role first, then Supabase fallback
     if (UUID_RE.test(convo.id)) {
       try {
-        const { data } = await supabase
-          .from('messages')
-          .select('id, sender, text, created_at, is_from_customer')
-          .eq('conversation_id', convo.id)
-          .order('created_at', { ascending: true });
-        if (data && data.length > 0) {
+        let rows: any[] = [];
+        try {
+          rows = await api.getConversationMessages(convo.id);
+        } catch {
+          const { data } = await supabase
+            .from('messages')
+            .select('id, sender, text, created_at, is_from_customer')
+            .eq('conversation_id', convo.id)
+            .order('created_at', { ascending: true });
+          rows = data || [];
+        }
+        if (rows && rows.length > 0) {
           setInboxThread(
-            data.map((m: any) => ({
+            rows.map((m: any) => ({
               id: m.id,
               sender: m.is_from_customer || m.sender === 'customer' ? 'mume' : 'user',
               text: m.text,
               time: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             }))
           );
+        } else if (convo.psid && graphThreadMessagesByPsidRef.current[convo.psid]?.length) {
+          setInboxThread(graphThreadMessagesByPsidRef.current[convo.psid]);
         }
       } catch (err) {
         console.warn('Inbox thread history failed, showing listed message:', err);
@@ -976,14 +1164,20 @@ export default function HomeScreen() {
           selectedInboxIdRef.current = sent.conversationId;
           setSelectedInbox((prev) => (prev ? { ...prev, id: sent.conversationId } : prev));
           try {
-            const { data } = await supabase
-              .from('messages')
-              .select('id, sender, text, created_at, is_from_customer')
-              .eq('conversation_id', sent.conversationId)
-              .order('created_at', { ascending: true });
-            if (data && data.length > 0) {
+            let rows: any[] = [];
+            try {
+              rows = await api.getConversationMessages(sent.conversationId);
+            } catch {
+              const { data } = await supabase
+                .from('messages')
+                .select('id, sender, text, created_at, is_from_customer')
+                .eq('conversation_id', sent.conversationId)
+                .order('created_at', { ascending: true });
+              rows = data || [];
+            }
+            if (rows && rows.length > 0) {
               setInboxThread(
-                data.map((m: any) => ({
+                rows.map((m: any) => ({
                   id: m.id,
                   sender: m.is_from_customer || m.sender === 'customer' ? 'mume' : 'user',
                   text: m.text,
@@ -1258,17 +1452,23 @@ export default function HomeScreen() {
                       >
                         <View style={styles.customerRow}>
                           <View style={styles.avatar}>
-                            <Text style={styles.avatarText}>MA</Text>
+                            <Text style={styles.avatarText}>
+                              {activePendingAction?.customerInitials || 'MA'}
+                            </Text>
                           </View>
                           <View style={styles.customerInfoCol}>
-                            <Text style={styles.customerName}>Maria A.</Text>
+                            <Text style={styles.customerName}>
+                              {activePendingAction?.customerName || 'Maria A.'}
+                            </Text>
                             <Text style={styles.customerContext}>Messenger · Price inquiry</Text>
                           </View>
-                          <Text style={styles.timeLabel}>now</Text>
+                          <Text style={styles.timeLabel}>{activePendingAction?.time || 'now'}</Text>
                         </View>
 
                         <View style={styles.messageBubble}>
-                          <Text style={styles.messageBubbleText}>“Hi, how much are the red apples?”</Text>
+                          <Text style={styles.messageBubbleText}>
+                            {`“${activePendingAction?.customerMessage || 'Hi, how much are the red apples?'}”`}
+                          </Text>
                         </View>
 
                         {/* Draft Block: Full text editable */}
@@ -1904,7 +2104,6 @@ export default function HomeScreen() {
                 onChangeText={handleTyping}
                 onFocus={() => {
                   setIsInputFocused(true);
-                  if (activeTab !== 'today') setActiveTab('today');
                   scrollToConversation(true);
                   // Re-scroll once the keyboard frame has settled so the
                   // latest messages stay visible above the resized viewport.
@@ -1920,7 +2119,7 @@ export default function HomeScreen() {
                 multiline
                 maxLength={400}
                 returnKeyType="send"
-                onSubmitEditing={handleSendMessage}
+                onSubmitEditing={() => handleSendMessage()}
                 blurOnSubmit={false}
               />
             </View>
@@ -1950,12 +2149,30 @@ export default function HomeScreen() {
                     <Text style={styles.voiceStateThinkingText}>Checking your page…</Text>
                   </View>
                 )}
-                {voiceState === 'idle' && !chatInput && (
+                {!voiceError && voiceState === 'idle' && !chatInput && (
                   <Text style={styles.capsuleHintText}>Tap mic or write to AI</Text>
                 )}
+                {!!voiceError && <Text style={styles.capsuleHintText}>{voiceError}</Text>}
               </View>
 
               <View style={styles.capsuleActionsRight}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={voiceOutputOn ? 'Mute Mume voice replies' : 'Unmute Mume voice replies'}
+                  accessibilityState={{ selected: voiceOutputOn }}
+                  onPress={() => {
+                    setVoiceOutputOn((v) => {
+                      if (v) Speech.stop();
+                      return !v;
+                    });
+                  }}
+                  style={styles.geminiVoiceToggle}
+                >
+                  <Text style={styles.geminiVoiceToggleText}>
+                    {voiceOutputOn ? 'Voice on' : 'Muted'}
+                  </Text>
+                </Pressable>
+
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Dictate and talk to Mume"
@@ -1976,7 +2193,7 @@ export default function HomeScreen() {
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Send message to AI"
-                  onPress={handleSendMessage}
+                  onPress={() => handleSendMessage()}
                   disabled={!chatInput.trim() || isAiThinking}
                   style={[
                     styles.geminiSendButton,
@@ -3928,6 +4145,19 @@ const styles = StyleSheet.create({
     backgroundColor: THEME.colors.cardElevated,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  geminiVoiceToggle: {
+    height: 36,
+    paddingHorizontal: 12,
+    borderRadius: 18,
+    backgroundColor: THEME.colors.cardElevated,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  geminiVoiceToggleText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: THEME.colors.text,
   },
   geminiMicSmallButtonActive: {
     backgroundColor: THEME.colors.obsidian,

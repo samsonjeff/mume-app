@@ -1,6 +1,6 @@
 // No production URL is hardcoded here: forks deploy to their own backend,
 // so the default is local development. Set EXPO_PUBLIC_API_URL per environment.
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+const API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/+$/, '');
 
 // Sent as `x-api-key` when the backend has API_KEY configured. The key is
 // optional in local development and required once the server enforces it.
@@ -52,11 +52,23 @@ export const api = {
   },
 
   async getPageInbox(pageId: string, limit = 10): Promise<any> {
-    const res = await fetch(`${API_BASE_URL}/api/pages/${pageId}/inbox?limit=${limit}`, {
+    const res = await fetch(`${API_BASE_URL}/api/pages/${encodeURIComponent(pageId)}/inbox?limit=${limit}`, {
       headers: authHeaders(),
     });
     if (!res.ok) throw new Error('Failed to fetch page inbox');
     return res.json();
+  },
+
+  async getPageThreadMessages(pageId: string, threadId: string, limit = 20): Promise<any[]> {
+    const res = await fetch(
+      `${API_BASE_URL}/api/pages/${encodeURIComponent(pageId)}/conversations/${encodeURIComponent(threadId)}/messages?limit=${limit}`,
+      {
+        headers: authHeaders(),
+      }
+    );
+    if (!res.ok) throw new Error('Failed to fetch Graph thread messages');
+    const data = await res.json();
+    return data.messages || [];
   },
 
   async getChatMessages(pageId?: string): Promise<{ conversationId: string; messages: any[] }> {
@@ -65,6 +77,20 @@ export const api = {
       headers: authHeaders(),
     });
     if (!res.ok) throw new Error('Failed to fetch chat messages');
+    return res.json();
+  },
+
+  // Merchant voice input: base64 audio transcribed server-side by Muse Voice.
+  async transcribeVoice(payload: { audio: string; mimeType?: string; language?: string }): Promise<{ text: string }> {
+    const res = await fetch(`${API_BASE_URL}/api/voice/transcribe`, {
+      method: 'POST',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to transcribe voice');
+    }
     return res.json();
   },
 
@@ -79,12 +105,24 @@ export const api = {
   },
 
   async getPageConversations(pageId: string): Promise<any[]> {
-    const res = await fetch(`${API_BASE_URL}/api/pages/${pageId}/conversations`, {
+    const res = await fetch(`${API_BASE_URL}/api/pages/${encodeURIComponent(pageId)}/conversations`, {
       headers: authHeaders(),
     });
     if (!res.ok) throw new Error('Failed to fetch conversations');
     const data = await res.json();
     return data.conversations || [];
+  },
+
+  async getConversationMessages(conversationId: string): Promise<any[]> {
+    const res = await fetch(
+      `${API_BASE_URL}/api/conversations/${encodeURIComponent(conversationId)}/messages`,
+      {
+        headers: authHeaders(),
+      }
+    );
+    if (!res.ok) throw new Error('Failed to fetch conversation messages');
+    const data = await res.json();
+    return data.messages || [];
   },
 
   async getPendingActions(pageId: string): Promise<any[]> {

@@ -11,6 +11,7 @@ const {
   sendPageReply,
 } = require('./services/facebook');
 const { getMumeAiReply, buildSessionSummary, detectTopic } = require('./services/ai');
+const { isMuseConfigured, getMuseChatReply, transcribeMuseAudio } = require('./services/muse');
 
 /**
  * Escapes a string for safe interpolation into HTML responses.
@@ -61,9 +62,21 @@ function createApp(env = process.env) {
   const app = express();
   app.set('trust proxy', true);
 
-  // Capture rawBody for Meta webhook signature verification
+  // Normalize duplicate leading slashes (e.g. //api/pages -> /api/pages)
+  // when a client's API_BASE_URL ends with a trailing slash.
+  app.use((req, _res, next) => {
+    if (req.url && req.url.startsWith('//')) {
+      req.url = req.url.replace(/^\/+/, '/');
+    }
+    next();
+  });
+
+  // Capture rawBody for Meta webhook signature verification.
+  // The limit covers base64 voice clips posted to /api/voice/transcribe;
+  // the transcription service enforces its own stricter byte cap.
   app.use(
     express.json({
+      limit: '8mb',
       verify: (req, _res, buf) => {
         req.rawBody = buf;
       },
@@ -119,6 +132,36 @@ function createApp(env = process.env) {
   app.use('/api', requireApiKey);
 
   const supabase = getSupabaseClient(env);
+
+  // Merchant assistant reply: Muse Spark chat model first when
+  // META_MODEL_API_KEY is configured, rule-based reply as the fallback
+  // so chat keeps working offline or when the model call fails.
+  const MUME_SYSTEM_PROMPT = [
+    'You are Mume, the AI store assistant inside a fruit-store merchant app.',
+    'You answer the merchant (never the end customer) in concise, friendly English with some Tagalog.',
+    'Catalog: Red apples $2.50/kg (In stock), Carabao mango $4.00/kg (In stock), Lakatan banana $1.80/kg (Low stock).',
+    'Customer price/stock inquiries arrive as Messenger threads with an AI draft awaiting the merchant approval on the Home tab.',
+    'Nothing is ever sent to customers without the merchant explicit approval.',
+  ].join(' ');
+
+  async function resolveAssistantReply(text, history) {
+    if (isMuseConfigured(env)) {
+      try {
+        const messages = (Array.isArray(history) ? history : [])
+          .slice(-20)
+          .filter((m) => m && m.text)
+          .map((m) => ({
+            role: m.sender === 'mume' ? 'assistant' : 'user',
+            content: String(m.text),
+          }));
+        messages.push({ role: 'user', content: String(text) });
+        return await getMuseChatReply({ system: MUME_SYSTEM_PROMPT, messages, env });
+      } catch (err) {
+        console.warn('[muse-chat] Falling back to rule-based reply:', err.message);
+      }
+    }
+    return getMumeAiReply(text, { history });
+  }
 
   // Helper for webhook verification
   const handleWebhookVerification = (req, res) => {
@@ -738,7 +781,7 @@ function createApp(env = process.env) {
     }
 
     const trimmed = text.trim();
-    const replyText = getMumeAiReply(trimmed);
+    const replyText = await resolveAssistantReply(trimmed, []);
 
     if (!supabase) {
       return res.json({
@@ -802,7 +845,7 @@ function createApp(env = process.env) {
       } catch (histErr) {
         console.warn('[chat-history] Warning:', histErr.message);
       }
-      const contextReply = getMumeAiReply(trimmed, { history });
+      const contextReply = await resolveAssistantReply(trimmed, history);
 
       // Insert User Message into Supabase
       const { data: userMsg, error: userMsgErr } = await supabase
@@ -876,6 +919,31 @@ function createApp(env = process.env) {
     }
   });
 
+  // 9b. POST /api/voice/transcribe -> Speech-to-text for merchant voice input.
+  // Body: { audio: base64 string, mimeType?: string, language?: string }.
+  // Requires META_MODEL_API_KEY; never fabricates a transcript on failure.
+  app.post('/api/voice/transcribe', async (req, res) => {
+    const { audio } = req.body || {};
+    if (!audio || typeof audio !== 'string') {
+      return res.status(400).json({ error: 'audio (base64) is required' });
+    }
+
+    try {
+      const bytes = Buffer.from(audio, 'base64');
+      if (bytes.length === 0) {
+        return res.status(400).json({ error: 'Invalid base64 audio' });
+      }
+      const text = await transcribeMuseAudio({ audio: bytes, env });
+      res.json({ text });
+    } catch (err) {
+      const status = /not configured/i.test(err.message) ? 500 : 502;
+      if (status === 502) {
+        console.warn('[voice-transcribe] Upstream failure:', err.message);
+      }
+      res.status(status).json({ error: err.message });
+    }
+  });
+
   // 10. GET /api/pages/:pageId/conversations -> List customer conversations from Supabase
   app.get('/api/pages/:pageId/conversations', async (req, res) => {
     const { pageId } = req.params;
@@ -909,7 +977,56 @@ function createApp(env = process.env) {
 
       if (error) throw error;
 
-      res.json({ conversations: convs || [] });
+      const convList = convs || [];
+      const latestByConv = {};
+      if (convList.length > 0) {
+        const ids = convList.map((c) => c.id);
+        const { data: msgs } = await supabase
+          .from('messages')
+          .select('id, conversation_id, sender, text, is_from_customer, created_at')
+          .in('conversation_id', ids)
+          .order('created_at', { ascending: false });
+
+        for (const m of msgs || []) {
+          if (!latestByConv[m.conversation_id]) {
+            latestByConv[m.conversation_id] = m;
+          }
+        }
+      }
+
+      const enriched = convList.map((c) => {
+        const latest = latestByConv[c.id] || null;
+        return {
+          ...c,
+          latest_message: latest,
+          last_message_text: latest?.text || null,
+          unread: Boolean(latest?.is_from_customer),
+        };
+      });
+
+      res.json({ conversations: enriched });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // 10b. GET /api/conversations/:conversationId/messages -> List stored messages for a conversation via service_role
+  app.get('/api/conversations/:conversationId/messages', async (req, res) => {
+    const { conversationId } = req.params;
+    try {
+      if (!supabase) {
+        return res.json({ conversationId, messages: [] });
+      }
+
+      const { data: msgs, error } = await supabase
+        .from('messages')
+        .select('id, conversation_id, fb_message_id, sender, text, is_from_customer, created_at')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      res.json({ conversationId, messages: msgs || [] });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -929,6 +1046,20 @@ function createApp(env = process.env) {
 
       if (!page) return res.status(404).json({ error: 'Page not found' });
 
+      const { data: pageConvs } = await supabase
+        .from('conversations')
+        .select('id, customer_psid, customer_name, last_message_at')
+        .eq('page_id', page.id);
+
+      const convMap = {};
+      for (const c of pageConvs || []) {
+        convMap[c.id] = c;
+      }
+      const convIds = Object.keys(convMap);
+      if (convIds.length === 0) {
+        return res.json({ pendingActions: [] });
+      }
+
       const { data: actions, error } = await supabase
         .from('pending_actions')
         .select(`
@@ -940,12 +1071,40 @@ function createApp(env = process.env) {
           created_at,
           updated_at
         `)
+        .in('conversation_id', convIds)
         .eq('status', 'waiting_approval')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      res.json({ pendingActions: actions || [] });
+      const latestCustomerMsgByConv = {};
+      if (actions && actions.length > 0) {
+        const actionConvIds = [...new Set(actions.map((a) => a.conversation_id))];
+        const { data: custMsgs } = await supabase
+          .from('messages')
+          .select('conversation_id, text, created_at')
+          .in('conversation_id', actionConvIds)
+          .eq('is_from_customer', true)
+          .order('created_at', { ascending: false });
+
+        for (const m of custMsgs || []) {
+          if (!latestCustomerMsgByConv[m.conversation_id]) {
+            latestCustomerMsgByConv[m.conversation_id] = m.text;
+          }
+        }
+      }
+
+      const enrichedActions = (actions || []).map((a) => {
+        const conv = convMap[a.conversation_id] || {};
+        return {
+          ...a,
+          customer_name: conv.customer_name || 'Customer',
+          customer_psid: conv.customer_psid || null,
+          customer_message: latestCustomerMsgByConv[a.conversation_id] || null,
+        };
+      });
+
+      res.json({ pendingActions: enrichedActions });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -975,6 +1134,39 @@ function createApp(env = process.env) {
 
       const replyText = editedReply || action.draft_reply;
 
+      // Dispatch outbound reply via Meta Graph API when conversation + page token exist
+      let graphResult = null;
+      try {
+        const { data: conv } = await supabase
+          .from('conversations')
+          .select('id, page_id, customer_psid, last_message_at')
+          .eq('id', action.conversation_id)
+          .maybeSingle();
+
+        if (conv && conv.customer_psid && conv.customer_psid !== 'mume_assistant') {
+          const { data: page } = await supabase
+            .from('pages')
+            .select('fb_page_id, page_access_token_encrypted')
+            .eq('id', conv.page_id)
+            .maybeSingle();
+
+          if (page && page.page_access_token_encrypted) {
+            const plainToken = decryptToken(page.page_access_token_encrypted, env);
+            graphResult = await sendPageReply({
+              pageId: page.fb_page_id,
+              pageAccessToken: plainToken,
+              appSecret: env.FB_APP_SECRET,
+              psid: conv.customer_psid,
+              text: replyText,
+              lastCustomerMessageAt: conv.last_message_at,
+              approvalStatus: 'approved',
+            });
+          }
+        }
+      } catch (graphErr) {
+        console.warn('[approve-dispatch] Warning:', graphErr.message);
+      }
+
       // Update pending action to 'sent'
       const { data: updated } = await supabase
         .from('pending_actions')
@@ -990,13 +1182,13 @@ function createApp(env = process.env) {
       // Persist outbound reply in messages
       await supabase.from('messages').insert({
         conversation_id: action.conversation_id,
-        fb_message_id: `action-${Date.now()}`,
+        fb_message_id: graphResult?.message_id || `action-${Date.now()}`,
         sender: 'page',
         text: replyText,
         is_from_customer: false,
       });
 
-      res.json({ status: 'sent', action: updated });
+      res.json({ status: 'sent', action: updated, graphResult });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
