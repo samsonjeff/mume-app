@@ -24,7 +24,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [syncState, setSyncState] = useState<'idle' | 'syncing' | 'synced'>('synced');
   const [lastSyncTime, setLastSyncTime] = useState('Today at 4:32 PM');
   const [pageData, setPageData] = useState<LinkedPage>({
-    pageId: '1447275391796820',
+    pageId: '2165823377350527',
     pageName: 'Mume Fresh - Fruit Store',
     category: 'Retail & Grocery',
     syncedAt: '2026-10-31T16:32:00Z',

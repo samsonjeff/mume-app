@@ -13,7 +13,7 @@ export default function LinkPageScreen() {
   const [submitting, setSubmitting] = useState(false);
 
   // Direct manual linking form for hackathon dev/testing
-  const [fbPageId, setFbPageId] = useState('1447275391796820');
+  const [fbPageId, setFbPageId] = useState('2165823377350527');
   const [pageName, setPageName] = useState('Mume Fresh - Fruit Store');
   const [pageAccessToken, setPageAccessToken] = useState('');
 
@@ -137,7 +137,7 @@ export default function LinkPageScreen() {
             style={styles.input}
             value={fbPageId}
             onChangeText={setFbPageId}
-            placeholder="e.g. 1447275391796820"
+            placeholder="e.g. 2165823377350527"
             placeholderTextColor={THEME.colors.textMuted}
             keyboardType="numeric"
           />

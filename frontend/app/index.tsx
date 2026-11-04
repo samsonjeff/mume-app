@@ -323,7 +323,7 @@ export default function HomeScreen() {
   }, []);
 
   // Manual page link state (Settings tab)
-  const [fbPageId, setFbPageId] = useState('1447275391796820');
+  const [fbPageId, setFbPageId] = useState('2165823377350527');
   const [pageName, setPageName] = useState('Mume Fresh - Fruit Store');
   const [pageAccessToken, setPageAccessToken] = useState('');
   const [submittingLink, setSubmittingLink] = useState(false);
@@ -1846,7 +1846,7 @@ export default function HomeScreen() {
                   style={styles.input}
                   value={fbPageId}
                   onChangeText={setFbPageId}
-                  placeholder="1447275391796820"
+                  placeholder="2165823377350527"
                   placeholderTextColor={THEME.colors.textMuted}
                 />
                 <Text style={styles.inputLabel}>Page Name</Text>
