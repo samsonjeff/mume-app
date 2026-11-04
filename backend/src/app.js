@@ -13,6 +13,48 @@ const {
 const { getMumeAiReply } = require('./services/ai');
 
 /**
+ * Escapes a string for safe interpolation into HTML responses.
+ */
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (c) => {
+    switch (c) {
+      case '&':
+        return '&amp;';
+      case '<':
+        return '&lt;';
+      case '>':
+        return '&gt;';
+      case '"':
+        return '&quot;';
+      default:
+        return '&#39;';
+    }
+  });
+}
+
+/**
+ * Parses a comma-separated allowlist env var into an array of origins.
+ */
+function parseOriginAllowlist(value) {
+  return String(value || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Returns true when an Origin header is permitted by ALLOWED_ORIGINS.
+ * When no allowlist is configured, non-production environments allow the
+ * origin for local development; production fails closed.
+ */
+function isOriginAllowed(origin, env) {
+  if (!origin) return false;
+  const allowed = parseOriginAllowlist(env.ALLOWED_ORIGINS || env.ALLOWED_ORIGIN);
+  if (allowed.length > 0) return allowed.includes(origin);
+  return env.NODE_ENV !== 'production';
+}
+
+/**
  * Builds the Express app.
  */
 function createApp(env = process.env) {
@@ -28,16 +70,53 @@ function createApp(env = process.env) {
     })
   );
 
-  // Enable CORS for web and mobile clients
+  // Enable CORS only for explicitly allowed origins. When ALLOWED_ORIGINS
+  // is unset, non-production environments echo the request origin for local
+  // development; production sends no CORS headers (fail closed).
   app.use((req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    const origin = req.get('origin');
+    if (origin && isOriginAllowed(origin, env)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Vary', 'Origin');
+    }
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-hub-signature-256');
+    res.setHeader(
+      'Access-Control-Allow-Headers',
+      'Content-Type, Authorization, x-api-key, x-hub-signature-256'
+    );
     if (req.method === 'OPTIONS') {
       return res.sendStatus(204);
     }
     next();
   });
+
+  const apiKey = env.API_KEY || env.MUME_API_KEY;
+  let apiKeyOpenWarningLogged = false;
+
+  // Require an API key for backend data endpoints when configured.
+  // Clients send it as `x-api-key` (or `Authorization: Bearer <key>`).
+  // Without a configured key, non-production stays open for local
+  // development while production fails closed.
+  function requireApiKey(req, res, next) {
+    if (!apiKey) {
+      if (env.NODE_ENV === 'production') {
+        return res.status(500).json({ error: 'API_KEY not configured on server' });
+      }
+      if (!apiKeyOpenWarningLogged) {
+        apiKeyOpenWarningLogged = true;
+        console.warn('[auth] API_KEY not configured - /api/* endpoints are open (development only)');
+      }
+      return next();
+    }
+    const headerKey = req.get('x-api-key');
+    const bearerKey = (req.get('authorization') || '').replace(/^bearer\s+/i, '');
+    if ((headerKey && headerKey === apiKey) || (bearerKey && bearerKey === apiKey)) {
+      return next();
+    }
+    return res.status(401).json({ error: 'Invalid or missing API key' });
+  }
+
+  app.use('/api', requireApiKey);
 
   const supabase = getSupabaseClient(env);
 
@@ -80,13 +159,17 @@ function createApp(env = process.env) {
   app.get('/webhook', handleWebhookVerification);
 
   // Facebook webhook events (incoming messages, postbacks, feed comments)
+  // Signature verification is mandatory: without FB_APP_SECRET the endpoint
+  // fails closed instead of accepting unverified payloads.
   app.post('/webhook', (req, res) => {
     const signature = req.get('x-hub-signature-256');
-    if (env.FB_APP_SECRET) {
-      if (!signature || !req.rawBody || !verifyMetaSignature(req.rawBody, signature, env.FB_APP_SECRET)) {
-        console.warn('[webhook] Rejected missing or invalid X-Hub-Signature-256');
-        return res.sendStatus(401);
-      }
+    if (!env.FB_APP_SECRET) {
+      console.warn('[webhook] Rejected: FB_APP_SECRET not configured - failing closed');
+      return res.sendStatus(401);
+    }
+    if (!signature || !req.rawBody || !verifyMetaSignature(req.rawBody, signature, env.FB_APP_SECRET)) {
+      console.warn('[webhook] Rejected missing or invalid X-Hub-Signature-256');
+      return res.sendStatus(401);
     }
 
     // Fast 200 ACK to Meta within < 5 seconds
@@ -198,6 +281,30 @@ function createApp(env = process.env) {
     return `${safeProto}://${host}/auth/facebook/callback`;
   };
 
+  // Validates a caller-supplied OAuth redirect_uri. Allowed targets are the
+  // server's own callback origin, localhost loopbacks, and origins listed in
+  // ALLOWED_REDIRECT_ORIGINS (falling back to ALLOWED_ORIGINS). Anything else
+  // is rejected so authorization codes cannot leak to attacker origins.
+  const isRedirectUriAllowed = (redirectUri, req) => {
+    let parsed;
+    try {
+      parsed = new URL(String(redirectUri));
+    } catch {
+      return false;
+    }
+    const isLoopback = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
+    if (parsed.protocol !== 'https:' && !isLoopback) return false;
+    if (isLoopback) return true;
+    const allowlist = parseOriginAllowlist(env.ALLOWED_REDIRECT_ORIGINS || env.ALLOWED_ORIGINS);
+    if (allowlist.includes(parsed.origin)) return true;
+    try {
+      if (parsed.origin === new URL(getCallbackUrl(req)).origin) return true;
+    } catch {
+      // Ignore URL construction errors and fall through to rejection.
+    }
+    return false;
+  };
+
   // 1. GET /auth/facebook/url -> Returns OAuth URL for frontend
   app.get('/auth/facebook/url', (req, res) => {
     const appId = env.FB_APP_ID;
@@ -206,6 +313,9 @@ function createApp(env = process.env) {
     }
     const defaultRedirect = getCallbackUrl(req);
     const redirectUri = req.query.redirect_uri || defaultRedirect;
+    if (req.query.redirect_uri && !isRedirectUriAllowed(redirectUri, req)) {
+      return res.status(400).json({ error: 'redirect_uri not allowed' });
+    }
     const url = getFacebookLoginUrl({ appId, redirectUri });
     res.json({ url });
   });
@@ -224,6 +334,9 @@ function createApp(env = process.env) {
       const appId = env.FB_APP_ID;
       const appSecret = env.FB_APP_SECRET;
       const redirectUri = req.query.redirect_uri || getCallbackUrl(req);
+      if (req.query.redirect_uri && !isRedirectUriAllowed(redirectUri, req)) {
+        return res.status(400).json({ error: 'redirect_uri not allowed' });
+      }
 
       if (!appId || !appSecret) {
         return res.status(500).json({ error: 'FB_APP_ID or FB_APP_SECRET missing on server' });
@@ -289,7 +402,7 @@ function createApp(env = process.env) {
             <div class="card">
               <h1>✓ Page Linked Successfully!</h1>
               <p>Your Facebook Business Page is now connected to Mume with encrypted token security.</p>
-              ${linkedPages.map(p => `<div class="badge">${p.page_name}</div>`).join('')}
+              ${linkedPages.map(p => `<div class="badge">${escapeHtml(p.page_name)}</div>`).join('')}
               <p style="margin-top: 24px; font-size: 13px;">You can return to the Mume app now.</p>
             </div>
           </body>
@@ -832,4 +945,4 @@ function createApp(env = process.env) {
   return app;
 }
 
-module.exports = { createApp };
+module.exports = { createApp, escapeHtml };

@@ -11,7 +11,7 @@
 ![Meta AI](https://img.shields.io/badge/Meta_AI-Muse_Models-0467DF?style=for-the-badge&logo=meta&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)
-![License](https://img.shields.io/badge/License-MIT-00B95C?style=for-the-badge)
+![License](https://img.shields.io/badge/License-Open_Source_(Attribution)-00B95C?style=for-the-badge)
 
 ---
 
@@ -70,16 +70,17 @@ mume/
 │   └── lib/                # Clean API client & sanitized Supabase connection
 ├── backend/                # Node.js 20+ / Express backend & Meta Graph API v21.0 integration
 │   ├── src/
-│   │   ├── app.js          # Express app factory, webhook handlers, OAuth flow, & reply dispatcher
+│   │   ├── app.js          # Express app factory, 19 routes: webhook, OAuth, pages, inbox, reply, chat, conversations, pending-actions approve
 │   │   ├── index.js        # Server bootstrapper & process signal handler
 │   │   └── services/
 │   │       ├── crypto.js   # AES-256-GCM cipher & HMAC-SHA256 signature verification
 │   │       ├── facebook.js # Meta Graph API v21.0 client with rate-limit telemetry
-│   │       └── supabase.js # Supabase Admin client with service_role isolation
-│   └── test/               # Node native test suite (13/13 passing compliance tests)
-├── src/                    # Figma Make React 19 + Tailwind CSS v4 web companion dashboard
-├── supabase/migrations/    # Postgres schema, pgvector extensions, RLS policies & Realtime pub
-└── skills/                 # Compliance & UI skills (enforcing-meta-platform-compliance)
+│   │       ├── supabase.js # Supabase Admin client with service_role isolation
+│   │       └── ai.js       # Rule-based getMumeAiReply inventory stub (NOT live Meta Model API yet)
+│   └── test/               # Node native test suite (16 compliance tests: crypto, webhook, OAuth, link-direct, reply, CORS, chat)
+├── src/                    # Figma Make React 19 + Tailwind CSS v4 web companion dashboard (mirrors frontend tabs + PendingAction + AI chat)
+├── supabase/migrations/    # 20261031_create_mume_schema (strict base) + 20261102_fix_realtime_and_rls (permissive demo RLS — harden before prod)
+└── skills/                 # mume-frontend-ui, enforcing-meta-platform-compliance, mume-qa-qc
 ```
 
 ```
@@ -129,6 +130,8 @@ Mume is engineered strictly within Meta Developer Policies and Platform Terms:
 6. **Rate-Limit Telemetry**: Graph API responses inspect `x-app-usage`, `x-page-usage`, and `x-business-use-case-usage` headers. Proactive warnings trigger at 75% capacity, and backoff warnings trigger at 90%.
 7. **AES-256-GCM Token Encryption**: Page Access Tokens are encrypted at rest with AES-256-GCM and unique initialization vectors (`pages.page_access_token_encrypted`). Plaintext tokens are never stored or leaked to client applications.
 8. **Sanitized Public Distribution**: All template files (`.env.example`) and codebases use sanitized placeholders. The repository is audited against secret scanning criteria.
+9. **AI Replies Are Rule-Based (for now)**: `backend/src/services/ai.js` answers from a local inventory catalog, not the live Meta Model API. Assistant chats persist to Supabase (`mume_assistant` conversation).
+10. **Demo RLS Is Permissive**: the live `20261102_fix_realtime_and_rls` migration opens anon/authenticated read/insert/update for demo Realtime. Harden back to owner-scoped policies before public production.
 
 ---
 
@@ -215,7 +218,7 @@ PORT=3000
 Run tests and start the server:
 
 ```bash
-# Execute automated test suite (13 passing tests)
+# Execute automated test suite (16 passing tests)
 npm test
 
 # Start Express server
@@ -290,7 +293,7 @@ Scan the QR code with Expo Go on Android or run `npm run web` for browser previe
 Run the full verification suite across the codebase:
 
 ```bash
-# 1. Backend test suite (HMAC signatures, AES encryption, OAuth, Webhooks)
+# 1. Backend test suite (16 tests: HMAC signatures, AES encryption, OAuth, Webhooks, CORS, chat)
 npm --prefix backend test
 
 # 2. Frontend TypeScript typecheck
@@ -312,11 +315,19 @@ npm run build
 - **Data Deletion Instructions**: `GET /data-deletion`
 - **Webhook Handshake**: `GET /webhook`
 - **Webhook Receiver**: `POST /webhook`
-- **Reply Dispatcher**: `POST /api/pages/:pageId/messages/reply`
+- **Reply Dispatcher**: `POST /api/pages/:pageId/messages/reply` (requires `approvalStatus: 'approved'` — pass explicitly)
+- **Assistant Chat**: `GET /POST /api/chat/messages` (rule-based `getMumeAiReply`, persisted to Supabase)
+- **Conversations**: `GET /api/pages/:pageId/conversations`
+- **Pending Approvals**: `GET /api/pages/:pageId/pending-actions` → `POST /api/pending-actions/:id/approve` (`waiting_approval` → `sent`)
 
 ---
 
 <a id="license"></a>
 ## 📄 License
 
-Hackathon Project. Built with Meta Muse models via Meta Model API and Meta Graph API v21.0. Distributed for open development under the MIT License.
+Mume is open source under an Attribution & Non-Claim Open Source License, authored by **Jefferson Samson** ([github.com/samsonjeff](https://github.com/samsonjeff)).
+
+- **Mandatory Attribution**: All copies, distributions, forks, and derivative works must include author credit to Jefferson Samson.
+- **No False Claims of Authorship**: You are strictly **not allowed** to claim, state, or imply that this project, source code, or design was made or created by you.
+
+See the full [LICENSE](file:///d:/mume-app/LICENSE) file for complete terms.

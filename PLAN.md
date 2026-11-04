@@ -26,16 +26,17 @@ mume/
 │   └── lib/                # Clean API client & sanitized Supabase connection
 ├── backend/                # Node.js 20+ / Express backend & Meta Graph API v21.0 integration
 │   ├── src/
-│   │   ├── app.js          # Express app factory, webhook handlers, OAuth flow, & reply dispatcher
+│   │   ├── app.js          # Express app factory, 19 routes: webhook, OAuth, pages, inbox, reply, chat, conversations, pending-actions approve
 │   │   ├── index.js        # Server bootstrapper & process signal handler
 │   │   └── services/
 │   │       ├── crypto.js   # AES-256-GCM cipher & HMAC-SHA256 signature verification
 │   │       ├── facebook.js # Meta Graph API v21.0 client with rate-limit telemetry
-│   │       └── supabase.js # Supabase Admin client with service_role isolation
-│   └── test/               # Node native test suite (13/13 passing compliance tests)
-├── src/                    # Figma Make React 19 + Tailwind CSS v4 web companion dashboard
-├── supabase/migrations/    # Postgres schema, pgvector extensions, RLS policies & Realtime pub
-└── skills/                 # Compliance & UI skills (enforcing-meta-platform-compliance)
+│   │       ├── supabase.js # Supabase Admin client with service_role isolation
+│   │       └── ai.js       # Rule-based getMumeAiReply inventory stub (NOT live Meta Model API yet)
+│   └── test/               # Node native test suite (16 compliance tests: crypto, webhook, OAuth, link-direct, reply, CORS, chat)
+├── src/                    # Figma Make React 19 + Tailwind CSS v4 web companion dashboard (mirrors frontend tabs + PendingAction + AI chat)
+├── supabase/migrations/    # 20261031_create_mume_schema (strict base) + 20261102_fix_realtime_and_rls (permissive demo RLS — harden before prod)
+└── skills/                 # mume-frontend-ui, enforcing-meta-platform-compliance, mume-qa-qc
 ```
 
 ```
@@ -157,7 +158,7 @@ messages (id, conversation_id, fb_message_id, sender, text, is_from_customer, cr
 pending_actions (id, conversation_id, product_id, draft_reply, suggested_price, status, created_at, updated_at)
 ```
 
-- **Row Level Security (RLS)**: Enforced on all 6 tables. `service_role` backend maintains full access; mobile users are restricted to their authenticated resources via `pages.user_id = auth.uid()`.
+- **Row Level Security (RLS)**: Enforced on all 6 tables. `service_role` backend maintains full access. Base migration restricts mobile users to `pages.user_id = auth.uid()` resources, but the live `20261102_fix_realtime_and_rls` migration currently opens permissive anon/authenticated read/insert/update policies plus `REPLICA IDENTITY FULL` and `conversations` in the Realtime publication (demo convenience — MUST harden back to owner-scoped policies before public production).
 - **Realtime**: Publications enabled for `messages` and `pending_actions` to push incoming inquiries and draft updates to mobile clients instantly.
 
 ---
@@ -169,7 +170,7 @@ pending_actions (id, conversation_id, product_id, draft_reply, suggested_price, 
 - [x] Supabase Postgres schema migration with pgvector and RLS policies.
 - [x] Meta Graph API v21.0 integration (OAuth callback, Webhooks, Page linking).
 - [x] AES-256-GCM token encryption with authentication tag.
-- [x] Automated test suite verifying crypto and API endpoints (13/13 passing).
+- [x] Automated test suite verifying crypto and API endpoints (16 passing: crypto, webhook, OAuth, link-direct, reply, CORS, chat).
 
 ### Phase 2: Mobile UI & Voice Ergonomics [COMPLETED]
 - [x] Port verified Figma Make design tokens and Google Antigravity palette.
@@ -180,11 +181,13 @@ pending_actions (id, conversation_id, product_id, draft_reply, suggested_price, 
 - [x] TypeScript compiler verification (`npx tsc --noEmit` passing with 0 errors).
 
 ### Phase 3: Brain Orchestration & Meta Policy Gates [COMPLETED]
-- [x] Outbound reply endpoint with mandatory `approvalStatus === 'approved'` gate.
+- [x] Outbound reply endpoint with mandatory `approvalStatus === 'approved'` gate (note: missing value currently defaults to `'approved'` — callers must pass it explicitly).
 - [x] 24-hour Standard Messaging Window policy validation.
 - [x] Meta rate-limit header parsing (`x-app-usage`, `x-page-usage`, `x-business-use-case-usage`).
 - [x] HMAC-SHA256 timing-safe webhook authentication.
 - [x] Meta compliance pages `/privacy` and `/data-deletion`.
+- [x] Rule-based `getMumeAiReply` inventory stub (`backend/src/services/ai.js`) with Supabase-persisted assistant chat (`mume_assistant` conversation, `GET/POST /api/chat/messages`) — live Muse Model API wiring still PENDING.
+- [x] Approval-flow APIs: `GET /api/pages/:pageId/conversations`, `GET /api/pages/:pageId/pending-actions`, `POST /api/pending-actions/:id/approve` (`waiting_approval` → `sent` + `messages` insert).
 
 ### Phase 4: Public Distribution & Security Hardening [COMPLETED]
 - [x] Audit tracked git files (`git ls-files`) to confirm zero secrets committed.
@@ -222,7 +225,8 @@ pending_actions (id, conversation_id, product_id, draft_reply, suggested_price, 
 - [x] **Public Distribution Hygiene**:
   - Comprehensive `.gitignore` protecting local `.env` files, build caches, mobile keystores, signing certificates, and local debug logs.
   - Sanitized `.env.example` templates in root, `backend/`, and `frontend/` with zero real secrets.
-  - Verified 13/13 backend compliance test suite passing.
+  - Open source licensing established in [LICENSE](file:///d:/mume-app/LICENSE) and [README.md](file:///d:/mume-app/README.md) with mandatory author attribution (credit to Jefferson Samson) and strict prohibition against claiming authorship.
+  - Verified 16 backend compliance tests passing.
   - Verified clean TypeScript compilation and Vite production build.
 
 ### Phase 7: Real-Device Tactile Ergonomics & Private Distribution via Amazon Live App Testing (LAT) [PLANNED]
@@ -247,11 +251,13 @@ pending_actions (id, conversation_id, product_id, draft_reply, suggested_price, 
 
 | Check | Target | Status | Verification Command |
 | :--- | :--- | :--- | :--- |
-| **Backend Tests** | 13/13 passing | PASSED | `npm --prefix backend test` |
+| **Backend Tests** | 16 passing | PASSED | `npm --prefix backend test` |
 | **Frontend Typecheck** | 0 TS errors | PASSED | `npx tsc --project frontend/tsconfig.json --noEmit` |
 | **Root Typecheck** | 0 TS errors | PASSED | `npx tsc --noEmit` |
 | **Vite Bundle Build** | Clean build | PASSED | `npm run build` |
 | **Git Working Tree** | Clean / untracked free | PASSED | `git status` |
 | **Secrets Audit** | Zero credentials | PASSED | Automated regex scan on tracked files |
+| **Open Source Licensing** | Attribution & anti-plagiarism terms | PASSED | Review [LICENSE](file:///d:/mume-app/LICENSE) and [README.md](file:///d:/mume-app/README.md) |
+| **RLS Hardening** | Permissive demo RLS live | PENDING | Harden `20261102` policies to owner-scoped before prod |
 | **Standalone Android Build** | Valid .apk / .aab output | PENDING | `eas build --platform android --profile preview` |
 | **Amazon LAT Distribution** | Private email tester access | PENDING | Amazon Developer Console LAT Dashboard |

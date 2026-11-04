@@ -1,7 +1,7 @@
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
-const { createApp } = require('../src/app');
+const { createApp, escapeHtml } = require('../src/app');
 const { encryptToken, decryptToken, verifyMetaSignature } = require('../src/services/crypto');
 
 let server;
@@ -13,7 +13,7 @@ before(async () => {
     FB_VERIFY_TOKEN: 'secret-token',
     FB_APP_ID: '123456789',
     FB_APP_SECRET: testSecret,
-  }).listen(0);
+  }).listen(0, '127.0.0.1');
   await new Promise((resolve) => server.once('listening', resolve));
   base = `http://127.0.0.1:${server.address().port}`;
 });
@@ -48,6 +48,13 @@ test('crypto: verify Meta signature HMAC SHA256', () => {
   assert.equal(valid, true);
   const invalid = verifyMetaSignature(body, `sha256=wrong`, secret);
   assert.equal(invalid, false);
+});
+
+test('security: page names are HTML-escaped before rendering', () => {
+  const escaped = escapeHtml('<script>alert("x")</script>');
+  assert.ok(!escaped.includes('<script>'));
+  assert.ok(escaped.includes('&lt;script&gt;'));
+  assert.equal(escapeHtml(null), '');
 });
 
 test('GET / returns ok', async () => {
@@ -137,12 +144,77 @@ test('POST /api/pages/:pageId/messages/reply validates missing fields', async ()
   assert.equal(res.status, 400);
 });
 
-test('CORS headers: enables cross-origin requests for web companion', async () => {
+test('CORS headers: echoes request origin instead of wildcard', async () => {
   const res = await fetch(`${base}/health`, {
     method: 'OPTIONS',
+    headers: { origin: 'http://localhost:3000' },
   });
   assert.equal(res.status, 204);
-  assert.equal(res.headers.get('access-control-allow-origin'), '*');
+  assert.equal(res.headers.get('access-control-allow-origin'), 'http://localhost:3000');
+});
+
+test('CORS: echoes configured allowed origin, omits disallowed origin', async () => {
+  const corsApp = createApp({ ALLOWED_ORIGINS: 'https://app.example.com' });
+  const srv = corsApp.listen(0, '127.0.0.1');
+  await new Promise((resolve) => srv.once('listening', resolve));
+  const srvBase = `http://127.0.0.1:${srv.address().port}`;
+  try {
+    const ok = await fetch(`${srvBase}/health`, {
+      headers: { origin: 'https://app.example.com' },
+    });
+    assert.equal(ok.headers.get('access-control-allow-origin'), 'https://app.example.com');
+
+    const bad = await fetch(`${srvBase}/health`, {
+      headers: { origin: 'https://evil.example' },
+    });
+    assert.equal(bad.headers.get('access-control-allow-origin'), null);
+  } finally {
+    srv.closeAllConnections();
+    await new Promise((resolve) => srv.close(resolve));
+  }
+});
+
+test('POST /webhook fails closed when FB_APP_SECRET is not configured', async () => {
+  const openApp = createApp({ FB_VERIFY_TOKEN: 'secret-token' });
+  const srv = openApp.listen(0, '127.0.0.1');
+  await new Promise((resolve) => srv.once('listening', resolve));
+  try {
+    const res = await fetch(`http://127.0.0.1:${srv.address().port}/webhook`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ object: 'page', entry: [] }),
+    });
+    assert.equal(res.status, 401);
+  } finally {
+    srv.closeAllConnections();
+    await new Promise((resolve) => srv.close(resolve));
+  }
+});
+
+test('GET /auth/facebook/url rejects non-allowlisted redirect_uri', async () => {
+  const res = await fetch(
+    `${base}/auth/facebook/url?redirect_uri=${encodeURIComponent('https://evil.example/cb')}`
+  );
+  assert.equal(res.status, 400);
+});
+
+test('API key: /api/* requires key when API_KEY is configured', async () => {
+  const lockedApp = createApp({ API_KEY: 'test-key-123' });
+  const srv = lockedApp.listen(0, '127.0.0.1');
+  await new Promise((resolve) => srv.once('listening', resolve));
+  const srvBase = `http://127.0.0.1:${srv.address().port}`;
+  try {
+    const denied = await fetch(`${srvBase}/api/chat/messages`);
+    assert.equal(denied.status, 401);
+
+    const allowed = await fetch(`${srvBase}/api/chat/messages`, {
+      headers: { 'x-api-key': 'test-key-123' },
+    });
+    assert.equal(allowed.status, 200);
+  } finally {
+    srv.closeAllConnections();
+    await new Promise((resolve) => srv.close(resolve));
+  }
 });
 
 test('GET /api/chat/messages returns chat history', async () => {

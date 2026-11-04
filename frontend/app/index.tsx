@@ -108,6 +108,31 @@ function getMumeAiReply(query: string): string {
   return "Got it! I checked your store and Page inquiries. Maria A.'s inquiry for $2.50/kg apples is waiting for approval, and your 3 catalog items are synced. How else can I assist?";
 }
 
+// Demo conversations — NEVER deleted. Real synced Facebook conversations
+// are prepended on top of these by loadRealInbox, never replacing them.
+const DUMMY_CONVOS = [
+  { id: '1', initials: 'MA', name: 'Maria A.', message: 'Hi po, how much ang red apples?', time: 'now', unread: true },
+  { id: '2', initials: 'JL', name: 'Jun L.', message: 'Available pa po ang mango?', time: '8m', unread: true },
+  { id: '3', initials: 'RS', name: 'Rica S.', message: 'Thank you po!', time: '1h', unread: false },
+];
+
+function initialsOf(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '??';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function timeAgo(iso?: string | null): string {
+  if (!iso) return 'now';
+  const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  if (mins < 1) return 'now';
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h`;
+  return `${Math.floor(hours / 24)}d`;
+}
+
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<Tab>('today');
@@ -122,6 +147,27 @@ export default function HomeScreen() {
   const [sentToast, setSentToast] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  // Inbox tab thread view — viewing + manual reply stays inside the inbox tab
+  const [selectedInbox, setSelectedInbox] = useState<{
+    id: string;
+    name: string;
+    initials: string;
+    time: string;
+    psid?: string;
+  } | null>(null);
+  const [inboxThread, setInboxThread] = useState<ChatMessage[]>([]);
+  const [inboxReply, setInboxReply] = useState('');
+  const [sendingInboxReply, setSendingInboxReply] = useState(false);
+  const [inboxSendError, setInboxSendError] = useState('');
+  const selectedInboxIdRef = useRef<string | null>(null);
+  // Real synced Facebook conversations — prepended above DUMMY_CONVOS, never replacing them
+  const [realInboxConvos, setRealInboxConvos] = useState<
+    { id: string; name: string; initials: string; time: string; message: string; unread: boolean; psid: string }[]
+  >([]);
+  const UUID_RE = useMemo(
+    () => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    []
+  );
   const [chatInput, setChatInput] = useState('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
@@ -263,7 +309,7 @@ export default function HomeScreen() {
   const [submittingLink, setSubmittingLink] = useState(false);
   const [linkMessage, setLinkMessage] = useState('');
 
-  // Opening splash screen animation (3s) using mume-black.svg and mume-white.svg
+  // Opening splash screen animation (3.5s) using mume-black.svg and mume-white.svg
   const [showSplash, setShowSplash] = useState(true);
   const splashAnim = useRef(new Animated.Value(0)).current;
 
@@ -273,7 +319,7 @@ export default function HomeScreen() {
 
     Animated.timing(splashAnim, {
       toValue: 1,
-      duration: 3000,
+      duration: 3500,
       useNativeDriver: false,
       easing: Easing.bezier(0.4, 0, 0.2, 1),
     }).start(() => {
@@ -481,6 +527,68 @@ export default function HomeScreen() {
     }
   }, []);
 
+  // Sync real customer conversations for the connected Facebook page.
+  // Source: Supabase conversations/messages rows written by the backend
+  // webhook worker on every Facebook Page event. Result is PREPENDED above
+  // DUMMY_CONVOS — dummies are never removed. Silent fallback to dummies-only.
+  const loadRealInbox = useCallback(async () => {
+    const pageId = pages[0]?.id;
+    if (!isLoggedIn || !pageId) {
+      setRealInboxConvos([]);
+      return;
+    }
+    try {
+      let convs: any[] = [];
+      try {
+        convs = await api.getPageConversations(pageId);
+      } catch {
+        const { data } = await supabase
+          .from('conversations')
+          .select('id, customer_psid, customer_name, last_message_at')
+          .eq('page_id', pageId)
+          .neq('customer_psid', 'mume_assistant')
+          .order('last_message_at', { ascending: false });
+        convs = data || [];
+      }
+      if (!convs.length) {
+        setRealInboxConvos([]);
+        return;
+      }
+      const ids = convs.map((c: any) => c.id);
+      const latestByConv: Record<string, any> = {};
+      try {
+        const { data: msgs } = await supabase
+          .from('messages')
+          .select('conversation_id, text, created_at, is_from_customer')
+          .in('conversation_id', ids)
+          .order('created_at', { ascending: false });
+        for (const m of msgs || []) {
+          if (!latestByConv[m.conversation_id]) latestByConv[m.conversation_id] = m;
+        }
+      } catch (msgErr) {
+        console.warn('Real inbox previews unavailable:', msgErr);
+      }
+      setRealInboxConvos(
+        convs.map((c: any) => {
+          const name = c.customer_name || 'Customer';
+          const latest = latestByConv[c.id];
+          return {
+            id: c.id,
+            name,
+            initials: initialsOf(name),
+            message: latest?.text || 'New conversation',
+            time: timeAgo(latest?.created_at || c.last_message_at),
+            unread: !!latest?.is_from_customer,
+            psid: c.customer_psid,
+          };
+        })
+      );
+    } catch (err) {
+      console.warn('Real inbox sync failed, showing demo conversations:', err);
+      setRealInboxConvos([]);
+    }
+  }, [pages, isLoggedIn]);
+
   useEffect(() => {
     loadLinkedPages();
 
@@ -558,6 +666,24 @@ export default function HomeScreen() {
               },
             ];
           });
+
+          // Append to the open inbox thread when the message belongs to it
+          if (selectedInboxIdRef.current && newMsg.conversation_id === selectedInboxIdRef.current) {
+            setInboxThread((prev) => {
+              if (prev.some((m) => m.id === newMsg.id)) return prev;
+              const incoming = {
+                id: newMsg.id,
+                sender: (newMsg.is_from_customer ? 'mume' : 'user') as 'mume' | 'user',
+                text: newMsg.text,
+                time: new Date(newMsg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              };
+              // Drop any optimistic temp bubble the server row now supersedes
+              const withoutTempDup = prev.filter(
+                (m) => !(m.id.startsWith('me-') && m.sender === incoming.sender && m.text === incoming.text)
+              );
+              return [...withoutTempDup, incoming];
+            });
+          }
           setTimeout(() => scrollToConversation(true), 50);
         }
       )
@@ -568,6 +694,16 @@ export default function HomeScreen() {
       supabase.removeChannel(channel);
     };
   }, [loadLinkedPages, scrollToConversation]);
+
+  // Re-sync real Facebook conversations when linked pages arrive,
+  // and every time the merchant opens the inbox tab
+  useEffect(() => {
+    loadRealInbox();
+  }, [loadRealInbox]);
+
+  useEffect(() => {
+    if (activeTab === 'inbox') loadRealInbox();
+  }, [activeTab, loadRealInbox]);
 
   useEffect(() => {
     if (voiceState !== 'thinking') return;
@@ -580,6 +716,7 @@ export default function HomeScreen() {
   const onRefresh = () => {
     setRefreshing(true);
     loadLinkedPages();
+    loadRealInbox();
   };
 
   const handleVoice = () => {
@@ -729,6 +866,152 @@ export default function HomeScreen() {
     }, 3500);
   };
 
+  // Open a customer thread inside the inbox tab (never leaves the tab)
+  const openInboxThread = async (convo: {
+    id: string;
+    name: string;
+    initials: string;
+    time: string;
+    message: string;
+    psid?: string;
+  }) => {
+    const { message, psid, ...header } = convo;
+    setSelectedInbox(psid ? { ...header, psid } : header);
+    selectedInboxIdRef.current = convo.id;
+    setRealInboxConvos((prev) => prev.map((c) => (c.id === convo.id ? { ...c, unread: false } : c)));
+    setInboxReply('');
+    setInboxSendError('');
+    // Seed with the listed message instantly so the thread never looks empty
+    setInboxThread([{ id: `c-${convo.id}`, sender: 'mume', text: message, time: convo.time }]);
+    // Real conversation row: load persisted history from Supabase
+    if (UUID_RE.test(convo.id)) {
+      try {
+        const { data } = await supabase
+          .from('messages')
+          .select('id, sender, text, created_at, is_from_customer')
+          .eq('conversation_id', convo.id)
+          .order('created_at', { ascending: true });
+        if (data && data.length > 0) {
+          setInboxThread(
+            data.map((m: any) => ({
+              id: m.id,
+              sender: m.is_from_customer || m.sender === 'customer' ? 'mume' : 'user',
+              text: m.text,
+              time: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            }))
+          );
+        }
+      } catch (err) {
+        console.warn('Inbox thread history failed, showing listed message:', err);
+      }
+    }
+  };
+
+  const closeInboxThread = () => {
+    setSelectedInbox(null);
+    selectedInboxIdRef.current = null;
+    setInboxThread([]);
+    setInboxReply('');
+    setInboxSendError('');
+  };
+
+  // Manual merchant reply — runs entirely inside the inbox tab.
+  // Tier 1: backend dispatch (persists + sends via Graph API).
+  // Tier 2: direct Supabase insert for real conversation rows.
+  // Tier 3: in-memory append for demo mocks (same convention as home chat).
+  const handleSendInboxReply = async () => {
+    const trimmed = inboxReply.trim();
+    if (!trimmed || !selectedInbox || sendingInboxReply) return;
+    setSendingInboxReply(true);
+    setInboxSendError('');
+    const tempId = `me-${Date.now()}`;
+    setInboxThread((prev) => [...prev, { id: tempId, sender: 'user', text: trimmed, time: 'Just now' }]);
+    setInboxReply('');
+
+    try {
+      const pageId = pages[0]?.id;
+      const psid = selectedInbox.psid;
+      if (pageId && psid) {
+        // Tier 1: real dispatch — typing Send IS the human approval
+        const sent = await api.replyToCustomer(pageId, {
+          psid,
+          text: trimmed,
+          lastCustomerMessageAt: new Date().toISOString(),
+        });
+        // Refresh from the persisted conversation so the optimistic
+        // bubble is replaced by the real row (avoids Realtime duplicates)
+        if (sent?.conversationId) {
+          selectedInboxIdRef.current = sent.conversationId;
+          setSelectedInbox((prev) => (prev ? { ...prev, id: sent.conversationId } : prev));
+          try {
+            const { data } = await supabase
+              .from('messages')
+              .select('id, sender, text, created_at, is_from_customer')
+              .eq('conversation_id', sent.conversationId)
+              .order('created_at', { ascending: true });
+            if (data && data.length > 0) {
+              setInboxThread(
+                data.map((m: any) => ({
+                  id: m.id,
+                  sender: m.is_from_customer || m.sender === 'customer' ? 'mume' : 'user',
+                  text: m.text,
+                  time: new Date(m.created_at).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  }),
+                }))
+              );
+              return;
+            }
+          } catch (refreshErr) {
+            console.warn('Inbox thread refresh failed, keeping optimistic message:', refreshErr);
+          }
+        }
+        return;
+      }
+      if (UUID_RE.test(selectedInbox.id)) {
+        // Tier 2: persist merchant reply for real conversation rows
+        const { data, error } = await supabase
+          .from('messages')
+          .insert({
+            conversation_id: selectedInbox.id,
+            sender: 'page',
+            text: trimmed,
+            is_from_customer: false,
+          })
+          .select('id, text, created_at')
+          .single();
+        if (error) throw error;
+        if (data) {
+          setInboxThread((prev) =>
+            prev.map((m) =>
+              m.id === tempId
+                ? {
+                    ...m,
+                    id: data.id,
+                    time: new Date(data.created_at).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    }),
+                  }
+                : m
+            )
+          );
+          return;
+        }
+        throw new Error('Reply was not saved');
+      }
+      // Tier 3: demo mocks have no backend row — temp message stays in memory
+    } catch (err: any) {
+      // Remote send attempted and failed: drop the optimistic bubble, show error
+      setInboxThread((prev) => prev.filter((m) => m.id !== tempId));
+      setInboxReply(trimmed);
+      setInboxSendError(err?.message || "Couldn't send — check connection and try again.");
+    } finally {
+      setSendingInboxReply(false);
+    }
+  };
+
   const handleOAuthLogin = async () => {
     try {
       setSubmittingLink(true);
@@ -794,7 +1077,7 @@ export default function HomeScreen() {
   return (
     <View style={styles.rootContainer}>
       <StatusBar style="light" />
-      {/* Opening Splash Animation (1.5s) using mume-black and mume-white */}
+      {/* Opening Splash Animation (3.5s) using mume-black and mume-white */}
       {showSplash && (
         <Animated.View
           pointerEvents="none"
@@ -920,12 +1203,6 @@ export default function HomeScreen() {
                     <>
                       <View style={styles.sectionHeaderRow}>
                         <Text style={styles.sectionHeading}>Ready for you</Text>
-                        <View style={[styles.sectionBadgePill, styles.sectionBadgePending]}>
-                          <View style={styles.statusDotAmber} />
-                          <Text style={[styles.sectionBadgeText, styles.sectionBadgeTextPending]}>
-                            1 action to approve
-                          </Text>
-                        </View>
                       </View>
 
                       {/* Pending Action Card */}
@@ -1207,16 +1484,132 @@ export default function HomeScreen() {
             <View style={styles.screenContainer}>
               <View style={styles.sectionHeaderRow}>
                 <Text style={styles.sectionHeading}>Message</Text>
-                <Text style={styles.sectionBadge}>{isLoggedIn ? '2 unread' : '0 unread'}</Text>
+                <Text style={styles.sectionBadge}>
+                  {isLoggedIn
+                    ? `${[...realInboxConvos, ...DUMMY_CONVOS].filter((c) => c.unread).length} unread`
+                    : '0 unread'}
+                </Text>
               </View>
 
               {isLoggedIn ? (
-                [
-                  { id: '1', initials: 'MA', name: 'Maria A.', message: 'Hi po, how much ang red apples?', time: 'now', unread: true },
-                  { id: '2', initials: 'JL', name: 'Jun L.', message: 'Available pa po ang mango?', time: '8m', unread: true },
-                  { id: '3', initials: 'RS', name: 'Rica S.', message: 'Thank you po!', time: '1h', unread: false },
-                ].map((convo) => (
-                  <Pressable key={convo.id} style={styles.conversationCard}>
+                selectedInbox ? (
+                  <View style={styles.inboxThreadContainer}>
+                    <View style={styles.inboxThreadHeader}>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Back to messages"
+                        onPress={closeInboxThread}
+                        style={styles.inboxBackBtn}
+                        hitSlop={8}
+                      >
+                        <AppIcon name="chevron-left" size={22} color={THEME.colors.text} strokeWidth={2.2} />
+                      </Pressable>
+                      <View style={styles.conversationAvatar}>
+                        <Text style={styles.conversationAvatarText}>{selectedInbox.initials}</Text>
+                      </View>
+                      <View style={styles.conversationCopy}>
+                        <Text style={styles.conversationName}>{selectedInbox.name}</Text>
+                        <Text style={styles.conversationMessage} numberOfLines={1}>
+                          Messenger · Customer
+                        </Text>
+                      </View>
+                    </View>
+
+                    <ScrollView
+                      style={styles.inboxThreadScroll}
+                      contentContainerStyle={styles.inboxThreadContent}
+                      nestedScrollEnabled={true}
+                      showsVerticalScrollIndicator={false}
+                      keyboardShouldPersistTaps="handled"
+                    >
+                      {inboxThread.map((msg) => (
+                        <View
+                          key={msg.id}
+                          style={[
+                            styles.chatBubbleRow,
+                            msg.sender === 'user' ? styles.chatBubbleRowUser : styles.chatBubbleRowAi,
+                          ]}
+                        >
+                          {msg.sender !== 'user' && (
+                            <View style={styles.conversationAvatar}>
+                              <Text style={styles.conversationAvatarText}>{selectedInbox.initials}</Text>
+                            </View>
+                          )}
+                          <View
+                            style={[
+                              styles.chatBubble,
+                              msg.sender === 'user' ? styles.chatBubbleUser : styles.chatBubbleAi,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.chatBubbleText,
+                                msg.sender === 'user' ? styles.chatBubbleTextUser : styles.chatBubbleTextAi,
+                              ]}
+                              selectable
+                            >
+                              {msg.text}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.chatBubbleTime,
+                                msg.sender === 'user' ? styles.chatBubbleTimeUser : styles.chatBubbleTimeAi,
+                              ]}
+                            >
+                              {msg.time}
+                            </Text>
+                          </View>
+                        </View>
+                      ))}
+                    </ScrollView>
+
+                    {inboxSendError ? (
+                      <Text style={styles.inboxErrorText} selectable>
+                        {inboxSendError}
+                      </Text>
+                    ) : null}
+
+                    <View style={styles.inboxReplyRow}>
+                      <TextInput
+                        style={styles.inboxReplyInput}
+                        placeholder={`Reply to ${selectedInbox.name}…`}
+                        placeholderTextColor={THEME.colors.textMuted}
+                        value={inboxReply}
+                        onChangeText={setInboxReply}
+                        multiline
+                        maxLength={1000}
+                        returnKeyType="send"
+                        onSubmitEditing={handleSendInboxReply}
+                        blurOnSubmit={false}
+                        editable={!sendingInboxReply}
+                      />
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Send reply to ${selectedInbox.name}`}
+                        onPress={handleSendInboxReply}
+                        disabled={!inboxReply.trim() || sendingInboxReply}
+                        style={[
+                          styles.inboxSendBtn,
+                          (!inboxReply.trim() || sendingInboxReply) && styles.inboxSendBtnDisabled,
+                        ]}
+                      >
+                        {sendingInboxReply ? (
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                          <AppIcon name="send" size={18} color="#FFFFFF" strokeWidth={2} />
+                        )}
+                      </Pressable>
+                    </View>
+                  </View>
+                ) : (
+                [...realInboxConvos, ...DUMMY_CONVOS].map((convo) => (
+                  <Pressable
+                    key={convo.id}
+                    style={styles.conversationCard}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Open conversation with ${convo.name}`}
+                    onPress={() => openInboxThread(convo)}
+                  >
                     <View style={styles.conversationAvatar}>
                       <Text style={styles.conversationAvatarText}>{convo.initials}</Text>
                     </View>
@@ -1232,6 +1625,7 @@ export default function HomeScreen() {
                     </View>
                   </Pressable>
                 ))
+                )
               ) : (
                 <View style={styles.emptyStateCard}>
                   <View style={styles.emptyStateIconCircle}>
@@ -2868,6 +3262,69 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: THEME.colors.primary,
+  },
+  inboxThreadContainer: {
+    flex: 1,
+  },
+  inboxThreadHeader: {
+    backgroundColor: THEME.colors.card,
+    borderRadius: 14,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: THEME.colors.cardBorder,
+  },
+  inboxBackBtn: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 22,
+  },
+  inboxThreadScroll: {
+    flex: 1,
+  },
+  inboxThreadContent: {
+    paddingBottom: 8,
+    gap: 8,
+  },
+  inboxReplyRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+    marginTop: 10,
+  },
+  inboxReplyInput: {
+    flex: 1,
+    minHeight: 48,
+    maxHeight: 120,
+    backgroundColor: THEME.colors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: THEME.colors.cardBorder,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: THEME.colors.text,
+    fontSize: 15,
+  },
+  inboxSendBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: THEME.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inboxSendBtnDisabled: {
+    opacity: 0.4,
+  },
+  inboxErrorText: {
+    color: '#FC413D',
+    fontSize: 13,
+    marginTop: 8,
   },
   catalogGrid: {
     flexDirection: 'row',

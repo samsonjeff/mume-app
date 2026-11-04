@@ -1,4 +1,14 @@
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://mume-backend.onrender.com';
+// No production URL is hardcoded here: forks deploy to their own backend,
+// so the default is local development. Set EXPO_PUBLIC_API_URL per environment.
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+
+// Sent as `x-api-key` when the backend has API_KEY configured. The key is
+// optional in local development and required once the server enforces it.
+const API_KEY = process.env.EXPO_PUBLIC_API_KEY || '';
+
+function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  return API_KEY ? { 'x-api-key': API_KEY, ...extra } : { ...extra };
+}
 
 export interface LinkedPage {
   id: string;
@@ -10,14 +20,18 @@ export interface LinkedPage {
 
 export const api = {
   async getFacebookLoginUrl(): Promise<string> {
-    const res = await fetch(`${API_BASE_URL}/auth/facebook/url`);
+    const res = await fetch(`${API_BASE_URL}/auth/facebook/url`, {
+      headers: authHeaders(),
+    });
     if (!res.ok) throw new Error('Failed to retrieve Facebook Login URL');
     const data = await res.json();
     return data.url;
   },
 
   async getLinkedPages(): Promise<LinkedPage[]> {
-    const res = await fetch(`${API_BASE_URL}/api/pages`);
+    const res = await fetch(`${API_BASE_URL}/api/pages`, {
+      headers: authHeaders(),
+    });
     if (!res.ok) throw new Error('Failed to fetch linked pages');
     const data = await res.json();
     return data.pages || [];
@@ -26,7 +40,7 @@ export const api = {
   async linkDirectPage(payload: { fbPageId: string; pageName: string; pageAccessToken: string }): Promise<LinkedPage> {
     const res = await fetch(`${API_BASE_URL}/api/pages/link-direct`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(payload),
     });
     if (!res.ok) {
@@ -38,14 +52,18 @@ export const api = {
   },
 
   async getPageInbox(pageId: string, limit = 10): Promise<any> {
-    const res = await fetch(`${API_BASE_URL}/api/pages/${pageId}/inbox?limit=${limit}`);
+    const res = await fetch(`${API_BASE_URL}/api/pages/${pageId}/inbox?limit=${limit}`, {
+      headers: authHeaders(),
+    });
     if (!res.ok) throw new Error('Failed to fetch page inbox');
     return res.json();
   },
 
   async getChatMessages(pageId?: string): Promise<{ conversationId: string; messages: any[] }> {
     const query = pageId ? `?pageId=${encodeURIComponent(pageId)}` : '';
-    const res = await fetch(`${API_BASE_URL}/api/chat/messages${query}`);
+    const res = await fetch(`${API_BASE_URL}/api/chat/messages${query}`, {
+      headers: authHeaders(),
+    });
     if (!res.ok) throw new Error('Failed to fetch chat messages');
     return res.json();
   },
@@ -53,7 +71,7 @@ export const api = {
   async sendChatMessage(text: string, pageId?: string): Promise<{ conversationId: string; userMessage: any; aiMessage: any }> {
     const res = await fetch(`${API_BASE_URL}/api/chat/messages`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ text, pageId }),
     });
     if (!res.ok) throw new Error('Failed to send chat message');
@@ -61,14 +79,18 @@ export const api = {
   },
 
   async getPageConversations(pageId: string): Promise<any[]> {
-    const res = await fetch(`${API_BASE_URL}/api/pages/${pageId}/conversations`);
+    const res = await fetch(`${API_BASE_URL}/api/pages/${pageId}/conversations`, {
+      headers: authHeaders(),
+    });
     if (!res.ok) throw new Error('Failed to fetch conversations');
     const data = await res.json();
     return data.conversations || [];
   },
 
   async getPendingActions(pageId: string): Promise<any[]> {
-    const res = await fetch(`${API_BASE_URL}/api/pages/${pageId}/pending-actions`);
+    const res = await fetch(`${API_BASE_URL}/api/pages/${pageId}/pending-actions`, {
+      headers: authHeaders(),
+    });
     if (!res.ok) throw new Error('Failed to fetch pending actions');
     const data = await res.json();
     return data.pendingActions || [];
@@ -77,10 +99,28 @@ export const api = {
   async approvePendingAction(actionId: string, editedReply?: string): Promise<any> {
     const res = await fetch(`${API_BASE_URL}/api/pending-actions/${actionId}/approve`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ editedReply }),
     });
     if (!res.ok) throw new Error('Failed to approve pending action');
+    return res.json();
+  },
+
+  // Manual merchant reply to a customer. The merchant typing Send IS the
+  // human approval, so approvalStatus is always passed explicitly as 'approved'.
+  async replyToCustomer(
+    pageId: string,
+    payload: { psid: string; text: string; lastCustomerMessageAt: string }
+  ): Promise<any> {
+    const res = await fetch(`${API_BASE_URL}/api/pages/${pageId}/messages/reply`, {
+      method: 'POST',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ ...payload, approvalStatus: 'approved' }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to send reply');
+    }
     return res.json();
   },
 };

@@ -335,10 +335,6 @@ function HomeScreen({
             <>
               <div className="section-heading">
                 <h2>Ready for you</h2>
-                <span className={isApproved ? 'badge-approved' : 'badge-pending'}>
-                  {!isApproved && <span className="status-dot-amber-inline" />}
-                  {isApproved ? '0 actions' : '1 action to approve'}
-                </span>
               </div>
               <PendingAction
                 onApproved={onApproved}
