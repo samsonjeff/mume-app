@@ -79,9 +79,11 @@ mume/
 │   │       └── ai.js       # Context-aware getMumeAiReply (history + session summary; still rule-based, NOT live Meta Model API yet)
 │   └── test/               # Node native test suite (24 tests: crypto, webhook, OAuth, link-direct, reply, CORS, chat, AI session)
 ├── src/                    # Figma Make React 19 + Tailwind CSS v4 web companion dashboard (mirrors frontend tabs + PendingAction + AI chat)
-├── supabase/migrations/    # 20261031_create_mume_schema (strict base) + 20261102_fix_realtime_and_rls (permissive demo RLS — harden before prod)
+├── supabase/migrations/    # 20261031_create_mume_schema (strict base) + 20261102_fix_realtime_and_rls (permissive demo Realtime) + 20261104_lock_down_public_rls (owner-scoped lockdown, applied) + 20261105_add_conversation_sessions (AI session memory, locked-down RLS)
 └── skills/                 # mume-frontend-ui, enforcing-meta-platform-compliance, mume-qa-qc
 ```
+
+> **Live backend:** `https://mume-backend.onrender.com/` — deployed Express server with webhook handshake verified against a real Business Page (`pages_messaging`, `pages_manage_metadata`). Point `EXPO_PUBLIC_API_URL` / `VITE_API_URL` at it instead of `localhost`.
 
 ```
                                   +------------------------------------+
@@ -132,7 +134,7 @@ Mume is engineered strictly within Meta Developer Policies and Platform Terms:
 8. **Sanitized Public Distribution**: All template files (`.env.example`) and codebases use sanitized placeholders. The repository is audited against secret scanning criteria.
 9. **AI Replies Are Rule-Based (for now)**: `backend/src/services/ai.js` answers from a local inventory catalog, not the live Meta Model API. Replies are session-aware: the last 20 thread messages form context (follow-ups inherit the product topic) and a rolling summary persists to `conversation_sessions` (`20261105_add_conversation_sessions`), so the AI has reference when the customer messages again.
 10. **Live Frontend Sync**: the app subscribes to Supabase Realtime (`messages` INSERT → open threads, `conversations` INSERT/UPDATE → inbox list) so new data appears without refresh. Conversations are permanent Postgres rows, never in-memory only.
-11. **Demo RLS Is Permissive**: the live `20261102_fix_realtime_and_rls` migration opens anon/authenticated read/insert/update for demo Realtime. Harden back to owner-scoped policies before public production.
+11. **RLS Is Hardened**: the `20261102_fix_realtime_and_rls` migration temporarily opened anon/authenticated access for demo Realtime, but `20261104_lock_down_public_rls` is now applied — anon writes are revoked on all private tables and only public product-catalog reads remain open.
 
 ---
 
@@ -245,8 +247,8 @@ cp .env.example .env
 Configure `frontend/.env`:
 
 ```env
-# URL of your running backend (Render URL or local ngrok / LAN IP)
-EXPO_PUBLIC_API_URL=http://localhost:3000
+# URL of your running backend (live Render URL, or local ngrok / LAN IP for dev)
+EXPO_PUBLIC_API_URL=https://mume-backend.onrender.com/
 
 # Supabase Project Credentials (Client-side Anon Key)
 EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
@@ -266,9 +268,12 @@ Scan the QR code with Expo Go on Android or run `npm run web` for browser previe
 ### 4. Supabase Database Migration
 
 1. In your Supabase Dashboard, navigate to the **SQL Editor**.
-2. Run the migration script located at:
-   `supabase/migrations/20261031000000_create_mume_schema.sql`
-3. This creates all core tables, activates the `vector` extension, sets up Row-Level Security policies, and registers the `messages` and `pending_actions` Realtime publications.
+2. Run the migration scripts in order:
+   - `supabase/migrations/20261031000000_create_mume_schema.sql` (core tables, `vector` extension, strict base RLS, `messages` + `pending_actions` Realtime publications)
+   - `supabase/migrations/20261102000000_fix_realtime_and_rls.sql` (temporary permissive demo Realtime policies)
+   - `supabase/migrations/20261104000000_lock_down_public_rls.sql` (owner-scoped lockdown — anon writes revoked, public catalog reads only; REQUIRED before production)
+   - `supabase/migrations/20261105000000_add_conversation_sessions.sql` (AI session memory with locked-down RLS)
+3. Verify under **Database > Policies** that private tables (`pages`, `conversations`, `messages`, `pending_actions`) have no anon access.
 
 ---
 

@@ -159,7 +159,7 @@ pending_actions (id, conversation_id, product_id, draft_reply, suggested_price, 
 conversation_sessions (id, conversation_id UNIQUE, summary, last_customer_topic, last_activity_at, created_at, updated_at) — permanent AI session memory per thread
 ```
 
-- **Row Level Security (RLS)**: Enforced on all 6 tables. `service_role` backend maintains full access. Base migration restricts mobile users to `pages.user_id = auth.uid()` resources, but the live `20261102_fix_realtime_and_rls` migration currently opens permissive anon/authenticated read/insert/update policies plus `REPLICA IDENTITY FULL` and `conversations` in the Realtime publication (demo convenience — MUST harden back to owner-scoped policies before public production).
+- **Row Level Security (RLS)**: Enforced on all tables. `service_role` backend maintains full access. The `20261102_fix_realtime_and_rls` migration temporarily opened permissive anon/authenticated policies for demo Realtime, but `20261104_lock_down_public_rls` has since been applied: anon access is revoked on `pages` / `conversations` / `messages` / `pending_actions` (reads/writes go through the `service_role` backend or authenticated owners scoped to `pages.user_id = auth.uid()`), while `products` keeps anon `SELECT` only as a public catalog. `20261105_add_conversation_sessions` adds locked-down RLS for the AI session-memory table.
 - **Realtime**: Publications enabled for `messages` and `pending_actions` to push incoming inquiries and draft updates to mobile clients instantly.
 
 ---
@@ -261,6 +261,7 @@ conversation_sessions (id, conversation_id UNIQUE, summary, last_customer_topic,
 | **Git Working Tree** | Clean / untracked free | PASSED | `git status` |
 | **Secrets Audit** | Zero credentials | PASSED | Automated regex scan on tracked files |
 | **Open Source Licensing** | Attribution & anti-plagiarism terms | PASSED | Review [LICENSE](file:///d:/mume-app/LICENSE) and [README.md](file:///d:/mume-app/README.md) |
-| **RLS Hardening** | Permissive demo RLS live | PENDING | Harden `20261102` policies to owner-scoped before prod |
+| **RLS Hardening** | Owner-scoped (`20261104` lockdown applied) | PASSED | Supabase Dashboard > Database > Policies (anon write revoked; public catalog reads only) |
+| **Live Backend** | Deployed and reachable | PASSED | `https://mume-backend.onrender.com/` (webhook handshake + App Review permissions `pages_messaging`, `pages_manage_metadata` verified against real Page) |
 | **Standalone Android Build** | Valid .apk / .aab output | PENDING | `eas build --platform android --profile preview` |
 | **Amazon LAT Distribution** | Private email tester access | PENDING | Amazon Developer Console LAT Dashboard |
