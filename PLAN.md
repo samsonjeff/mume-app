@@ -33,7 +33,7 @@ mume/
 │   │       ├── facebook.js # Meta Graph API v21.0 client with rate-limit telemetry
 │   │       ├── supabase.js # Supabase Admin client with service_role isolation
 │   │       └── ai.js       # Context-aware getMumeAiReply (history + session summary; still rule-based, NOT live Meta Model API yet)
-│   └── test/               # Node native test suite (24 tests: crypto, webhook, OAuth, link-direct, reply, CORS, chat, AI session)
+│   └── test/               # Node native test suite (26 tests: crypto, webhook, OAuth, link-direct, reply, CORS, chat, AI session, approvalStatus gate)
 ├── src/                    # Figma Make React 19 + Tailwind CSS v4 web companion dashboard (mirrors frontend tabs + PendingAction + AI chat)
 ├── supabase/migrations/    # 20261031_create_mume_schema (strict base) + 20261102_fix_realtime_and_rls (permissive demo RLS — harden before prod) + 20261105_add_conversation_sessions (AI session memory + realtime, locked-down RLS)
 └── skills/                 # mume-frontend-ui, enforcing-meta-platform-compliance, mume-qa-qc
@@ -171,7 +171,7 @@ conversation_sessions (id, conversation_id UNIQUE, summary, last_customer_topic,
 - [x] Supabase Postgres schema migration with pgvector and RLS policies.
 - [x] Meta Graph API v21.0 integration (OAuth callback, Webhooks, Page linking).
 - [x] AES-256-GCM token encryption with authentication tag.
-- [x] Automated test suite verifying crypto and API endpoints (24 passing: crypto, webhook, OAuth, link-direct, reply, CORS, chat, AI session).
+- [x] Automated test suite verifying crypto and API endpoints (26 passing: crypto, webhook, OAuth, link-direct, reply, CORS, chat, AI session, approvalStatus gate).
 
 ### Phase 2: Mobile UI & Voice Ergonomics [COMPLETED]
 - [x] Port verified Figma Make design tokens and Google Antigravity palette.
@@ -182,7 +182,7 @@ conversation_sessions (id, conversation_id UNIQUE, summary, last_customer_topic,
 - [x] TypeScript compiler verification (`npx tsc --noEmit` passing with 0 errors).
 
 ### Phase 3: Brain Orchestration & Meta Policy Gates [COMPLETED]
-- [x] Outbound reply endpoint with mandatory `approvalStatus === 'approved'` gate (note: missing value currently defaults to `'approved'` — callers must pass it explicitly).
+- [x] Outbound reply endpoint with mandatory `approvalStatus === 'approved'` gate (strictly rejects missing or non-approved values with 403 `COMPLIANCE_BLOCK: Outbound message requires human approval`).
 - [x] 24-hour Standard Messaging Window policy validation.
 - [x] Meta rate-limit header parsing (`x-app-usage`, `x-page-usage`, `x-business-use-case-usage`).
 - [x] HMAC-SHA256 timing-safe webhook authentication.
@@ -229,7 +229,7 @@ conversation_sessions (id, conversation_id UNIQUE, summary, last_customer_topic,
   - Comprehensive `.gitignore` protecting local `.env` files, build caches, mobile keystores, signing certificates, and local debug logs.
   - Sanitized `.env.example` templates in root, `backend/`, and `frontend/` with zero real secrets.
   - Open source licensing established in [LICENSE](file:///d:/mume-app/LICENSE) and [README.md](file:///d:/mume-app/README.md) with mandatory author attribution (credit to Jefferson Samson) and strict prohibition against claiming authorship.
-  - Verified 24 backend tests passing (incl. 3 AI session-memory tests).
+  - Verified 26 backend tests passing (incl. 3 AI session-memory tests and strict human approval gate).
   - Verified clean TypeScript compilation and Vite production build.
 
 ### Phase 7: Real-Device Tactile Ergonomics & Private Distribution via Amazon Live App Testing (LAT) [PLANNED]
@@ -254,7 +254,7 @@ conversation_sessions (id, conversation_id UNIQUE, summary, last_customer_topic,
 
 | Check | Target | Status | Verification Command |
 | :--- | :--- | :--- | :--- |
-| **Backend Tests** | 24 passing | PASSED | `npm --prefix backend test` |
+| **Backend Tests** | 26 passing | PASSED | `npm --prefix backend test` |
 | **Frontend Typecheck** | 0 TS errors | PASSED | `npx tsc --project frontend/tsconfig.json --noEmit` |
 | **Root Typecheck** | 0 TS errors | PASSED | `npx tsc --noEmit` |
 | **Vite Bundle Build** | Clean build | PASSED | `npm run build` |

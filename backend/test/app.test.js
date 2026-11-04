@@ -268,3 +268,23 @@ test('ai: session summary captures topics and last customer message', () => {
   assert.ok(summary.includes('magkano ang saging?'));
   assert.equal(resolveTopic('is there stock?', [{ sender: 'user', text: 'apple price?' }]), 'apple');
 });
+
+test('POST /api/pages/:pageId/messages/reply rejects missing approvalStatus instead of auto-approving', async () => {
+  const res = await fetch(`${base}/api/pages/123/messages/reply`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ psid: '999', text: 'hello' }),
+  });
+  assert.equal(res.status, 403);
+  const json = await res.json();
+  assert.match(json.error, /approval/i);
+});
+
+test('POST /api/pages/:pageId/messages/reply rejects non-approved approvalStatus', async () => {
+  const res = await fetch(`${base}/api/pages/123/messages/reply`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ psid: '999', text: 'hello', approvalStatus: 'pending' }),
+  });
+  assert.equal(res.status, 403);
+});

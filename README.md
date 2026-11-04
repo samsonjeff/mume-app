@@ -77,7 +77,7 @@ mume/
 │   │       ├── facebook.js # Meta Graph API v21.0 client with rate-limit telemetry
 │   │       ├── supabase.js # Supabase Admin client with service_role isolation
 │   │       └── ai.js       # Context-aware getMumeAiReply (history + session summary; still rule-based, NOT live Meta Model API yet)
-│   └── test/               # Node native test suite (24 tests: crypto, webhook, OAuth, link-direct, reply, CORS, chat, AI session)
+│   └── test/               # Node native test suite (26 tests: crypto, webhook, OAuth, link-direct, reply, CORS, chat, AI session, approvalStatus gate)
 ├── src/                    # Figma Make React 19 + Tailwind CSS v4 web companion dashboard (mirrors frontend tabs + PendingAction + AI chat)
 ├── supabase/migrations/    # 20261031_create_mume_schema (strict base) + 20261102_fix_realtime_and_rls (permissive demo Realtime) + 20261104_lock_down_public_rls (owner-scoped lockdown, applied) + 20261105_add_conversation_sessions (AI session memory, locked-down RLS)
 └── skills/                 # mume-frontend-ui, enforcing-meta-platform-compliance, mume-qa-qc
@@ -221,7 +221,7 @@ PORT=3000
 Run tests and start the server:
 
 ```bash
-# Execute automated test suite (24 passing tests)
+# Execute automated test suite (26 passing tests)
 npm test
 
 # Start Express server
@@ -299,7 +299,7 @@ Scan the QR code with Expo Go on Android or run `npm run web` for browser previe
 Run the full verification suite across the codebase:
 
 ```bash
-# 1. Backend test suite (24 tests: HMAC signatures, AES encryption, OAuth, Webhooks, CORS, chat, AI session)
+# 1. Backend test suite (26 tests: HMAC signatures, AES encryption, OAuth, Webhooks, CORS, chat, AI session, approvalStatus gate)
 npm --prefix backend test
 
 # 2. Frontend TypeScript typecheck

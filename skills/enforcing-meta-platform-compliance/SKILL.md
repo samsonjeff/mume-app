@@ -18,10 +18,10 @@ Design, review, and execute all Meta Platform integrations (Graph API, Messenger
 **Actual file map (verified):**
 - `backend/src/app.js` — all 19 route handlers (webhook, OAuth, pages, inbox, reply, chat, conversations, pending-actions approve)
 - `backend/src/services/crypto.js` — AES-256-GCM + `verifyMetaSignature`; `facebook.js` — Graph v21.0 client + rate-limit telemetry; `supabase.js` — service_role client from env only (returns `null` when unconfigured, never a hardcoded key); `ai.js` — context-aware `getMumeAiReply` (last-20-message history + `conversation_sessions` summary; still rule-based with fictional demo names, NOT live Meta Model API yet)
-- `backend/test/app.test.js` — 24 tests (crypto, webhook handshake, OAuth URL, link-direct validation, reply validation, CORS, chat GET/POST, AI session memory)
+- `backend/test/app.test.js` — 26 tests (crypto, webhook handshake, OAuth URL, link-direct validation, reply validation, CORS, chat GET/POST, AI session memory, approvalStatus human-in-the-loop validation)
 - `supabase/migrations/` — `20261031_create_mume_schema` (strict owner-scoped base) + `20261102_fix_realtime_and_rls` (superseded permissive demo — never reintroduce) + `20261104_lock_down_public_rls` (current posture: no anon access to private tables, anon SELECT-only on `products`) + `20261105_add_conversation_sessions` (AI session memory + realtime, locked-down RLS)
-**Verify with:** `npm --prefix backend test` (24 tests).
-**Status vocabulary (actual):** `pending_actions.status` is `waiting_approval` → `sent` (via `POST /api/pending-actions/:id/approve`); the direct reply endpoint `POST /api/pages/:pageId/messages/reply` rejects anything but `approvalStatus === 'approved'` but defaults a missing value to `'approved'` — always pass it explicitly from the approve flow, never rely on the default.
+**Verify with:** `npm --prefix backend test` (26 tests).
+**Status vocabulary (actual):** `pending_actions.status` is `waiting_approval` → `sent` (via `POST /api/pending-actions/:id/approve`); the direct reply endpoint `POST /api/pages/:pageId/messages/reply` strictly rejects anything but `approvalStatus === 'approved'` (omitted or non-approved values fail closed with 403 `COMPLIANCE_BLOCK: Outbound message requires human approval`).
 
 ## Mandatory Pre-Flight Check (App Identity)
 

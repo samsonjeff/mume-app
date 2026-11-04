@@ -571,6 +571,11 @@ function createApp(env = process.env) {
       return res.status(400).json({ error: 'psid and text are required' });
     }
 
+    // Human-in-the-loop gate: a missing approvalStatus must not auto-approve.
+    if (approvalStatus !== 'approved') {
+      return res.status(403).json({ error: 'COMPLIANCE_BLOCK: Outbound message requires human approval' });
+    }
+
     try {
       if (!supabase) {
         return res.status(500).json({ error: 'Supabase client not initialized' });
@@ -594,7 +599,7 @@ function createApp(env = process.env) {
         psid,
         text,
         lastCustomerMessageAt,
-        approvalStatus: approvalStatus || 'approved',
+        approvalStatus,
       });
 
       // Persist outbound reply to Supabase messages & update conversation/pending_actions
