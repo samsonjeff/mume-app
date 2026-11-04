@@ -76,8 +76,8 @@ mume/
 │   │       ├── crypto.js   # AES-256-GCM cipher & HMAC-SHA256 signature verification
 │   │       ├── facebook.js # Meta Graph API v21.0 client with rate-limit telemetry
 │   │       ├── supabase.js # Supabase Admin client with service_role isolation
-│   │       └── ai.js       # Rule-based getMumeAiReply inventory stub (NOT live Meta Model API yet)
-│   └── test/               # Node native test suite (16 compliance tests: crypto, webhook, OAuth, link-direct, reply, CORS, chat)
+│   │       └── ai.js       # Context-aware getMumeAiReply (history + session summary; still rule-based, NOT live Meta Model API yet)
+│   └── test/               # Node native test suite (24 tests: crypto, webhook, OAuth, link-direct, reply, CORS, chat, AI session)
 ├── src/                    # Figma Make React 19 + Tailwind CSS v4 web companion dashboard (mirrors frontend tabs + PendingAction + AI chat)
 ├── supabase/migrations/    # 20261031_create_mume_schema (strict base) + 20261102_fix_realtime_and_rls (permissive demo RLS — harden before prod)
 └── skills/                 # mume-frontend-ui, enforcing-meta-platform-compliance, mume-qa-qc
@@ -130,8 +130,9 @@ Mume is engineered strictly within Meta Developer Policies and Platform Terms:
 6. **Rate-Limit Telemetry**: Graph API responses inspect `x-app-usage`, `x-page-usage`, and `x-business-use-case-usage` headers. Proactive warnings trigger at 75% capacity, and backoff warnings trigger at 90%.
 7. **AES-256-GCM Token Encryption**: Page Access Tokens are encrypted at rest with AES-256-GCM and unique initialization vectors (`pages.page_access_token_encrypted`). Plaintext tokens are never stored or leaked to client applications.
 8. **Sanitized Public Distribution**: All template files (`.env.example`) and codebases use sanitized placeholders. The repository is audited against secret scanning criteria.
-9. **AI Replies Are Rule-Based (for now)**: `backend/src/services/ai.js` answers from a local inventory catalog, not the live Meta Model API. Assistant chats persist to Supabase (`mume_assistant` conversation).
-10. **Demo RLS Is Permissive**: the live `20261102_fix_realtime_and_rls` migration opens anon/authenticated read/insert/update for demo Realtime. Harden back to owner-scoped policies before public production.
+9. **AI Replies Are Rule-Based (for now)**: `backend/src/services/ai.js` answers from a local inventory catalog, not the live Meta Model API. Replies are session-aware: the last 20 thread messages form context (follow-ups inherit the product topic) and a rolling summary persists to `conversation_sessions` (`20261105_add_conversation_sessions`), so the AI has reference when the customer messages again.
+10. **Live Frontend Sync**: the app subscribes to Supabase Realtime (`messages` INSERT → open threads, `conversations` INSERT/UPDATE → inbox list) so new data appears without refresh. Conversations are permanent Postgres rows, never in-memory only.
+11. **Demo RLS Is Permissive**: the live `20261102_fix_realtime_and_rls` migration opens anon/authenticated read/insert/update for demo Realtime. Harden back to owner-scoped policies before public production.
 
 ---
 
@@ -218,7 +219,7 @@ PORT=3000
 Run tests and start the server:
 
 ```bash
-# Execute automated test suite (16 passing tests)
+# Execute automated test suite (24 passing tests)
 npm test
 
 # Start Express server
@@ -293,7 +294,7 @@ Scan the QR code with Expo Go on Android or run `npm run web` for browser previe
 Run the full verification suite across the codebase:
 
 ```bash
-# 1. Backend test suite (16 tests: HMAC signatures, AES encryption, OAuth, Webhooks, CORS, chat)
+# 1. Backend test suite (24 tests: HMAC signatures, AES encryption, OAuth, Webhooks, CORS, chat, AI session)
 npm --prefix backend test
 
 # 2. Frontend TypeScript typecheck

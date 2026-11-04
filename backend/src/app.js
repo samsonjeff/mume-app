@@ -10,7 +10,7 @@ const {
   getPageMessages,
   sendPageReply,
 } = require('./services/facebook');
-const { getMumeAiReply } = require('./services/ai');
+const { getMumeAiReply, buildSessionSummary, detectTopic } = require('./services/ai');
 
 /**
  * Escapes a string for safe interpolation into HTML responses.
@@ -252,6 +252,25 @@ function createApp(env = process.env) {
                         suggested_price: suggestedPrice,
                         status: 'waiting_approval',
                       });
+                    }
+
+                    // Session memory: AI thread reference for the customer's next message
+                    try {
+                      const topic = detectTopic(messageText);
+                      await supabase.from('conversation_sessions').upsert(
+                        {
+                          conversation_id: conv.id,
+                          summary: topic
+                            ? `Customer inquiry about ${topic}. Draft reply awaiting merchant approval.`
+                            : 'Customer inquiry awaiting merchant approval.',
+                          last_customer_topic: topic || 'general',
+                          last_activity_at: new Date().toISOString(),
+                          updated_at: new Date().toISOString(),
+                        },
+                        { onConflict: 'conversation_id' }
+                      );
+                    } catch (sessErr) {
+                      console.warn('[webhook-session] Warning:', sessErr.message);
                     }
                   }
                 }
@@ -765,6 +784,21 @@ function createApp(env = process.env) {
         throw new Error(convErr?.message || 'Failed to locate assistant conversation');
       }
 
+      // Load recent thread history so the reply has session reference
+      let history = [];
+      try {
+        const { data: recent } = await supabase
+          .from('messages')
+          .select('sender, text')
+          .eq('conversation_id', conv.id)
+          .order('created_at', { ascending: false })
+          .limit(20);
+        history = (recent || []).reverse();
+      } catch (histErr) {
+        console.warn('[chat-history] Warning:', histErr.message);
+      }
+      const contextReply = getMumeAiReply(trimmed, { history });
+
       // Insert User Message into Supabase
       const { data: userMsg, error: userMsgErr } = await supabase
         .from('messages')
@@ -785,13 +819,34 @@ function createApp(env = process.env) {
         .insert({
           conversation_id: conv.id,
           sender: 'mume',
-          text: replyText,
+          text: contextReply,
           is_from_customer: false,
         })
         .select('id, sender, text, created_at')
         .single();
 
       if (aiMsgErr) throw aiMsgErr;
+
+      // Persist session memory so the next reply has thread reference
+      try {
+        const sessionHistory = [
+          ...history,
+          { sender: 'user', text: trimmed },
+          { sender: 'mume', text: contextReply },
+        ];
+        await supabase.from('conversation_sessions').upsert(
+          {
+            conversation_id: conv.id,
+            summary: buildSessionSummary(sessionHistory),
+            last_customer_topic: detectTopic(trimmed) || 'general',
+            last_activity_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'conversation_id' }
+        );
+      } catch (sessErr) {
+        console.warn('[session-upsert] Warning:', sessErr.message);
+      }
 
       res.json({
         conversationId: conv.id,

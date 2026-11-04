@@ -15,6 +15,8 @@ import {
   Image,
   Modal,
   Platform,
+  Keyboard,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -183,11 +185,15 @@ export default function HomeScreen() {
   const typingTimeoutRef = useRef<any>(null);
   const chatScrollRef = useRef<any>(null);
   const mainScrollRef = useRef<any>(null);
+  const chatInputRef = useRef<any>(null);
   const chatCardY = useRef<number>(0);
   const actionCardY = useRef<number>(0);
 
   // Blue highlight triggers when user is actively typing, dictating, or scrolling/reading conversation
   const [isReadingOrScrolling, setIsReadingOrScrolling] = useState(false);
+
+
+
   const readingTimeoutRef = useRef<any>(null);
 
   const handleStartReading = useCallback(() => {
@@ -219,7 +225,9 @@ export default function HomeScreen() {
   }, []);
 
   const isChattingOrTyping = isTyping || voiceState === 'listening';
-  const isCardHighlighted = isChattingOrTyping || isReadingOrScrolling;
+
+
+
 
   const scrollToActionCard = useCallback((animated = true) => {
     if (mainScrollRef.current) {
@@ -287,6 +295,18 @@ export default function HomeScreen() {
   const [draftReply, setDraftReply] = useState('Hi! Our red apples are $2.50 / kg. Fresh delivery today.');
   const [isApproved, setIsApproved] = useState(false);
   const [showApprovedCard, setShowApprovedCard] = useState(false);
+
+  // Safety net: the dock unmounts on catalog/settings tabs and in draft-edit
+  // mode, which can strand focus state. Reset it (and the keyboard) there so
+  // the pending card always comes back.
+  useEffect(() => {
+    if (activeTab === 'catalog' || activeTab === 'settings' || isEditingDraft) {
+      if (isInputFocused) {
+        setIsInputFocused(false);
+        Keyboard.dismiss();
+      }
+    }
+  }, [activeTab, isEditingDraft, isInputFocused]);
 
   // Pro Subscription Upgrade modal state
   const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
@@ -638,9 +658,17 @@ export default function HomeScreen() {
 
     loadChat();
 
-    // Listen for incoming messages in real-time
+    // Listen for incoming messages AND new/updated conversations in real-time,
+    // so the inbox list and open threads update automatically
     const channel = supabase
       .channel('realtime_inbox')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'conversations' },
+        () => {
+          loadRealInbox();
+        }
+      )
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages' },
@@ -693,7 +721,7 @@ export default function HomeScreen() {
       isMounted = false;
       supabase.removeChannel(channel);
     };
-  }, [loadLinkedPages, scrollToConversation]);
+  }, [loadLinkedPages, loadRealInbox, scrollToConversation]);
 
   // Re-sync real Facebook conversations when linked pages arrive,
   // and every time the merchant opens the inbox tab
@@ -728,6 +756,10 @@ export default function HomeScreen() {
   const handleSendMessage = async () => {
     const trimmed = chatInput.trim();
     if (!trimmed || isAiThinking) return;
+
+    // Sending restores the normal layout: blur fires onBlur, which brings
+    // the pending card back and re-locks the outer scroll.
+    chatInputRef.current?.blur();
 
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
@@ -1111,7 +1143,10 @@ export default function HomeScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Main menu"
-            onPress={() => setMenuOpen(true)}
+            onPress={() => {
+              Keyboard.dismiss();
+              setMenuOpen(true);
+            }}
             style={styles.menuIconButton}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
@@ -1126,6 +1161,7 @@ export default function HomeScreen() {
             accessibilityRole="button"
             accessibilityLabel="Subscription upgrade"
             onPress={() => {
+              Keyboard.dismiss();
               if (proAutoCloseTimerRef.current) {
                 clearTimeout(proAutoCloseTimerRef.current);
                 proAutoCloseTimerRef.current = null;
@@ -1142,12 +1178,19 @@ export default function HomeScreen() {
 
       {/* 2. Main Body Content */}
       <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.bodySafeArea}>
+        <KeyboardAvoidingView
+          style={styles.keyboardAvoidingContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          enabled={Platform.OS !== 'web'}
+          keyboardVerticalOffset={0}
+        >
         <ScrollView
           ref={mainScrollRef}
           style={styles.mainScrollView}
           bounces={false}
+          keyboardShouldPersistTaps="handled"
           overScrollMode="never"
-          scrollEnabled={activeTab !== 'today' || isEditingDraft}
+          scrollEnabled={activeTab !== 'today' || isEditingDraft || isInputFocused}
           showsVerticalScrollIndicator={activeTab !== 'today'}
           contentContainerStyle={[
             styles.scrollContent,
@@ -1199,7 +1242,8 @@ export default function HomeScreen() {
               {isLoggedIn ? (
                 <>
                   {/* Section Heading & Action / Feedback Card */}
-                  {!isApproved ? (
+                  {/* While typing on mobile, the pending card steps aside so the chat card slides up over its spot above the keyboard. Restored on blur. */}
+                  {!isApproved && !(isInputFocused && Platform.OS !== 'web') ? (
                     <>
                       <View style={styles.sectionHeaderRow}>
                         <Text style={styles.sectionHeading}>Ready for you</Text>
@@ -1339,7 +1383,6 @@ export default function HomeScreen() {
                       style={[
                         styles.chatSectionCard,
                         isApproved && !showApprovedCard && styles.chatSectionCardExpanded,
-                        isCardHighlighted && styles.chatSectionCardHighlighted,
                       ]}
                       {...(Platform.OS === 'web'
                         ? ({
@@ -1352,7 +1395,7 @@ export default function HomeScreen() {
                     >
                       <View style={styles.chatSectionHeader}>
                         <View style={styles.chatHeaderLeft}>
-                          <View style={[styles.chatHeaderBadge, isCardHighlighted && styles.chatHeaderBadgeActive]}>
+                          <View style={[styles.chatHeaderBadge, (isChattingOrTyping || isReadingOrScrolling) && styles.chatHeaderBadgeActive]}>
                             <AppIcon name="bot" size={16} color="#FFFFFF" />
                           </View>
                           <Text style={styles.chatHeaderTitle}>Mume AI Chat</Text>
@@ -1388,10 +1431,14 @@ export default function HomeScreen() {
                         ]}
                         contentContainerStyle={styles.chatMessagesList}
                         nestedScrollEnabled={true}
+                        keyboardShouldPersistTaps="handled"
                         showsVerticalScrollIndicator={false}
                         bounces={true}
                         overScrollMode="always"
                         onScroll={handleChatScroll}
+                        onContentSizeChange={() => {
+                          chatScrollRef.current?.scrollToEnd({ animated: false });
+                        }}
                         onScrollBeginDrag={handleStartReading}
                         onScrollEndDrag={handleStopReadingWithDelay}
                         onMomentumScrollBegin={handleStartReading}
@@ -1849,6 +1896,7 @@ export default function HomeScreen() {
             {/* Top Row: Merchant can write a message to talk to AI */}
             <View style={styles.capsuleTextInputWrapper}>
               <TextInput
+                ref={chatInputRef}
                 style={styles.capsuleTextInput}
                 placeholder="Ask Mume or write a message…"
                 placeholderTextColor={THEME.colors.textMuted}
@@ -1858,6 +1906,9 @@ export default function HomeScreen() {
                   setIsInputFocused(true);
                   if (activeTab !== 'today') setActiveTab('today');
                   scrollToConversation(true);
+                  // Re-scroll once the keyboard frame has settled so the
+                  // latest messages stay visible above the resized viewport.
+                  setTimeout(() => scrollToConversation(true), 300);
                 }}
                 onBlur={() => {
                   setIsInputFocused(false);
@@ -1960,6 +2011,7 @@ export default function HomeScreen() {
             <AppIcon name="round-plus" size={24} color="#FFFFFF" />
           </Pressable>
         )}
+        </KeyboardAvoidingView>
       </SafeAreaView>
 
       {/* 4. Slide-Out Side Navigation Drawer (Responsive Full-Height Modal) */}
@@ -3793,6 +3845,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 8,
     textAlign: 'center',
+  },
+  keyboardAvoidingContainer: {
+    flex: 1,
   },
   geminiInputDockContainer: {
     width: '100%',

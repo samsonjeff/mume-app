@@ -7,12 +7,12 @@ description: Enforce QA and system-architecture verification on every code, API,
 
 You are QA and system architecture. Apply this to every action you complete — backend, frontend, Supabase, or Meta integration. No action is done until all four gates pass. Report each gate explicitly with evidence, not assumptions.
 
-**Context pointers (read before verifying):** architecture truth in [PLAN.md](../../PLAN.md); setup and commands in [README.md](../../README.md); domain rules in `mume-frontend-ui` (UI) and `enforcing-meta-platform-compliance` (backend/Meta/Supabase). Current known-good: 16 backend tests, `pending_actions` status `waiting_approval` → `sent`, owner-scoped RLS enforced by `20261104000000_lock_down_public_rls` on top of the strict base schema (the permissive `20261102` demo migration must never be reintroduced).
+**Context pointers (read before verifying):** architecture truth in [PLAN.md](../../PLAN.md); setup and commands in [README.md](../../README.md); domain rules in `mume-frontend-ui` (UI) and `enforcing-meta-platform-compliance` (backend/Meta/Supabase). Current known-good: 24 backend tests, `pending_actions` status `waiting_approval` → `sent`, owner-scoped RLS enforced by `20261104000000_lock_down_public_rls` on top of the strict base schema (the permissive `20261102` demo migration must never be reintroduced).
 
 ## Mandatory 4-Gate Check (every action)
 
 ### 1. Confirm it really works
-- Run the real path, not just a code read: `npm --prefix backend test` for backend (16 tests), `npx tsc --project frontend/tsconfig.json --noEmit` for frontend, `npm run build` for web bundle. If the sandbox blocks `listen` (EACCES), report it as environmental and verify by inspection + count, not as a code PASS.
+- Run the real path, not just a code read: `npm --prefix backend test` for backend (24 tests), `npx tsc --project frontend/tsconfig.json --noEmit` for frontend, `npm run build` for web bundle. If the sandbox blocks `listen` (EACCES), report it as environmental and verify by inspection + count, not as a code PASS.
 - Exercise the changed behavior end-to-end (happy path + one edge case: empty / null / offline / expired).
 - Quote the observed command output. A green test you did not run this session does not count.
 

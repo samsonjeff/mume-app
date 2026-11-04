@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const { createApp, escapeHtml } = require('../src/app');
 const { encryptToken, decryptToken, verifyMetaSignature } = require('../src/services/crypto');
+const { getMumeAiReply, buildSessionSummary, resolveTopic } = require('../src/services/ai');
 
 let server;
 let base;
@@ -243,4 +244,27 @@ test('POST /api/chat/messages validates required text and responds with AI reply
   assert.equal(json.userMessage.sender, 'user');
   assert.equal(json.aiMessage.sender, 'mume');
   assert.ok(json.aiMessage.text.includes('2.50'));
+});
+test('ai: follow-up inherits product topic from session history', () => {
+  const history = [
+    { sender: 'user', text: 'Do you have mango?' },
+    { sender: 'mume', text: 'Carabao mangoes are $4.00 / kg (In stock).' },
+  ];
+  const reply = getMumeAiReply('how much per kilo?', { history });
+  assert.ok(reply.includes('4.00'));
+});
+
+test('ai: empty history keeps legacy default reply', () => {
+  const reply = getMumeAiReply('blah blah random');
+  assert.ok(reply.includes('2.50'));
+});
+
+test('ai: session summary captures topics and last customer message', () => {
+  const summary = buildSessionSummary([
+    { sender: 'user', text: 'magkano ang saging?' },
+    { sender: 'mume', text: 'Lakatan bananas are $1.80 / kg.' },
+  ]);
+  assert.ok(summary.includes('banana'));
+  assert.ok(summary.includes('magkano ang saging?'));
+  assert.equal(resolveTopic('is there stock?', [{ sender: 'user', text: 'apple price?' }]), 'apple');
 });

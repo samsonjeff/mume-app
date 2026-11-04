@@ -32,10 +32,10 @@ mume/
 │   │       ├── crypto.js   # AES-256-GCM cipher & HMAC-SHA256 signature verification
 │   │       ├── facebook.js # Meta Graph API v21.0 client with rate-limit telemetry
 │   │       ├── supabase.js # Supabase Admin client with service_role isolation
-│   │       └── ai.js       # Rule-based getMumeAiReply inventory stub (NOT live Meta Model API yet)
-│   └── test/               # Node native test suite (16 compliance tests: crypto, webhook, OAuth, link-direct, reply, CORS, chat)
+│   │       └── ai.js       # Context-aware getMumeAiReply (history + session summary; still rule-based, NOT live Meta Model API yet)
+│   └── test/               # Node native test suite (24 tests: crypto, webhook, OAuth, link-direct, reply, CORS, chat, AI session)
 ├── src/                    # Figma Make React 19 + Tailwind CSS v4 web companion dashboard (mirrors frontend tabs + PendingAction + AI chat)
-├── supabase/migrations/    # 20261031_create_mume_schema (strict base) + 20261102_fix_realtime_and_rls (permissive demo RLS — harden before prod)
+├── supabase/migrations/    # 20261031_create_mume_schema (strict base) + 20261102_fix_realtime_and_rls (permissive demo RLS — harden before prod) + 20261105_add_conversation_sessions (AI session memory + realtime, locked-down RLS)
 └── skills/                 # mume-frontend-ui, enforcing-meta-platform-compliance, mume-qa-qc
 ```
 
@@ -156,6 +156,7 @@ products (id, page_id, name, price, unit, image_url, embedding vector(1536), cre
 conversations (id, page_id, customer_psid, customer_name, last_message_at, created_at)
 messages (id, conversation_id, fb_message_id, sender, text, is_from_customer, created_at)
 pending_actions (id, conversation_id, product_id, draft_reply, suggested_price, status, created_at, updated_at)
+conversation_sessions (id, conversation_id UNIQUE, summary, last_customer_topic, last_activity_at, created_at, updated_at) — permanent AI session memory per thread
 ```
 
 - **Row Level Security (RLS)**: Enforced on all 6 tables. `service_role` backend maintains full access. Base migration restricts mobile users to `pages.user_id = auth.uid()` resources, but the live `20261102_fix_realtime_and_rls` migration currently opens permissive anon/authenticated read/insert/update policies plus `REPLICA IDENTITY FULL` and `conversations` in the Realtime publication (demo convenience — MUST harden back to owner-scoped policies before public production).
@@ -170,7 +171,7 @@ pending_actions (id, conversation_id, product_id, draft_reply, suggested_price, 
 - [x] Supabase Postgres schema migration with pgvector and RLS policies.
 - [x] Meta Graph API v21.0 integration (OAuth callback, Webhooks, Page linking).
 - [x] AES-256-GCM token encryption with authentication tag.
-- [x] Automated test suite verifying crypto and API endpoints (16 passing: crypto, webhook, OAuth, link-direct, reply, CORS, chat).
+- [x] Automated test suite verifying crypto and API endpoints (24 passing: crypto, webhook, OAuth, link-direct, reply, CORS, chat, AI session).
 
 ### Phase 2: Mobile UI & Voice Ergonomics [COMPLETED]
 - [x] Port verified Figma Make design tokens and Google Antigravity palette.
@@ -187,6 +188,8 @@ pending_actions (id, conversation_id, product_id, draft_reply, suggested_price, 
 - [x] HMAC-SHA256 timing-safe webhook authentication.
 - [x] Meta compliance pages `/privacy` and `/data-deletion`.
 - [x] Rule-based `getMumeAiReply` inventory stub (`backend/src/services/ai.js`) with Supabase-persisted assistant chat (`mume_assistant` conversation, `GET/POST /api/chat/messages`) — live Muse Model API wiring still PENDING.
+- [x] Session-aware replies: `POST /api/chat/messages` loads the last 20 thread messages as context (follow-ups inherit the product topic); webhook upserts `conversation_sessions` per customer thread so the AI has reference when the customer messages again.
+- [x] Live inbox: frontend subscribes to `conversations` INSERT/UPDATE via Supabase Realtime (`realtime_inbox` channel) so new threads appear without refresh; open threads already append `messages` INSERTs live.
 - [x] Approval-flow APIs: `GET /api/pages/:pageId/conversations`, `GET /api/pages/:pageId/pending-actions`, `POST /api/pending-actions/:id/approve` (`waiting_approval` → `sent` + `messages` insert).
 
 ### Phase 4: Public Distribution & Security Hardening [COMPLETED]
@@ -226,7 +229,7 @@ pending_actions (id, conversation_id, product_id, draft_reply, suggested_price, 
   - Comprehensive `.gitignore` protecting local `.env` files, build caches, mobile keystores, signing certificates, and local debug logs.
   - Sanitized `.env.example` templates in root, `backend/`, and `frontend/` with zero real secrets.
   - Open source licensing established in [LICENSE](file:///d:/mume-app/LICENSE) and [README.md](file:///d:/mume-app/README.md) with mandatory author attribution (credit to Jefferson Samson) and strict prohibition against claiming authorship.
-  - Verified 16 backend compliance tests passing.
+  - Verified 24 backend tests passing (incl. 3 AI session-memory tests).
   - Verified clean TypeScript compilation and Vite production build.
 
 ### Phase 7: Real-Device Tactile Ergonomics & Private Distribution via Amazon Live App Testing (LAT) [PLANNED]
@@ -251,7 +254,7 @@ pending_actions (id, conversation_id, product_id, draft_reply, suggested_price, 
 
 | Check | Target | Status | Verification Command |
 | :--- | :--- | :--- | :--- |
-| **Backend Tests** | 16 passing | PASSED | `npm --prefix backend test` |
+| **Backend Tests** | 24 passing | PASSED | `npm --prefix backend test` |
 | **Frontend Typecheck** | 0 TS errors | PASSED | `npx tsc --project frontend/tsconfig.json --noEmit` |
 | **Root Typecheck** | 0 TS errors | PASSED | `npx tsc --noEmit` |
 | **Vite Bundle Build** | Clean build | PASSED | `npm run build` |
