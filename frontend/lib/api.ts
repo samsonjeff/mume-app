@@ -80,8 +80,8 @@ export const api = {
     return res.json();
   },
 
-  // Merchant voice input: base64 audio transcribed server-side by Muse Voice.
-  async transcribeVoice(payload: { audio: string; mimeType?: string; language?: string }): Promise<{ text: string }> {
+  // Merchant voice input: base64 WAV (24 kHz mono 16-bit PCM) transcribed server-side by Muse Voice.
+  async transcribeVoice(payload: { audio: string }): Promise<{ text: string }> {
     const res = await fetch(`${API_BASE_URL}/api/voice/transcribe`, {
       method: 'POST',
       headers: authHeaders({ 'Content-Type': 'application/json' }),

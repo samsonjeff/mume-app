@@ -23,8 +23,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Speech from 'expo-speech';
 import {
-  useAudioRecorder,
-  RecordingPresets,
+  useAudioStream,
   requestRecordingPermissionsAsync,
   setAudioModeAsync,
 } from 'expo-audio';
@@ -132,7 +131,7 @@ async function uriToBase64(uri: string): Promise<{ base64: string; mimeType: str
   const comma = dataUrl.indexOf(',');
   const header = comma >= 0 ? dataUrl.slice(0, comma) : '';
   const base64 = comma >= 0 ? dataUrl.slice(comma + 1) : '';
-  const mime = /data:(.*?);base64/.exec(header)?.[1] || 'audio/m4a';
+  const mime = /data:(.*?);base64/.exec(header)?.[1] || 'audio/wav';
   if (!base64) throw new Error('Failed to read recording');
   return { base64, mimeType: mime };
 }
@@ -167,7 +166,8 @@ export default function HomeScreen() {
   const [activeTab, setActiveTab] = useState<Tab>('today');
   const [menuOpen, setMenuOpen] = useState(false);
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
-  const voiceRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  // 24 kHz mono 16-bit PCM WAV: exactly what the Muse Voice file endpoint accepts.
+  const { stream: voiceStream } = useAudioStream({ sampleRate: 24000, channels: 1, encoding: 'int16' });
   const [voiceError, setVoiceError] = useState('');
   // Spoken replies: Mume reads AI responses aloud via on-device TTS.
   // Tap-to-talk input stays as-is; there is no always-on wake word.
@@ -886,6 +886,7 @@ export default function HomeScreen() {
 
   // Mic toggle: tap to start recording, tap again to stop, transcribe
   // via Muse Voice, and send the transcript to Mume as a chat message.
+  // Records 24 kHz mono 16-bit PCM WAV: the exact format the file endpoint takes.
   const handleVoice = async () => {
     if (voiceState === 'thinking') return;
     setVoiceError('');
@@ -897,8 +898,8 @@ export default function HomeScreen() {
           return;
         }
         await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
-        await voiceRecorder.prepareToRecordAsync();
-        voiceRecorder.record();
+        await voiceStream.start();
+        await voiceStream.startFileRecordingAsync();
         Speech.stop();
         setVoiceState('listening');
       } catch (err: any) {
@@ -909,15 +910,22 @@ export default function HomeScreen() {
     }
     try {
       setVoiceState('thinking');
-      await voiceRecorder.stop();
-      const uri = voiceRecorder.uri;
-      if (!uri) throw new Error('No recording captured');
-      const { base64, mimeType } = await uriToBase64(uri);
-      const { text } = await api.transcribeVoice({ audio: base64, mimeType });
+      const file = await voiceStream.stopFileRecordingAsync();
+      voiceStream.stop();
+      if (file.sampleRate !== 16000 && file.sampleRate !== 24000) {
+        throw new Error('Microphone does not support 16/24 kHz recording');
+      }
+      const { base64 } = await uriToBase64(file.uri);
+      const { text } = await api.transcribeVoice({ audio: base64 });
       if (!text.trim()) throw new Error("Couldn't hear that — try again.");
       await handleSendMessage(text);
     } catch (err: any) {
       console.warn('Voice transcribe failed:', err?.message || err);
+      try {
+        voiceStream.stop();
+      } catch {
+        // Stream already stopped.
+      }
       setVoiceError(err?.message || "Couldn't transcribe that — try again.");
     } finally {
       setVoiceState('idle');
