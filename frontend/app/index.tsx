@@ -136,6 +136,118 @@ async function uriToBase64(uri: string): Promise<{ base64: string; mimeType: str
   return { base64, mimeType: mime };
 }
 
+/** Handle for an in-progress browser microphone capture. */
+interface WebCapture {
+  ctx: AudioContext;
+  source: MediaStreamAudioSourceNode;
+  proc: ScriptProcessorNode;
+  chunks: Float32Array[];
+  sampleRate: number;
+  micStream: MediaStream;
+}
+
+/**
+ * Browser fallback: expo-audio streams are not available on web
+ * (useAudioStream returns a null stream), so capture raw PCM with the
+ * Web Audio API instead. The caller stops it with stopWebCapture.
+ */
+async function startWebCapture(): Promise<WebCapture> {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    throw new Error('Microphone is not available in this browser');
+  }
+  const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const Ctor = window.AudioContext || (window as any).webkitAudioContext;
+  const ctx: AudioContext = new Ctor();
+  const source = ctx.createMediaStreamSource(micStream);
+  const proc = ctx.createScriptProcessor(4096, 1, 1);
+  const chunks: Float32Array[] = [];
+  proc.onaudioprocess = (e) => {
+    chunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+  };
+  source.connect(proc);
+  proc.connect(ctx.destination);
+  return { ctx, source, proc, chunks, sampleRate: ctx.sampleRate, micStream };
+}
+
+/**
+ * Resamples captured browser audio to 24 kHz mono 16-bit PCM and encodes
+ * a WAV file as base64: the exact format the transcription endpoint takes.
+ */
+function encodeWavBase64(chunks: Float32Array[], fromRate: number, toRate = 24000): string {
+  let total = 0;
+  for (const c of chunks) total += c.length;
+  const pcm = new Float32Array(total);
+  let o = 0;
+  for (const c of chunks) {
+    pcm.set(c, o);
+    o += c.length;
+  }
+  const outLen = Math.max(1, Math.floor((total * toRate) / fromRate));
+  const data = new Int16Array(outLen);
+  for (let i = 0; i < outLen; i++) {
+    const pos = (i * fromRate) / toRate;
+    const i0 = Math.floor(pos);
+    const frac = pos - i0;
+    const a = pcm[Math.min(i0, total - 1)] || 0;
+    const b = pcm[Math.min(i0 + 1, total - 1)] || 0;
+    const v = Math.max(-1, Math.min(1, a + (b - a) * frac));
+    data[i] = v < 0 ? Math.round(v * 32768) : Math.round(v * 32767);
+  }
+  const buffer = new ArrayBuffer(44 + outLen * 2);
+  const v = new DataView(buffer);
+  const writeStr = (off: number, s: string) => {
+    for (let i = 0; i < s.length; i++) v.setUint8(off + i, s.charCodeAt(i));
+  };
+  writeStr(0, 'RIFF');
+  v.setUint32(4, 36 + outLen * 2, true);
+  writeStr(8, 'WAVE');
+  writeStr(12, 'fmt ');
+  v.setUint32(16, 16, true);
+  v.setUint16(20, 1, true);
+  v.setUint16(22, 1, true);
+  v.setUint32(24, toRate, true);
+  v.setUint32(28, toRate * 2, true);
+  v.setUint16(32, 2, true);
+  v.setUint16(34, 16, true);
+  writeStr(36, 'data');
+  v.setUint32(40, outLen * 2, true);
+  new Int16Array(buffer, 44).set(data);
+  const bytes = new Uint8Array(buffer);
+  const CH = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let out = '';
+  for (let i = 0; i < bytes.length; i += 3) {
+    const a = bytes[i];
+    const b = i + 1 < bytes.length ? bytes[i + 1] : 0;
+    const c = i + 2 < bytes.length ? bytes[i + 2] : 0;
+    out += CH[a >> 2] + CH[((a & 3) << 4) | (b >> 4)];
+    out += i + 1 < bytes.length ? CH[((b & 15) << 2) | (c >> 6)] : '=';
+    out += i + 2 < bytes.length ? CH[c & 63] : '=';
+  }
+  return out;
+}
+
+/** Stops a browser capture started with startWebCapture and returns base64 WAV. */
+function stopWebCapture(cap: WebCapture): string {
+  try {
+    cap.proc.disconnect();
+  } catch {
+    // Already torn down.
+  }
+  try {
+    cap.source.disconnect();
+  } catch {
+    // Already torn down.
+  }
+  try {
+    cap.micStream.getTracks().forEach((t) => t.stop());
+  } catch {
+    // Tracks already stopped.
+  }
+  const base64 = encodeWavBase64(cap.chunks, cap.sampleRate);
+  cap.ctx.close().catch(() => {});
+  return base64;
+}
+
 // Demo conversations — NEVER deleted. Real synced Facebook conversations
 // are prepended on top of these by loadRealInbox, never replacing them.
 const DUMMY_CONVOS = [
@@ -167,8 +279,10 @@ export default function HomeScreen() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
   // 24 kHz mono 16-bit PCM WAV: exactly what the Muse Voice file endpoint accepts.
+  // On web useAudioStream returns a null stream, so the mic falls back to
+  // browser PCM capture (see startWebCapture).
   const { stream: voiceStream } = useAudioStream({ sampleRate: 24000, channels: 1, encoding: 'int16' });
-  const [voiceError, setVoiceError] = useState('');
+  const webRecRef = useRef<WebCapture | null>(null);
   const voiceRecordStartedAt = useRef(0);
   const [userName, setUserName] = useState<string>('Jefferson');
   const [isLoggedIn, setIsLoggedIn] = useState(true);
@@ -283,7 +397,6 @@ export default function HomeScreen() {
 
   const handleTyping = (text: string) => {
     setChatInput(text);
-    if (voiceError) setVoiceError('');
     if (text.length > 0) {
       setIsTyping(true);
       if (typingTimeoutRef.current) {
@@ -870,12 +983,23 @@ export default function HomeScreen() {
   // Records 24 kHz mono 16-bit PCM WAV: the exact format the file endpoint takes.
   const handleVoice = async () => {
     if (voiceState === 'thinking') return;
-    setVoiceError('');
+    // On web useAudioStream returns a null stream, so the mic falls back
+    // to browser PCM capture (see startWebCapture).
+    const onWeb = Platform.OS === 'web';
     if (voiceState === 'idle') {
       try {
+        if (onWeb) {
+          webRecRef.current = await startWebCapture();
+          voiceRecordStartedAt.current = Date.now();
+          setVoiceState('listening');
+          return;
+        }
+        if (!voiceStream) {
+          throw new Error('Voice recording is not supported on this device');
+        }
         const { granted } = await requestRecordingPermissionsAsync();
         if (!granted) {
-          setVoiceError('Microphone permission denied');
+          console.warn('Microphone permission denied');
           return;
         }
         await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
@@ -886,7 +1010,6 @@ export default function HomeScreen() {
         setVoiceState('listening');
       } catch (err: any) {
         console.warn('Voice record start failed:', err?.message || err);
-        setVoiceError('Could not start recording');
       }
       return;
     }
@@ -896,35 +1019,47 @@ export default function HomeScreen() {
         const secs = ((Date.now() - voiceRecordStartedAt.current) / 1000).toFixed(1);
         throw new Error(`That tap was too short (${secs}s) — hold the mic and speak.`);
       }
-      const file = await voiceStream.stopFileRecordingAsync();
-      voiceStream.stop();
-      if (!file?.uri) throw new Error('No recording captured');
-      if (file.sampleRate !== 16000 && file.sampleRate !== 24000) {
-        throw new Error('Microphone does not support 16/24 kHz recording');
+      let base64: string;
+      if (onWeb) {
+        const cap = webRecRef.current;
+        webRecRef.current = null;
+        if (!cap || cap.chunks.length === 0) throw new Error('No recording captured');
+        base64 = stopWebCapture(cap);
+      } else {
+        if (!voiceStream) {
+          throw new Error('Voice recording is not supported on this device');
+        }
+        const file = await voiceStream.stopFileRecordingAsync();
+        voiceStream.stop();
+        if (!file?.uri) throw new Error('No recording captured');
+        if (file.sampleRate !== 16000 && file.sampleRate !== 24000) {
+          throw new Error('Microphone does not support 16/24 kHz recording');
+        }
+        // Trust the recorder's own measurements over wall-clock: a real
+        // utterance is seconds long and thousands of bytes. Anything less
+        // means the mic delivered no data — uploading it can only fail.
+        if (file.duration < 1) {
+          throw new Error(`That tap was too short (${file.duration.toFixed(1)}s) — hold the mic and speak.`);
+        }
+        if (file.size < 4096) {
+          throw new Error(
+            `Mic captured only ${file.size} bytes in ${file.duration.toFixed(1)}s — check microphone access and try again.`
+          );
+        }
+        ({ base64 } = await uriToBase64(file.uri));
       }
-      // Trust the recorder's own measurements over wall-clock: a real
-      // utterance is seconds long and thousands of bytes. Anything less
-      // means the mic delivered no data — uploading it can only fail.
-      if (file.duration < 1) {
-        throw new Error(`That tap was too short (${file.duration.toFixed(1)}s) — hold the mic and speak.`);
-      }
-      if (file.size < 4096) {
-        throw new Error(
-          `Mic captured only ${file.size} bytes in ${file.duration.toFixed(1)}s — check microphone access and try again.`
-        );
-      }
-      const { base64 } = await uriToBase64(file.uri);
       const { text } = await api.transcribeVoice({ audio: base64 });
       if (!text.trim()) throw new Error("Couldn't hear that — try again.");
       await handleSendMessage(text);
     } catch (err: any) {
       console.warn('Voice transcribe failed:', err?.message || err);
-      try {
-        voiceStream.stop();
-      } catch {
-        // Stream already stopped.
+      if (!onWeb) {
+        try {
+          voiceStream?.stop();
+        } catch {
+          // Stream already stopped.
+        }
       }
-      setVoiceError(err?.message || "Couldn't transcribe that — try again.");
     } finally {
       setVoiceState('idle');
     }
@@ -2164,10 +2299,9 @@ export default function HomeScreen() {
                     <Text style={styles.voiceStateThinkingText}>Checking your page…</Text>
                   </View>
                 )}
-                {!voiceError && voiceState === 'idle' && !chatInput && (
+                {voiceState === 'idle' && !chatInput && (
                   <Text style={styles.capsuleHintText}>Tap mic or write to AI</Text>
                 )}
-                {!!voiceError && <Text style={styles.capsuleHintText}>{voiceError}</Text>}
               </View>
 
               <View style={styles.capsuleActionsRight}>

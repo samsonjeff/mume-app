@@ -154,18 +154,4 @@ export const api = {
     return res.json();
   },
 
-  // System auto-delete trigger: removes real API rows older than 10 minutes.
-  // Dummy content is frontend-only and never affected.
-  async pruneExpiredRealData(): Promise<any> {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/maintenance/prune-expired`, {
-        method: 'POST',
-        headers: authHeaders(),
-      });
-      if (!res.ok) return null;
-      return res.json();
-    } catch {
-      return null;
-    }
-  },
 };

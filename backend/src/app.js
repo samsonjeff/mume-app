@@ -56,34 +56,6 @@ function isOriginAllowed(origin, env) {
 }
 
 /**
- * Real API data auto-expiry (10 minutes).
- * Only rows that came from the Meta Graph API / webhook pipeline
- * (conversations, messages, pending_actions, conversation_sessions) expire.
- * Dummy / sample content lives only in the frontend bundle
- * (INITIAL_PRODUCTS, DUMMY_CONVOS, welcome message) and is never written
- * to the database, so the sweeper can never delete it. Persistent catalog
- * tables (pages, users, products) are intentionally never expired.
- */
-const REAL_DATA_TTL_MS_DEFAULT = 10 * 60 * 1000;
-
-function getRealDataTtlMs(env = {}) {
-  const raw = Number(env.REAL_DATA_TTL_MINUTES ?? env.REAL_DATA_TTL_MIN ?? '');
-  if (Number.isFinite(raw) && raw > 0) return Math.floor(raw * 60 * 1000);
-  return REAL_DATA_TTL_MS_DEFAULT;
-}
-
-function getRealDataCutoffIso(nowMs = Date.now(), ttlMs = REAL_DATA_TTL_MS_DEFAULT) {
-  return new Date(nowMs - ttlMs).toISOString();
-}
-
-function isRealRowFresh(timestampIso, nowMs = Date.now(), ttlMs = REAL_DATA_TTL_MS_DEFAULT) {
-  if (!timestampIso) return true;
-  const t = new Date(timestampIso).getTime();
-  if (!Number.isFinite(t)) return true;
-  return nowMs - t <= ttlMs;
-}
-
-/**
  * Builds the Express app.
  */
 function createApp(env = process.env) {
@@ -160,65 +132,6 @@ function createApp(env = process.env) {
   app.use('/api', requireApiKey);
 
   const supabase = getSupabaseClient(env);
-  const realDataTtlMs = getRealDataTtlMs(env);
-
-  // System auto-delete: removes real API rows older than the TTL.
-  // Tables covered: messages, pending_actions, conversation_sessions,
-  // conversations (all rows there are real — dummy content is frontend-only
-  // and never inserted). Never touches pages / users / products.
-  async function pruneExpiredRealData() {
-    if (!supabase) return { skipped: true, cutoff: getRealDataCutoffIso(Date.now(), realDataTtlMs) };
-    const cutoff = getRealDataCutoffIso(Date.now(), realDataTtlMs);
-    const deleted = { messages: 0, pendingActions: 0, sessions: 0, conversations: 0 };
-    try {
-      const { error: msgErr, count: msgCount } = await supabase
-        .from('messages')
-        .delete({ count: 'exact' })
-        .lt('created_at', cutoff);
-      if (!msgErr) deleted.messages = msgCount || 0;
-      else console.warn('[ttl-prune] messages:', msgErr.message);
-    } catch (err) {
-      console.warn('[ttl-prune] messages:', err.message);
-    }
-    try {
-      const { error, count } = await supabase
-        .from('pending_actions')
-        .delete({ count: 'exact' })
-        .lt('created_at', cutoff);
-      if (!error) deleted.pendingActions = count || 0;
-      else console.warn('[ttl-prune] pending_actions:', error.message);
-    } catch (err) {
-      console.warn('[ttl-prune] pending_actions:', err.message);
-    }
-    try {
-      const { error, count } = await supabase
-        .from('conversation_sessions')
-        .delete({ count: 'exact' })
-        .lt('last_activity_at', cutoff);
-      if (!error) deleted.sessions = count || 0;
-      else console.warn('[ttl-prune] conversation_sessions:', error.message);
-    } catch (err) {
-      console.warn('[ttl-prune] conversation_sessions:', err.message);
-    }
-    try {
-      const { error, count } = await supabase
-        .from('conversations')
-        .delete({ count: 'exact' })
-        .lt('last_message_at', cutoff);
-      if (!error) deleted.conversations = count || 0;
-      else console.warn('[ttl-prune] conversations:', error.message);
-    } catch (err) {
-      console.warn('[ttl-prune] conversations:', err.message);
-    }
-    return { skipped: false, cutoff, ttlMs: realDataTtlMs, deleted };
-  }
-
-  // Best-effort prune before serving real data; never blocks the response.
-  function pruneInBackground() {
-    pruneExpiredRealData().catch((err) => {
-      console.warn('[ttl-prune] background:', err.message);
-    });
-  }
 
   // Merchant assistant reply: Muse Spark chat model first when
   // META_MODEL_API_KEY is configured, rule-based reply as the fallback
@@ -778,10 +691,7 @@ function createApp(env = process.env) {
   });
 
   // 8. GET /api/chat/messages -> Fetch AI assistant conversation & chat history from Supabase
-  // Only real messages newer than the 10-minute TTL are returned; the
-  // system auto-deletes older rows in the background.
   app.get('/api/chat/messages', async (req, res) => {
-    pruneInBackground();
     try {
       if (!supabase) {
         return res.json({
@@ -859,12 +769,10 @@ function createApp(env = process.env) {
         });
       }
 
-      const cutoff = getRealDataCutoffIso(Date.now(), realDataTtlMs);
       const { data: dbMessages, error: msgErr } = await supabase
         .from('messages')
         .select('id, sender, text, created_at, is_from_customer')
         .eq('conversation_id', conv.id)
-        .gte('created_at', cutoff)
         .order('created_at', { ascending: true });
 
       if (msgErr) throw msgErr;
@@ -1057,9 +965,7 @@ function createApp(env = process.env) {
   });
 
   // 10. GET /api/pages/:pageId/conversations -> List customer conversations from Supabase
-  // Only real conversations newer than the 10-minute TTL are returned.
   app.get('/api/pages/:pageId/conversations', async (req, res) => {
-    pruneInBackground();
     const { pageId } = req.params;
     try {
       if (!supabase) {
@@ -1076,7 +982,6 @@ function createApp(env = process.env) {
         return res.status(404).json({ error: 'Page not found' });
       }
 
-      const cutoff = getRealDataCutoffIso(Date.now(), realDataTtlMs);
       const { data: convs, error } = await supabase
         .from('conversations')
         .select(`
@@ -1088,7 +993,6 @@ function createApp(env = process.env) {
         `)
         .eq('page_id', page.id)
         .neq('customer_psid', 'mume_assistant')
-        .gte('last_message_at', cutoff)
         .order('last_message_at', { ascending: false });
 
       if (error) throw error;
@@ -1101,7 +1005,6 @@ function createApp(env = process.env) {
           .from('messages')
           .select('id, conversation_id, sender, text, is_from_customer, created_at')
           .in('conversation_id', ids)
-          .gte('created_at', cutoff)
           .order('created_at', { ascending: false });
 
         for (const m of msgs || []) {
@@ -1128,21 +1031,17 @@ function createApp(env = process.env) {
   });
 
   // 10b. GET /api/conversations/:conversationId/messages -> List stored messages for a conversation via service_role
-  // Only real messages newer than the 10-minute TTL are returned.
   app.get('/api/conversations/:conversationId/messages', async (req, res) => {
-    pruneInBackground();
     const { conversationId } = req.params;
     try {
       if (!supabase) {
         return res.json({ conversationId, messages: [] });
       }
 
-      const cutoff = getRealDataCutoffIso(Date.now(), realDataTtlMs);
       const { data: msgs, error } = await supabase
         .from('messages')
         .select('id, conversation_id, fb_message_id, sender, text, is_from_customer, created_at')
         .eq('conversation_id', conversationId)
-        .gte('created_at', cutoff)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
@@ -1154,9 +1053,7 @@ function createApp(env = process.env) {
   });
 
   // 11. GET /api/pages/:pageId/pending-actions -> List pending customer reply approval cards
-  // Only real pending actions newer than the 10-minute TTL are returned.
   app.get('/api/pages/:pageId/pending-actions', async (req, res) => {
-    pruneInBackground();
     const { pageId } = req.params;
     try {
       if (!supabase) return res.json({ pendingActions: [] });
@@ -1183,7 +1080,6 @@ function createApp(env = process.env) {
         return res.json({ pendingActions: [] });
       }
 
-      const cutoff = getRealDataCutoffIso(Date.now(), realDataTtlMs);
       const { data: actions, error } = await supabase
         .from('pending_actions')
         .select(`
@@ -1197,7 +1093,6 @@ function createApp(env = process.env) {
         `)
         .in('conversation_id', convIds)
         .eq('status', 'waiting_approval')
-        .gte('created_at', cutoff)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -1319,37 +1214,7 @@ function createApp(env = process.env) {
     }
   });
 
-  // 13. POST /api/maintenance/prune-expired -> System auto-delete trigger.
-  // Deletes real API rows older than the 10-minute TTL (messages,
-  // pending_actions, conversation_sessions, conversations). Dummy content
-  // is frontend-only and never stored, so it is never affected. Persistent
-  // tables (pages, users, products) are never pruned.
-  app.post('/api/maintenance/prune-expired', async (_req, res) => {
-    try {
-      const result = await pruneExpiredRealData();
-      res.json({ status: 'ok', ttlMs: realDataTtlMs, ...result });
-    } catch (err) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  app.get('/api/maintenance/prune-expired', async (_req, res) => {
-    try {
-      const result = await pruneExpiredRealData();
-      res.json({ status: 'ok', ttlMs: realDataTtlMs, ...result });
-    } catch (err) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
   return app;
 }
 
-module.exports = {
-  createApp,
-  escapeHtml,
-  REAL_DATA_TTL_MS_DEFAULT,
-  getRealDataTtlMs,
-  getRealDataCutoffIso,
-  isRealRowFresh,
-};
+module.exports = { createApp, escapeHtml };

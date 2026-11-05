@@ -1,14 +1,7 @@
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
-const {
-  createApp,
-  escapeHtml,
-  REAL_DATA_TTL_MS_DEFAULT,
-  getRealDataTtlMs,
-  getRealDataCutoffIso,
-  isRealRowFresh,
-} = require('../src/app');
+const { createApp, escapeHtml } = require('../src/app');
 const { encryptToken, decryptToken, verifyMetaSignature } = require('../src/services/crypto');
 const { getMumeAiReply, buildSessionSummary, resolveTopic } = require('../src/services/ai');
 const {
@@ -373,42 +366,5 @@ test('voice: non-WAV without a converter fails with an actionable error, never a
     transcribeMuseAudio({ audio: Buffer.alloc(5000, 1), env }),
     /ffmpeg.*not installed/i
   );
-});
-
-test('ttl: real API data expires after 10 minutes by default', () => {
-  assert.equal(REAL_DATA_TTL_MS_DEFAULT, 10 * 60 * 1000);
-  assert.equal(getRealDataTtlMs({}), 10 * 60 * 1000);
-  assert.equal(getRealDataTtlMs({ REAL_DATA_TTL_MINUTES: '10' }), 10 * 60 * 1000);
-  const now = Date.now();
-  const nineMinAgo = new Date(now - 9 * 60 * 1000).toISOString();
-  const elevenMinAgo = new Date(now - 11 * 60 * 1000).toISOString();
-  assert.equal(isRealRowFresh(nineMinAgo, now), true);
-  assert.equal(isRealRowFresh(elevenMinAgo, now), false);
-  assert.equal(isRealRowFresh(new Date(now).toISOString(), now), true);
-  // Missing/invalid timestamps never block reads (treated as fresh).
-  assert.equal(isRealRowFresh(null, now), true);
-  assert.equal(isRealRowFresh('not-a-date', now), true);
-  const cutoff = getRealDataCutoffIso(now);
-  assert.ok(Date.now() - new Date(cutoff).getTime() >= 10 * 60 * 1000 - 1000);
-});
-
-test('ttl: maintenance prune endpoint runs the system auto-delete', async () => {
-  const res = await fetch(`${base}/api/maintenance/prune-expired`, { method: 'POST' });
-  assert.equal(res.status, 200);
-  const json = await res.json();
-  assert.equal(json.status, 'ok');
-  assert.equal(json.ttlMs, 10 * 60 * 1000);
-});
-
-test('ttl: chat history endpoint only serves fresh real data', async () => {
-  const res = await fetch(`${base}/api/chat/messages`);
-  assert.equal(res.status, 200);
-  const data = await res.json();
-  assert.ok(Array.isArray(data.messages));
-  const now = Date.now();
-  for (const m of data.messages) {
-    if (!m.created_at) continue;
-    assert.ok(now - new Date(m.created_at).getTime() <= 10 * 60 * 1000 + 60 * 1000);
-  }
 });
 
