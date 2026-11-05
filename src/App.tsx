@@ -62,28 +62,17 @@ interface ChatMessage {
 
 function getMumeAiReply(query: string): string {
   const q = query.toLowerCase().trim();
-  if (q.includes('apple') || q.includes('mansanas')) {
-    return 'Red apples are $2.50 per kilo. In stock with 45 kg ready for delivery. Maria A. asked about this earlier!';
+  if (q.includes('hi') || q.includes('hello') || q.includes('hey') || q.includes('mume') || q.includes('kumusta')) {
+    return "Hello! I'm Mume, your store assistant. Ask me about your catalog, customer inquiries, or tell me what to draft!";
   }
-  if (q.includes('mango') || q.includes('mangga')) {
-    return 'Carabao mangoes are priced at $4.00 per kilo. We have 30 kg fresh Guimaras harvest in stock.';
+  if (
+    q.includes('price') || q.includes('catalog') || q.includes('inventory') || q.includes('stock') ||
+    q.includes('order') || q.includes('customer') || q.includes('inquiry') || q.includes('message') ||
+    q.includes('magkano') || q.includes('meron') || q.includes('salamat') || q.includes('po')
+  ) {
+    return 'Backend is reconnecting. Your catalog and customer inquiries stay synced — ask again in a moment for live answers.';
   }
-  if (q.includes('banana') || q.includes('saging')) {
-    return 'Lakatan bananas are $1.80 per kilo. Notice: Stock is currently low (only 8 kg remaining).';
-  }
-  if (q.includes('order') || q.includes('maria') || q.includes('customer') || q.includes('inquiry')) {
-    return "Maria A. wants to buy Red apples ($2.50). You can approve the pre-drafted reply with one tap on your Home screen!";
-  }
-  if (q.includes('price') || q.includes('catalog') || q.includes('inventory') || q.includes('stock')) {
-    return 'Your catalog has 3 items: Red apples ($2.50/kg - In stock), Carabao mango ($4.00/kg - In stock), and Lakatan banana ($1.80/kg - Low stock).';
-  }
-  if (q.includes('magkano') || q.includes('kumusta') || q.includes('meron') || q.includes('salamat') || q.includes('po')) {
-    return 'Hello! Your Facebook Page is synced. Reply ready for Maria A. regarding red apples ($2.50 / kg). Let me know if you want to make changes!';
-  }
-  if (q.includes('hi') || q.includes('hello') || q.includes('hey') || q.includes('mume')) {
-    return "Hello! I'm Mume, your Page AI assistant. Ask me about your customer messages, fruit inventory, or tell me what to draft!";
-  }
-  return "Got it! I checked your store and Page inquiries. Maria A.'s inquiry for $2.50/kg apples is waiting for approval, and your 3 catalog items are synced. How else can I assist?";
+  return "Got it! I'm reconnecting to your store data. Ask about your catalog or customer inquiries, and I'll pull the live details.";
 }
 
 function VoiceWave() {

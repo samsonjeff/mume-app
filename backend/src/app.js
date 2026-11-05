@@ -10,7 +10,7 @@ const {
   getPageMessages,
   sendPageReply,
 } = require('./services/facebook');
-const { getMumeAiReply, buildSessionSummary, detectTopic, isApprovalConfirmation, asksAboutInquiries, buildPendingStatusReply, buildConfirmationSentReply } = require('./services/ai');
+const { getMumeAiReply, buildSessionSummary, detectTopic, isApprovalConfirmation, asksAboutInquiries, buildPendingStatusReply, buildConfirmationSentReply, matchCatalogItem, buildCatalogContext, buildAssistantSystemPrompt, formatMoney } = require('./services/ai');
 const { isMuseConfigured, getMuseChatReply, transcribeMuseAudio, stripDataUrlPrefix } = require('./services/muse');
 
 /**
@@ -133,18 +133,48 @@ function createApp(env = process.env) {
 
   const supabase = getSupabaseClient(env);
 
+  // Page record + catalog lookup. Products carry the business identity:
+  // whatever the merchant sells, Muse grounds replies in these rows.
+  async function getPageRecord(pageId) {
+    if (!pageId || !supabase) return null;
+    try {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pageId);
+      const query = isUuid
+        ? supabase.from('pages').select('id,page_name').eq('id', pageId)
+        : supabase.from('pages').select('id,page_name').eq('fb_page_id', pageId);
+      const { data } = await query.maybeSingle();
+      return data || null;
+    } catch {
+      return null;
+    }
+  }
+
+  async function getPageCatalog(page) {
+    if (!page || !supabase) return [];
+    try {
+      const { data } = await supabase
+        .from('products')
+        .select('id,name,price,unit')
+        .eq('page_id', page.id)
+        .order('name');
+      return data || [];
+    } catch {
+      return [];
+    }
+  }
+
   // Merchant assistant reply: Muse Spark chat model first when
   // META_MODEL_API_KEY is configured, rule-based reply as the fallback
-  // so chat keeps working offline or when the model call fails.
-  const MUME_SYSTEM_PROMPT = [
-    'You are Mume, the AI store assistant inside a fruit-store merchant app.',
-    'You answer the merchant (never the end customer) in concise, friendly English with some Tagalog.',
-    'Catalog: Red apples $2.50/kg (In stock), Carabao mango $4.00/kg (In stock), Lakatan banana $1.80/kg (Low stock).',
-    'Customer price/stock inquiries arrive as Messenger threads with an AI draft awaiting the merchant approval on the Home tab.',
-    'Nothing is ever sent to customers without the merchant explicit approval.',
-  ].join(' ');
-
-  async function resolveAssistantReply(text, history) {
+  // so chat keeps working offline or when the model call fails. Both
+  // paths receive the page catalog, so Muse adopts the merchant's
+  // actual business instead of answering from demo inventory.
+  async function resolveAssistantReply(text, history, opts) {
+    const o = opts || {};
+    const catalog = Array.isArray(o.catalog) ? o.catalog : [];
+    const system = buildAssistantSystemPrompt({
+      storeName: o.storeName,
+      catalogContext: buildCatalogContext(catalog),
+    });
     if (isMuseConfigured(env)) {
       try {
         const messages = (Array.isArray(history) ? history : [])
@@ -155,12 +185,12 @@ function createApp(env = process.env) {
             content: String(m.text),
           }));
         messages.push({ role: 'user', content: String(text) });
-        return await getMuseChatReply({ system: MUME_SYSTEM_PROMPT, messages, env });
+        return await getMuseChatReply({ system, messages, env });
       } catch (err) {
         console.warn('[muse-chat] Falling back to rule-based reply:', err.message);
       }
     }
-    return getMumeAiReply(text, { history });
+    return getMumeAiReply(text, { history, catalog });
   }
 
   // Helper for webhook verification
@@ -242,7 +272,7 @@ function createApp(env = process.env) {
                 // Find linked page
                 const { data: page } = await supabase
                   .from('pages')
-                  .select('id')
+                  .select('id,page_name')
                   .eq('fb_page_id', recipientId)
                   .single();
 
@@ -270,27 +300,39 @@ function createApp(env = process.env) {
                       is_from_customer: true,
                     });
 
-                    // Detect price or stock inquiries to generate a human-in-the-loop pending approval card
+                    // Draft the reply from the store's own catalog so Muse
+                    // adopts any business; the merchant still approves first.
+                    const { data: catalogProducts } = await supabase
+                      .from('products')
+                      .select('id,name,price,unit')
+                      .eq('page_id', page.id);
+                    const matchedItem = matchCatalogItem(messageText, catalogProducts || []);
                     const lower = messageText.toLowerCase();
                     const isPriceInquiry =
+                      !!matchedItem ||
                       lower.includes('magkano') ||
                       lower.includes('price') ||
                       lower.includes('how much') ||
+                      lower.includes('order') ||
+                      lower.includes('buy') ||
+                      lower.includes('bili') ||
                       lower.includes('apple') ||
                       lower.includes('mango') ||
+                      lower.includes('manga') ||
                       lower.includes('banana') ||
+                      lower.includes('saging') ||
                       lower.includes('available');
 
                     if (isPriceInquiry) {
-                      let draft = 'Red apples are $2.50 per kg. We have fresh stock ready for delivery!';
-                      let suggestedPrice = 2.5;
-
-                      if (lower.includes('mango') || lower.includes('manga')) {
-                        draft = 'Carabao mangoes are $4.00 per kg (In stock). Would you like to reserve a basket?';
-                        suggestedPrice = 4.0;
-                      } else if (lower.includes('banana') || lower.includes('saging')) {
-                        draft = 'Lakatan bananas are $1.80 per kg (Low stock - few bunches remaining).';
-                        suggestedPrice = 1.8;
+                      let draft;
+                      let suggestedPrice = null;
+                      if (matchedItem) {
+                        const unit = matchedItem.unit || 'piece';
+                        draft = matchedItem.name + ' are ' + formatMoney(matchedItem.price) + ' per ' + unit + ". Let us know how much you'd like!";
+                        const num = Number(matchedItem.price);
+                        suggestedPrice = Number.isFinite(num) ? num : null;
+                      } else {
+                        draft = 'Thanks for messaging ' + (page.page_name || 'us') + "! We'll confirm price and availability for you shortly.";
                       }
 
                       await supabase.from('pending_actions').insert({
@@ -303,7 +345,7 @@ function createApp(env = process.env) {
 
                     // Session memory: AI thread reference for the customer's next message
                     try {
-                      const topic = detectTopic(messageText);
+                      const topic = matchedItem ? matchedItem.name : detectTopic(messageText);
                       await supabase.from('conversation_sessions').upsert(
                         {
                           conversation_id: conv.id,
@@ -940,7 +982,14 @@ function createApp(env = process.env) {
       } catch (histErr) {
         console.warn('[chat-history] Warning:', histErr.message);
       }
-      const contextReply = confirmedReply || (await resolveAssistantReply(trimmed, history));
+      const chatPage = await getPageRecord(pageId);
+      const chatCatalog = await getPageCatalog(chatPage);
+      const contextReply =
+        confirmedReply ||
+        (await resolveAssistantReply(trimmed, history, {
+          catalog: chatCatalog,
+          storeName: chatPage ? chatPage.page_name : undefined,
+        }));
 
       // Insert User Message into Supabase
       const { data: userMsg, error: userMsgErr } = await supabase
@@ -980,7 +1029,7 @@ function createApp(env = process.env) {
         await supabase.from('conversation_sessions').upsert(
           {
             conversation_id: conv.id,
-            summary: buildSessionSummary(sessionHistory),
+            summary: buildSessionSummary(sessionHistory, chatCatalog),
             last_customer_topic: detectTopic(trimmed) || 'general',
             last_activity_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),

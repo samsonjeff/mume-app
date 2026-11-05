@@ -55,10 +55,16 @@ function resolveTopic(query, history) {
  * public.conversation_sessions so the next reply — even after a restart —
  * has thread reference without re-reading the whole history.
  */
-function buildSessionSummary(history) {
+function buildSessionSummary(history, catalog) {
   const rows = Array.isArray(history) ? history : [];
+  const items = Array.isArray(catalog) ? catalog.filter((p) => p && p.name) : [];
   const topics = [];
   for (const m of rows) {
+    if (items.length > 0) {
+      const match = matchCatalogItem(m && m.text, items);
+      if (match && match.name && !topics.includes(match.name)) topics.push(match.name);
+      continue;
+    }
     const t = detectTopic(m && m.text);
     if (t && !topics.includes(t)) topics.push(TOPICS[t].label);
   }
@@ -77,6 +83,16 @@ function getMumeAiReply(query, context) {
   const history = Array.isArray(ctx.history) ? ctx.history : [];
   const customerName = ctx.customerName || '';
   const q = (query || '').toLowerCase().trim();
+
+  const catalog = Array.isArray(ctx.catalog) ? ctx.catalog.filter((p) => p && p.name) : [];
+  if (catalog.length > 0) {
+    return getCatalogAwareReply(query, {
+      history,
+      customerName,
+      catalog,
+      pendingActions: ctx.pendingActions,
+    });
+  }
 
   if (q.includes('apple') || q.includes('mansanas')) {
     return 'Red apples are currently $2.50 / kg (In stock). Maria A. asked about them earlier today on Messenger.';
@@ -167,4 +183,140 @@ function buildConfirmationSentReply(sent) {
   return `Sent! I delivered the reply to ${who}.`;
 }
 
-module.exports = { getMumeAiReply, buildSessionSummary, resolveTopic, detectTopic, isApprovalConfirmation, asksAboutInquiries, buildPendingStatusReply, buildConfirmationSentReply };
+/**
+ * Catalog-adaptive engine: lets Muse act as the merchant's personal
+ * assistant for ANY business by grounding replies in the store's own
+ * products instead of hardcoded demo inventory. Pure functions so they
+ * are unit-testable without a server or database.
+ */
+
+function catalogKeywords(name) {
+  return String(name || '')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length >= 4);
+}
+
+function matchCatalogItem(text, catalog) {
+  const q = String(text || '').toLowerCase();
+  const items = (Array.isArray(catalog) ? catalog : []).filter((i) => i && i.name);
+  let best = null;
+  let bestScore = 0;
+  for (const item of items) {
+    let score = 0;
+    for (const k of catalogKeywords(item.name)) {
+      if (q.includes(k)) score += 2;
+    }
+    const lname = String(item.name).toLowerCase();
+    for (const w of q.split(/[^a-z0-9]+/).filter((x) => x.length >= 4)) {
+      if (lname.includes(w)) score += 1;
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      best = item;
+    }
+  }
+  return bestScore > 0 ? best : null;
+}
+
+function resolveCatalogItem(query, history, catalog) {
+  const direct = matchCatalogItem(query, catalog);
+  if (direct) return direct;
+  for (let i = (history || []).length - 1; i >= 0; i--) {
+    const h = history[i];
+    const m = matchCatalogItem(h && h.text, catalog);
+    if (m) return m;
+  }
+  return null;
+}
+
+function formatMoney(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return String(value ?? '');
+  return '$' + num.toFixed(2);
+}
+
+function formatCatalogLine(item) {
+  const unit = item.unit || 'piece';
+  return item.name + ' \u2014 ' + formatMoney(item.price) + ' per ' + unit + '.';
+}
+
+function listCatalogReply(catalog) {
+  const items = (Array.isArray(catalog) ? catalog : []).filter((p) => p && p.name);
+  if (items.length === 0) {
+    return 'No catalog items are registered yet. Add your products and I\u2019ll answer price questions from them.';
+  }
+  const shown = items.slice(0, 10).map((p) => formatCatalogLine(p).replace(/\.$/, ''));
+  const more = items.length > 10 ? ' and ' + (items.length - 10) + ' more.' : '.';
+  return 'Your catalog has ' + items.length + ' item' + (items.length === 1 ? ': ' : 's: ') + shown.join('; ') + more;
+}
+
+function wordsInclude(q, words) {
+  const set = new Set(String(q || '').toLowerCase().split(/[^a-z]+/).filter(Boolean));
+  return words.some((w) => set.has(w));
+}
+
+function getCatalogAwareReply(query, opts) {
+  const o = opts || {};
+  const history = Array.isArray(o.history) ? o.history : [];
+  const catalog = (o.catalog || []).filter((p) => p && p.name);
+  const customerName = o.customerName || '';
+  const q = String(query || '').toLowerCase();
+  const item = resolveCatalogItem(query, history, catalog);
+  const wantsCatalog = /(price|pricing|cost|how much|magkano|catalog|menu|list|inventory|stock|available|avail|order|buy|bili|product|item|tinda|paninda|meron)/.test(q);
+  if (wantsCatalog) {
+    if (item) return formatCatalogLine(item);
+    return listCatalogReply(catalog);
+  }
+  if (item) return formatCatalogLine(item);
+  if (/(approval|approve|draft)/.test(q)) {
+    if (Array.isArray(o.pendingActions)) return buildPendingStatusReply(o.pendingActions);
+    return 'Your approval cards live in the Home tab \u2014 approve there and I\u2019ll dispatch right away.';
+  }
+  if (/(inquir|inbox|pending|waiting|approval|customer|message)/.test(q)) {
+    if (Array.isArray(o.pendingActions)) return buildPendingStatusReply(o.pendingActions);
+    return 'You have no customer inquiries waiting right now.';
+  }
+  if (wordsInclude(q, ['hi', 'hello', 'hey', 'mume', 'kumusta'])) {
+    const who = customerName ? ' ' + customerName : '';
+    return 'Hello' + who + "! I'm Muse, your store assistant. Ask me about your catalog, customer inquiries, or tell me what to draft!";
+  }
+  if (item) return formatCatalogLine(item);
+  if (Array.isArray(o.pendingActions) && o.pendingActions.length > 0) {
+    return buildPendingStatusReply(o.pendingActions);
+  }
+  return 'Got it! I can look up any of your ' + catalog.length + ' catalog items, summarize customer inquiries, or draft a reply for approval. What do you need?';
+}
+
+/**
+ * The Muse role: a personal AI assistant that adopts whatever business
+ * the merchant runs. The catalog is injected per request, so the same
+ * role serves a fruit stall, a rice dealer, or any other store without
+ * code changes. With no catalog it says so honestly instead of
+ * inventing products or prices.
+ */
+function buildAssistantSystemPrompt(opts) {
+  const o = opts || {};
+  const lines = [
+    'You are Muse, the personal AI assistant of the merchant who runs this store.',
+    'You adapt to whatever business this store is \u2014 food, retail, services, or anything else.',
+    'Ground every product answer in the store catalog below. Never invent products, prices, or stock levels.',
+    'You help the merchant: answer price and availability questions, summarize customer inquiries, and draft customer replies.',
+    "Nothing is ever sent to a customer without the merchant's explicit approval.",
+    "Be concise and friendly. Mirror the merchant's language (English with some Tagalog is fine).",
+  ];
+  if (o.storeName) lines.push('Store: ' + o.storeName + '.');
+  if (o.catalogContext) lines.push(o.catalogContext);
+  else lines.push('No catalog items are registered yet; say so honestly instead of inventing products or prices.');
+  return lines.join(' ');
+}
+
+function buildCatalogContext(products) {
+  const items = (Array.isArray(products) ? products : []).filter((p) => p && p.name);
+  if (items.length === 0) return '';
+  const lines = items.slice(0, 20).map((p) => '- ' + formatCatalogLine(p));
+  const more = items.length > 20 ? '\n(+' + (items.length - 20) + ' more items)' : '';
+  return 'Store catalog (' + items.length + ' item' + (items.length === 1 ? '' : 's') + '):\n' + lines.join('\n') + more;
+}
+
+module.exports = { getMumeAiReply, buildSessionSummary, resolveTopic, detectTopic, isApprovalConfirmation, asksAboutInquiries, buildPendingStatusReply, buildConfirmationSentReply, matchCatalogItem, resolveCatalogItem, formatMoney, formatCatalogLine, buildCatalogContext, buildAssistantSystemPrompt, listCatalogReply };
