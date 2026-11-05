@@ -96,17 +96,28 @@ function VoiceWave() {
   );
 }
 
+export interface PendingActionData {
+  id?: string;
+  customerName?: string;
+  customerMessage?: string;
+  draftReply?: string;
+}
+
+const MOCK_DRAFT_REPLY = 'Hi! Our red apples are $2.50 / kg. Fresh delivery today.';
+
 function PendingAction({
   onApproved,
   isApproved = false,
   onEditingChange,
+  action,
 }: {
   onApproved: (sentText: string) => void;
   isApproved?: boolean;
   onEditingChange?: (isEditing: boolean) => void;
+  action?: PendingActionData | null;
 }) {
   const [editing, setEditing] = useState(false);
-  const [draftReply, setDraftReply] = useState('Hi! Our red apples are $2.50 / kg. Fresh delivery today.');
+  const [draftReply, setDraftReply] = useState(action?.draftReply || MOCK_DRAFT_REPLY);
   const cardRef = useRef<HTMLDivElement>(null);
 
   const toggleEditing = () => {
@@ -138,7 +149,7 @@ function PendingAction({
         </div>
         <h3 className="empty-card-approved-title">All Caught Up!</h3>
         <p className="empty-card-approved-subtitle">
-          Reply confirmed and dispatched to Maria via Meta Graph API.
+          Reply confirmed and dispatched to {action?.customerName || 'Maria'} via Meta Graph API.
         </p>
       </div>
     );
@@ -152,17 +163,17 @@ function PendingAction({
     >
       <div className="customer-row">
         <div className="avatar" aria-hidden="true">
-          MA
+          {action?.customerName ? initialsOf(action.customerName) : 'MA'}
         </div>
         <div className="flex-1">
-          <p className="customer-name">Maria A.</p>
+          <p className="customer-name">{action?.customerName || 'Maria A.'}</p>
           <p className="customer-context">Messenger · Price inquiry</p>
         </div>
         <span className="time-label">now</span>
       </div>
 
       <div className="message-bubble">
-        <p>“Hi, how much are the red apples?”</p>
+        <p>{action?.customerMessage ? `\u201C${action.customerMessage}\u201D` : '“Hi, how much are the red apples?”'}</p>
       </div>
 
       {/* Draft block: Entire text is editable */}
@@ -247,6 +258,7 @@ function HomeScreen({
   isApproved = false,
   showApprovedCard = false,
   onEditingChange,
+  pendingAction,
 }: {
   userName: string;
   isLoggedIn: boolean;
@@ -264,6 +276,7 @@ function HomeScreen({
   isApproved?: boolean;
   showApprovedCard?: boolean;
   onEditingChange?: (isEditing: boolean) => void;
+  pendingAction?: PendingActionData | null;
 }) {
   const localChatScrollRef = useRef<HTMLDivElement>(null);
   const activeChatScrollRef = chatScrollRef || localChatScrollRef;
@@ -337,9 +350,11 @@ function HomeScreen({
                 <h2>Ready for you</h2>
               </div>
               <PendingAction
+                key={pendingAction?.id || 'mock-action'}
                 onApproved={onApproved}
                 isApproved={isApproved}
                 onEditingChange={onEditingChange}
+                action={pendingAction}
               />
             </>
           )}
@@ -1034,6 +1049,7 @@ export default function App() {
   const [realInboxConvos, setRealInboxConvos] = useState<
     { id: string; initials: string; name: string; message: string; time: string; unread: boolean; psid?: string }[]
   >([]);
+  const [realPendingActions, setRealPendingActions] = useState<any[]>([]);
   const [linkedPageId, setLinkedPageId] = useState<string | null>(null);
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const [threadMsgs, setThreadMsgs] = useState<Record<string, ThreadMsg[]>>(THREAD_SEED);
@@ -1169,6 +1185,12 @@ export default function App() {
         const linkedPages = await api.getLinkedPages();
         const pageId = linkedPages[0]?.id;
         if (isMounted && pageId) setLinkedPageId(pageId);
+        try {
+          const actions = await api.getPendingActions(pageId);
+          if (isMounted && Array.isArray(actions)) setRealPendingActions(actions);
+        } catch {
+          // No live approval cards; the card falls back to demo content.
+        }
         const fbPageIdStr = String(linkedPages[0]?.fb_page_id || '');
         if (isMounted && pageId) {
           const convs = await api.getPageConversations(pageId);
@@ -1634,12 +1656,28 @@ export default function App() {
 
   const [isApproved, setIsApproved] = useState(false);
   const [showApprovedCard, setShowApprovedCard] = useState(false);
-  const handleApproved = () => {
-    setIsApproved(true);
-    setShowApprovedCard(true);
-    setSentLabel('Reply sent to Maria');
+  const handleApproved = async (sentText: string) => {
+    const action = realPendingActions[0];
+    const targetName = action?.customer_name || 'Maria';
+    let remaining = realPendingActions;
+    if (action?.id) {
+      try {
+        await api.approvePendingAction(action.id, sentText);
+        remaining = realPendingActions.filter((a) => a.id !== action.id);
+        setRealPendingActions(remaining);
+      } catch (approveErr) {
+        console.warn('Approve via API failed, confirming locally:', approveErr);
+      }
+    } else {
+      remaining = [];
+    }
+    if (remaining.length === 0) {
+      setIsApproved(true);
+      setShowApprovedCard(true);
+      window.setTimeout(() => setShowApprovedCard(false), 2000);
+    }
+    setSentLabel(`Reply sent to ${targetName}`);
     setSent(true);
-    window.setTimeout(() => setShowApprovedCard(false), 2000);
     window.setTimeout(() => setSent(false), 3500);
   };
 
@@ -1814,6 +1852,16 @@ export default function App() {
               isApproved={isApproved}
               showApprovedCard={showApprovedCard}
               onEditingChange={setIsEditingActionDraft}
+              pendingAction={
+                realPendingActions[0]
+                  ? {
+                      id: realPendingActions[0].id,
+                      customerName: realPendingActions[0].customer_name || 'Customer',
+                      customerMessage: realPendingActions[0].customer_message || 'New inquiry',
+                      draftReply: realPendingActions[0].draft_reply || '',
+                    }
+                  : null
+              }
             />
           )}
           {activeTab === 'inbox' && selectedThread && (

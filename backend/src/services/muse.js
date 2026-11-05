@@ -244,11 +244,33 @@ async function transcribeMuseAudio({ audio, env = process.env }) {
   );
   form.append('audio', new Blob([wav], { type: 'audio/wav' }), 'voice.wav');
 
-  const res = await fetch(`${baseUrl}/asr/transcribe?sessionId=${encodeURIComponent(sessionId)}`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}` },
-    body: form,
-  });
+  // The default fetch has no timeout: a blackholed connection to the
+  // transcription endpoint would hang the request forever. Bound it and
+  // retry once on network-level failure (transient blips), then report
+  // the underlying cause (DNS, refused, timeout, TLS) instead of a bare
+  // "fetch failed".
+  const transcribeUrl = `${baseUrl}/asr/transcribe?sessionId=${encodeURIComponent(sessionId)}`;
+  let res = null;
+  let fetchErr = null;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      res = await fetch(transcribeUrl, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}` },
+        body: form,
+        signal: AbortSignal.timeout(30000),
+      });
+      fetchErr = null;
+      break;
+    } catch (err) {
+      fetchErr = err;
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 1000));
+    }
+  }
+  if (!res) {
+    const cause = fetchErr && fetchErr.cause ? String(fetchErr.cause.message || fetchErr.cause) : '';
+    throw new Error(`Muse transcription unreachable (${fetchErr.message}${cause ? `: ${cause}` : ''})`);
+  }
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {

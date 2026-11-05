@@ -249,3 +249,31 @@ test('POST /api/voice/transcribe strips a data-URL prefix before decoding', asyn
   const json = await res.json();
   assert.match(json.error, /Invalid base64 audio/);
 });
+
+test('muse: transcribe retries once on network failure and reports cause', async () => {
+  const key = { META_MODEL_API_KEY: 'k' };
+  let calls = 0;
+  const netErr = new TypeError('fetch failed');
+  netErr.cause = new Error('getaddrinfo ENOTFOUND api.meta.ai');
+  global.fetch = async () => {
+    calls++;
+    if (calls === 1) throw netErr;
+    return jsonResponse({ transcript: 'hi' });
+  };
+  try {
+    const text = await transcribeMuseAudio({ audio: makeWav({}), env: key });
+    assert.equal(text, 'hi');
+    assert.equal(calls, 2);
+  } finally {
+    global.fetch = realFetch;
+  }
+
+  global.fetch = async () => { throw netErr; };
+  try {
+    await assert.rejects(
+      () => transcribeMuseAudio({ audio: makeWav({}), env: key }),
+      /Muse transcription unreachable \(fetch failed: getaddrinfo ENOTFOUND/);
+  } finally {
+    global.fetch = realFetch;
+  }
+});
