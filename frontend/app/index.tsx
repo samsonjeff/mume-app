@@ -169,6 +169,7 @@ export default function HomeScreen() {
   // 24 kHz mono 16-bit PCM WAV: exactly what the Muse Voice file endpoint accepts.
   const { stream: voiceStream } = useAudioStream({ sampleRate: 24000, channels: 1, encoding: 'int16' });
   const [voiceError, setVoiceError] = useState('');
+  const voiceRecordStartedAt = useRef(0);
   const [userName, setUserName] = useState<string>('Jefferson');
   const [isLoggedIn, setIsLoggedIn] = useState(true);
   const [pages, setPages] = useState<LinkedPage[]>([]);
@@ -881,6 +882,7 @@ export default function HomeScreen() {
         await voiceStream.start();
         await voiceStream.startFileRecordingAsync();
         Speech.stop();
+        voiceRecordStartedAt.current = Date.now();
         setVoiceState('listening');
       } catch (err: any) {
         console.warn('Voice record start failed:', err?.message || err);
@@ -890,6 +892,9 @@ export default function HomeScreen() {
     }
     try {
       setVoiceState('thinking');
+      if (Date.now() - voiceRecordStartedAt.current < 1000) {
+        throw new Error('That tap was too short — hold the mic and speak.');
+      }
       const file = await voiceStream.stopFileRecordingAsync();
       voiceStream.stop();
       if (file.sampleRate !== 16000 && file.sampleRate !== 24000) {

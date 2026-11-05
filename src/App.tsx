@@ -58,6 +58,23 @@ interface ChatMessage {
   sender: 'user' | 'mume';
   text: string;
   time: string;
+  createdAt?: string;
+}
+
+// Real API data auto-expires after 10 minutes by the system (backend
+// sweeper + Supabase function + API filters + the pruners below).
+// Dummy / sample content is frontend-only and is NEVER expired or saved:
+// DUMMY_CONVOS, INITIAL_PRODUCTS, and the welcome-1 greeting live only in
+// this bundle. Only real rows that came from the API (which carry
+// created_at / last_message_at timestamps) are pruned.
+const REAL_DATA_TTL_MS = 10 * 60 * 1000;
+const DUMMY_CHAT_IDS = new Set(['welcome-1']);
+
+function isRealRowFresh(timestampIso?: string | null, nowMs: number = Date.now()): boolean {
+  if (!timestampIso) return true;
+  const t = new Date(timestampIso).getTime();
+  if (!Number.isFinite(t)) return true;
+  return nowMs - t <= REAL_DATA_TTL_MS;
 }
 
 function getMumeAiReply(query: string): string {
@@ -433,6 +450,19 @@ function HomeScreen({
   );
 }
 
+export interface RealInboxConvo {
+  id: string;
+  initials: string;
+  name: string;
+  message: string;
+  time: string;
+  unread: boolean;
+  psid?: string;
+  last_message_at?: string | null;
+}
+
+// Dummy / sample inbox threads. Frontend-only: never saved to the database
+// and never auto-deleted by the 10-minute real-data expiry.
 const DUMMY_CONVOS = [
   { id: '1', initials: 'MA', name: 'Maria A.', message: 'Hi po, how much ang red apples?', time: 'now', unread: true },
   { id: '2', initials: 'JL', name: 'Jun L.', message: 'Available pa po ang mango?', time: '8m', unread: true },
@@ -463,9 +493,12 @@ function InboxScreen({
 }: {
   isLoggedIn: boolean;
   onLogin: () => void;
-  realConvos?: { id: string; initials: string; name: string; message: string; time: string; unread: boolean; psid?: string }[];
+  realConvos?: RealInboxConvo[];
 }) {
-  const allConvos = [...realConvos, ...DUMMY_CONVOS];
+  // Real API convos older than 10 minutes are dropped by the system; dummy
+  // convos are always kept.
+  const freshRealConvos = realConvos.filter((c) => isRealRowFresh(c.last_message_at));
+  const allConvos = [...freshRealConvos, ...DUMMY_CONVOS];
   const unreadTotal = allConvos.filter((c) => c.unread).length;
   return (
     <section className="panel-screen">
@@ -598,9 +631,7 @@ export default function App() {
   const [sent, setSent] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
-  const [realInboxConvos, setRealInboxConvos] = useState<
-    { id: string; initials: string; name: string; message: string; time: string; unread: boolean; psid?: string }[]
-  >([]);
+  const [realInboxConvos, setRealInboxConvos] = useState<RealInboxConvo[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
@@ -759,20 +790,26 @@ export default function App() {
               }
             }
             if (isMounted) {
+              // System auto-delete: keep only real API convos newer than 10
+              // minutes. Dummy convos are separate and never filtered here.
               setRealInboxConvos(
-                convs.map((c: any) => {
-                  const name = c.customer_name || 'Customer';
-                  const latest = latestByConv[c.id] || c.latest_message;
-                  return {
-                    id: c.id,
-                    name,
-                    initials: initialsOf(name),
-                    message: latest?.text || c.last_message_text || 'New conversation',
-                    time: timeAgo(latest?.created_at || c.last_message_at),
-                    unread: typeof c.unread === 'boolean' ? c.unread : !!latest?.is_from_customer,
-                    psid: c.customer_psid,
-                  };
-                })
+                convs
+                  .map((c: any) => {
+                    const name = c.customer_name || 'Customer';
+                    const latest = latestByConv[c.id] || c.latest_message;
+                    const lastAt = latest?.created_at || c.last_message_at || null;
+                    return {
+                      id: c.id,
+                      name,
+                      initials: initialsOf(name),
+                      message: latest?.text || c.last_message_text || 'New conversation',
+                      time: timeAgo(lastAt),
+                      unread: typeof c.unread === 'boolean' ? c.unread : !!latest?.is_from_customer,
+                      psid: c.customer_psid,
+                      last_message_at: lastAt,
+                    };
+                  })
+                  .filter((c: RealInboxConvo) => isRealRowFresh(c.last_message_at))
               );
             }
           }
@@ -785,7 +822,20 @@ export default function App() {
         const chatData = await api.getChatMessages();
         if (isMounted && chatData?.messages && chatData.messages.length > 0) {
           setActiveConversationId(chatData.conversationId);
-          setChatMessages(chatData.messages);
+          // System auto-delete: keep only real messages newer than 10
+          // minutes. The welcome-1 dummy greeting has no expiry.
+          const fresh = (chatData.messages as any[]).filter(
+            (m) => DUMMY_CHAT_IDS.has(m.id) || isRealRowFresh(m.created_at)
+          );
+          setChatMessages(
+            fresh.map((m: any) => ({
+              id: m.id,
+              sender: m.sender,
+              text: m.text,
+              time: m.time,
+              createdAt: m.created_at,
+            }))
+          );
           return;
         }
       } catch (apiErr) {
@@ -809,12 +859,16 @@ export default function App() {
             .order('created_at', { ascending: true });
 
           if (msgs && msgs.length > 0 && isMounted) {
+            // System auto-delete applies to the direct-Supabase fallback too:
+            // only real rows newer than 10 minutes are kept.
+            const freshMsgs = msgs.filter((m) => isRealRowFresh(m.created_at));
             setChatMessages(
-              msgs.map((m) => ({
+              freshMsgs.map((m) => ({
                 id: m.id,
                 sender: m.sender === 'mume' ? 'mume' : 'user',
                 text: m.text,
                 time: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                createdAt: m.created_at,
               }))
             );
           }
@@ -838,6 +892,9 @@ export default function App() {
 
           setChatMessages((prev) => {
             if (prev.some((m) => m.id === newMsg.id)) return prev;
+            // Drop real-time arrivals that are already older than the
+            // 10-minute TTL (clock skew); dummy ids always stay.
+            if (!DUMMY_CHAT_IDS.has(newMsg.id) && !isRealRowFresh(newMsg.created_at)) return prev;
             return [
               ...prev,
               {
@@ -845,6 +902,7 @@ export default function App() {
                 sender: newMsg.sender === 'mume' ? 'mume' : 'user',
                 text: newMsg.text,
                 time: new Date(newMsg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                createdAt: newMsg.created_at,
               },
             ];
           });
@@ -859,7 +917,25 @@ export default function App() {
     };
   }, [adjustConversationPosition]);
 
-  // Products / Catalog state
+  // System auto-delete ticker: every 30s drop real inbox convos and real
+  // chat messages older than 10 minutes. Dummy convos (DUMMY_CONVOS),
+  // dummy products (INITIAL_PRODUCTS), and the welcome-1 greeting are
+  // always kept and never saved to the database.
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setRealInboxConvos((prev) =>
+        prev.filter((c) => isRealRowFresh(c.last_message_at))
+      );
+      setChatMessages((prev) =>
+        prev.filter((m) => DUMMY_CHAT_IDS.has(m.id) || isRealRowFresh(m.createdAt))
+      );
+    }, 30000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  // Products / Catalog state — dummy catalog (INITIAL_PRODUCTS) is
+  // frontend-only sample data: never saved to the database and never
+  // auto-deleted by the 10-minute real-data expiry.
   const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -994,6 +1070,7 @@ export default function App() {
       sender: 'user',
       text: trimmed,
       time: 'Just now',
+      createdAt: new Date().toISOString(),
     };
 
     setChatMessages((prev) => [...prev, userMsg]);
@@ -1018,12 +1095,14 @@ export default function App() {
               sender: 'user',
               text: res.userMessage.text,
               time: 'Just now',
+              createdAt: res.userMessage.created_at || new Date().toISOString(),
             },
             {
               id: res.aiMessage.id,
               sender: 'mume',
               text: res.aiMessage.text,
               time: 'Just now',
+              createdAt: res.aiMessage.created_at || new Date().toISOString(),
             },
           ];
         });
@@ -1082,8 +1161,8 @@ export default function App() {
               const withoutTemp = prev.filter((m) => m.id !== tempUserId);
               return [
                 ...withoutTemp,
-                { id: uMsg.id, sender: 'user', text: uMsg.text, time: 'Just now' },
-                { id: aMsg.id, sender: 'mume', text: aMsg.text, time: 'Just now' },
+                { id: uMsg.id, sender: 'user', text: uMsg.text, time: 'Just now', createdAt: uMsg.created_at },
+                { id: aMsg.id, sender: 'mume', text: aMsg.text, time: 'Just now', createdAt: aMsg.created_at },
               ];
             });
             return;
@@ -1099,6 +1178,7 @@ export default function App() {
         sender: 'mume',
         text: reply,
         time: 'Just now',
+        createdAt: new Date().toISOString(),
       };
       setChatMessages((prev) => [...prev, aiMsg]);
     } finally {

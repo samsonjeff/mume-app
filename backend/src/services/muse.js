@@ -196,6 +196,9 @@ async function transcribeMuseAudio({ audio, env = process.env }) {
   if (bytes.length > MAX_AUDIO_BYTES) {
     throw new Error('Audio too large (max 8 MB)');
   }
+  if (bytes.length < 4096) {
+    throw new Error('Recording too short to transcribe — hold the mic longer');
+  }
   let wav = bytes;
   if (!readWavFormat(wav)) {
     wav = await transcodeToWavMono24k(bytes, env);
