@@ -44,6 +44,11 @@ test('muse: config defaults and env overrides', () => {
   assert.equal(c.chatModel, 'chat-x');
   assert.equal(c.sttModel, 'stt-x');
   assert.equal(isMuseConfigured({ META_MODEL_API_KEY: 'k' }), true);
+
+  assert.equal(
+    getMetaConfig({ META_MODEL_BASE_URL: 'https://api.dev.meta.ai/' }).baseUrl,
+    'https://api.meta.ai/v1'
+  );
 });
 
 test('muse: contentToText flattens shapes without throwing', () => {

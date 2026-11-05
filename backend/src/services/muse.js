@@ -17,9 +17,14 @@ const MAX_AUDIO_BYTES = 8 * 1024 * 1024;
 
 function getMetaConfig(env = process.env) {
   const apiKey = env.META_MODEL_API_KEY || env.MODEL_API_KEY || '';
-  const baseUrl = String(
+  const configuredBaseUrl = String(
     env.META_MODEL_BASE_URL || env.MODEL_API_BASE_URL || DEFAULT_BASE_URL
   ).replace(/\/+$/, '');
+  // `api.dev.meta.ai` was used by an early setup guide but no longer resolves.
+  // Keep old deployments working while preserving all other explicit overrides.
+  const baseUrl = /^https:\/\/api\.dev\.meta\.ai(?:\/v1)?$/i.test(configuredBaseUrl)
+    ? DEFAULT_BASE_URL
+    : configuredBaseUrl;
   return {
     apiKey,
     baseUrl,

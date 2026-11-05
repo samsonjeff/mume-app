@@ -201,7 +201,7 @@ Configure `backend/.env`:
 ```env
 # Meta Model API
 META_MODEL_API_KEY=your_meta_model_api_key
-META_MODEL_BASE_URL=https://api.dev.meta.ai
+META_MODEL_BASE_URL=https://api.meta.ai/v1
 
 # Supabase Postgres & Realtime (Server-side service_role)
 SUPABASE_URL=https://your-project.supabase.co
