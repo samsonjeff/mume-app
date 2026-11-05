@@ -169,9 +169,6 @@ export default function HomeScreen() {
   // 24 kHz mono 16-bit PCM WAV: exactly what the Muse Voice file endpoint accepts.
   const { stream: voiceStream } = useAudioStream({ sampleRate: 24000, channels: 1, encoding: 'int16' });
   const [voiceError, setVoiceError] = useState('');
-  // Spoken replies: Mume reads AI responses aloud via on-device TTS.
-  // Tap-to-talk input stays as-is; there is no always-on wake word.
-  const [voiceOutputOn, setVoiceOutputOn] = useState(true);
   const [userName, setUserName] = useState<string>('Jefferson');
   const [isLoggedIn, setIsLoggedIn] = useState(true);
   const [pages, setPages] = useState<LinkedPage[]>([]);
@@ -860,23 +857,6 @@ export default function HomeScreen() {
     loadRealInbox();
   };
 
-  // Reads a Mume reply aloud. Stops any in-progress speech first so
-  // rapid follow-ups never stack audio on top of each other.
-  const speakMumeReply = useCallback(
-    (text: string) => {
-      if (!voiceOutputOn) return;
-      const trimmed = text.trim();
-      if (!trimmed) return;
-      try {
-        Speech.stop();
-        Speech.speak(trimmed, { language: 'en-US', rate: 1.0 });
-      } catch (err) {
-        console.warn('Voice output failed:', err);
-      }
-    },
-    [voiceOutputOn]
-  );
-
   // Never leave speech running after the screen unmounts.
   useEffect(() => {
     return () => {
@@ -963,7 +943,6 @@ export default function HomeScreen() {
       // 1. Send via Backend API
       const res = await api.sendChatMessage(trimmed, pages[0]?.id);
       if (res?.aiMessage) {
-        speakMumeReply(res.aiMessage.text);
         setChatMessages((prev) => {
           const withoutTemp = prev.filter((m) => m.id !== tempUserId);
           return [
@@ -1033,7 +1012,6 @@ export default function HomeScreen() {
             .single();
 
           if (uMsg && aMsg) {
-            speakMumeReply(aMsg.text);
             setChatMessages((prev) => {
               const withoutTemp = prev.filter((m) => m.id !== tempUserId);
               return [
@@ -1056,7 +1034,6 @@ export default function HomeScreen() {
         text: replyText,
         time: 'Just now',
       };
-      speakMumeReply(replyText);
       setChatMessages((prev) => [...prev, aiMsg]);
     } finally {
       setIsAiThinking(false);
@@ -1621,7 +1598,19 @@ export default function HomeScreen() {
                             <Text style={styles.activeHighlightText}>Reading conversation</Text>
                           </View>
                         ) : (
-                          <Text style={styles.chatHeaderSubtitle}>Talk to AI</Text>
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel="Collapse chat card"
+                            accessibilityHint="Returns the chat card to its original size"
+                            onPress={() => {
+                              setShowApprovedCard(false);
+                              setIsApproved(false);
+                            }}
+                            style={styles.chatCollapseBtn}
+                            hitSlop={8}
+                          >
+                            <AppIcon name="chevron-down" size={20} color={THEME.colors.textMuted} strokeWidth={2.2} />
+                          </Pressable>
                         )}
                       </View>
 
@@ -2164,23 +2153,6 @@ export default function HomeScreen() {
               </View>
 
               <View style={styles.capsuleActionsRight}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={voiceOutputOn ? 'Mute Mume voice replies' : 'Unmute Mume voice replies'}
-                  accessibilityState={{ selected: voiceOutputOn }}
-                  onPress={() => {
-                    setVoiceOutputOn((v) => {
-                      if (v) Speech.stop();
-                      return !v;
-                    });
-                  }}
-                  style={styles.geminiVoiceToggle}
-                >
-                  <Text style={styles.geminiVoiceToggleText}>
-                    {voiceOutputOn ? 'Voice on' : 'Muted'}
-                  </Text>
-                </Pressable>
-
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Dictate and talk to Mume"
@@ -4154,19 +4126,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  geminiVoiceToggle: {
-    height: 36,
-    paddingHorizontal: 12,
-    borderRadius: 18,
-    backgroundColor: THEME.colors.cardElevated,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  geminiVoiceToggleText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: THEME.colors.text,
-  },
   geminiMicSmallButtonActive: {
     backgroundColor: THEME.colors.obsidian,
     transform: [{ scale: 1.05 }],
@@ -4289,10 +4248,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: THEME.colors.text,
   },
-  chatHeaderSubtitle: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: THEME.colors.textMuted,
+  chatCollapseBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
   },
   activeHighlightBadge: {
     flexDirection: 'row',

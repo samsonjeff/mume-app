@@ -6,6 +6,8 @@
  * multipart transcription endpoint for audio.
  */
 
+const { execFile } = require('node:child_process');
+
 const DEFAULT_BASE_URL = 'https://api.meta.ai/v1';
 const DEFAULT_CHAT_MODEL = 'muse-spark-1.1';
 const DEFAULT_STT_MODEL = 'muse-voice-transcribe-1.0';
@@ -113,9 +115,74 @@ function readWavFormat(bytes) {
 const STT_SAMPLE_RATES = [16000, 24000];
 
 /**
+ * ffmpeg arguments that convert any supported input container (m4a/AAC
+ * from the Android app, webm, mp3, ...) into the exact shape the Muse
+ * file endpoint requires: mono 16-bit PCM WAV at 24 kHz. Pure data —
+ * no process is spawned here, so this is unit-testable anywhere.
+ */
+function buildWavTranscodeArgs() {
+  return [
+    '-y',
+    '-i',
+    'pipe:0',
+    '-ac',
+    '1',
+    '-ar',
+    '24000',
+    '-c:a',
+    'pcm_s16le',
+    '-map_metadata',
+    '-1',
+    '-f',
+    'wav',
+    'pipe:1',
+  ];
+}
+
+function ffmpegPath(env = process.env) {
+  return env.MUSE_FFMPEG_PATH || 'ffmpeg';
+}
+
+/**
+ * Runs the conversion. Rejects with an actionable message when the
+ * ffmpeg binary is missing so the app can show it instead of a
+ * generic upstream failure.
+ */
+function transcodeToWavMono24k(inputBytes, env = process.env) {
+  return new Promise((resolve, reject) => {
+    const child = execFile(
+      ffmpegPath(env),
+      buildWavTranscodeArgs(),
+      { encoding: 'buffer', maxBuffer: MAX_AUDIO_BYTES * 2 },
+      (err, stdout, stderr) => {
+        if (err) {
+          if (err.code === 'ENOENT') {
+            reject(
+              new Error(
+                'Voice input needs the server audio converter (ffmpeg), which is not installed'
+              )
+            );
+            return;
+          }
+          const detail = Buffer.isBuffer(stderr)
+            ? stderr.toString('utf8').split('\n').filter(Boolean).slice(-2).join(' ')
+            : '';
+          reject(new Error(`Audio could not be converted to WAV${detail ? `: ${detail}` : ''}`));
+          return;
+        }
+        resolve(Buffer.isBuffer(stdout) ? stdout : Buffer.from(stdout || []));
+      }
+    );
+    child.stdin.on('error', () => {});
+    child.stdin.end(inputBytes);
+  });
+}
+
+/**
  * Transcribes merchant speech via the Muse Voice file endpoint
  * (POST {base}/asr/transcribe). Accepts WAV bytes (mono 16-bit PCM at
- * 16/24 kHz, exactly what the app records) and returns the transcript.
+ * 16/24 kHz) directly; anything else (Android m4a/AAC, webm, mp3) is
+ * transcoded to that shape with ffmpeg first. Returns the transcript.
  */
 async function transcribeMuseAudio({ audio, env = process.env }) {
   const { apiKey, baseUrl, sttModel } = getMetaConfig(env);
@@ -129,9 +196,13 @@ async function transcribeMuseAudio({ audio, env = process.env }) {
   if (bytes.length > MAX_AUDIO_BYTES) {
     throw new Error('Audio too large (max 8 MB)');
   }
-  const fmt = readWavFormat(bytes);
+  let wav = bytes;
+  if (!readWavFormat(wav)) {
+    wav = await transcodeToWavMono24k(bytes, env);
+  }
+  const fmt = readWavFormat(wav);
   if (!fmt) {
-    throw new Error('Audio must be a WAV file');
+    throw new Error('Audio could not be converted to WAV');
   }
   if (fmt.audioFormat !== 1 || fmt.channels !== 1 || fmt.bitsPerSample !== 16) {
     throw new Error('Audio must be mono 16-bit PCM WAV');
@@ -149,7 +220,7 @@ async function transcribeMuseAudio({ audio, env = process.env }) {
     }),
     'request.json'
   );
-  form.append('audio', new Blob([bytes], { type: 'audio/wav' }), 'voice.wav');
+  form.append('audio', new Blob([wav], { type: 'audio/wav' }), 'voice.wav');
 
   const res = await fetch(`${baseUrl}/asr/transcribe?sessionId=${encodeURIComponent(sessionId)}`, {
     method: 'POST',
@@ -179,5 +250,7 @@ module.exports = {
   getMuseChatReply,
   transcribeMuseAudio,
   readWavFormat,
+  buildWavTranscodeArgs,
+  transcodeToWavMono24k,
   STT_SAMPLE_RATES,
 };

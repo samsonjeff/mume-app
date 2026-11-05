@@ -4,6 +4,11 @@ const crypto = require('node:crypto');
 const { createApp, escapeHtml } = require('../src/app');
 const { encryptToken, decryptToken, verifyMetaSignature } = require('../src/services/crypto');
 const { getMumeAiReply, buildSessionSummary, resolveTopic } = require('../src/services/ai');
+const {
+  readWavFormat,
+  buildWavTranscodeArgs,
+  transcribeMuseAudio,
+} = require('../src/services/muse');
 
 let server;
 let base;
@@ -302,5 +307,47 @@ test('GET /api/conversations/:conversationId/messages returns stored conversatio
   const data = await res.json();
   assert.equal(data.conversationId, 'test-conv-1');
   assert.ok(Array.isArray(data.messages));
+});
+
+test('voice: readWavFormat rejects non-WAV bytes', () => {
+  assert.equal(readWavFormat(Buffer.from('not audio at all, far too short')), null);
+  assert.equal(readWavFormat(Buffer.alloc(100, 0)), null);
+});
+
+test('voice: readWavFormat parses mono 16-bit PCM WAV header', () => {
+  const header = Buffer.alloc(44, 0);
+  header.write('RIFF', 0);
+  header.writeUInt32LE(36, 4);
+  header.write('WAVE', 8);
+  header.write('fmt ', 12);
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20); // PCM
+  header.writeUInt16LE(1, 22); // mono
+  header.writeUInt32LE(24000, 24); // 24 kHz
+  header.writeUInt16LE(16, 34); // 16-bit
+  const fmt = readWavFormat(header);
+  assert.equal(fmt.audioFormat, 1);
+  assert.equal(fmt.channels, 1);
+  assert.equal(fmt.sampleRate, 24000);
+  assert.equal(fmt.bitsPerSample, 16);
+});
+
+test('voice: transcode args target mono 24 kHz PCM WAV over pipes', () => {
+  const args = buildWavTranscodeArgs();
+  assert.ok(args.includes('-ac') && args[args.indexOf('-ac') + 1] === '1');
+  assert.ok(args.includes('-ar') && args[args.indexOf('-ar') + 1] === '24000');
+  assert.ok(args.includes('pcm_s16le') && args.includes('wav'));
+  assert.ok(args.includes('pipe:0') && args.includes('pipe:1'));
+});
+
+test('voice: non-WAV without a converter fails with an actionable error, never a fake transcript', async () => {
+  const env = {
+    META_MODEL_API_KEY: 'test-key',
+    MUSE_FFMPEG_PATH: '/nonexistent-ffmpeg-binary-for-tests',
+  };
+  await assert.rejects(
+    transcribeMuseAudio({ audio: Buffer.from('m4a-bytes-placeholder'), env }),
+    /ffmpeg.*not installed/i
+  );
 });
 
