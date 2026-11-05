@@ -23,6 +23,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Speech from 'expo-speech';
 import {
+  useAudioPlayer,
   useAudioStream,
   requestRecordingPermissionsAsync,
   setAudioModeAsync,
@@ -112,6 +113,9 @@ function getMumeAiReply(query: string): string {
   }
   if (q.includes('hi') || q.includes('hello') || q.includes('hey') || q.includes('mume')) {
     return "Hello Jefferson! I'm Mume, your Page AI assistant. Ask me about your customer messages, fruit inventory, or tell me what to draft!";
+  }
+  if (q.includes('yes send') || q.includes('send it') || q.includes('send them') || q.includes('go ahead') || q === 'yes' || q.includes('approve') || q.includes('sige')) {
+    return "We're offline, so I can't send anything right now. Reconnect and say 'send it' again and I'll deliver the waiting replies.";
   }
   return "Got it! I checked your store and Page inquiries. Maria A.'s inquiry for $2.50/kg apples is waiting for approval, and your 3 catalog items are synced. How else can I assist?";
 }
@@ -282,6 +286,8 @@ export default function HomeScreen() {
   // On web useAudioStream returns a null stream, so the mic falls back to
   // browser PCM capture (see startWebCapture).
   const { stream: voiceStream } = useAudioStream({ sampleRate: 24000, channels: 1, encoding: 'int16' });
+  const micOnPlayer = useAudioPlayer(require('../assets/sounds/mic-on.wav'));
+  const micOffPlayer = useAudioPlayer(require('../assets/sounds/mic-off.wav'));
   const webRecRef = useRef<WebCapture | null>(null);
   const voiceRecordStartedAt = useRef(0);
   const [userName, setUserName] = useState<string>('Jefferson');
@@ -978,6 +984,16 @@ export default function HomeScreen() {
     };
   }, []);
 
+  // Best-effort mic earcons: a failed beep must never break recording.
+  const playEarcon = (player: { seekTo: (seconds: number) => void; play: () => void }) => {
+    try {
+      player.seekTo(0);
+      player.play();
+    } catch {
+      // Earcon is best-effort only.
+    }
+  };
+
   // Mic toggle: tap to start recording, tap again to stop, transcribe
   // via Muse Voice, and send the transcript to Mume as a chat message.
   // Records 24 kHz mono 16-bit PCM WAV: the exact format the file endpoint takes.
@@ -991,6 +1007,7 @@ export default function HomeScreen() {
         if (onWeb) {
           webRecRef.current = await startWebCapture();
           voiceRecordStartedAt.current = Date.now();
+          playEarcon(micOnPlayer);
           setVoiceState('listening');
           return;
         }
@@ -1007,6 +1024,7 @@ export default function HomeScreen() {
         await voiceStream.startFileRecordingAsync();
         Speech.stop();
         voiceRecordStartedAt.current = Date.now();
+        playEarcon(micOnPlayer);
         setVoiceState('listening');
       } catch (err: any) {
         console.warn('Voice record start failed:', err?.message || err);
@@ -1015,6 +1033,7 @@ export default function HomeScreen() {
     }
     try {
       setVoiceState('thinking');
+      playEarcon(micOffPlayer);
       if (Date.now() - voiceRecordStartedAt.current < 1000) {
         const secs = ((Date.now() - voiceRecordStartedAt.current) / 1000).toFixed(1);
         throw new Error(`That tap was too short (${secs}s) — hold the mic and speak.`);
@@ -1025,6 +1044,15 @@ export default function HomeScreen() {
         webRecRef.current = null;
         if (!cap || cap.chunks.length === 0) throw new Error('No recording captured');
         base64 = stopWebCapture(cap);
+        // Same stub-size floor as native recordings: a real utterance is
+        // thousands of bytes, so anything smaller means the mic delivered
+        // no data and uploading it can only fail.
+        const approxBytes = Math.floor((base64.length * 3) / 4);
+        if (approxBytes < 4096) {
+          throw new Error(
+            `Mic captured only ${approxBytes} bytes — check microphone access and try again.`
+          );
+        }
       } else {
         if (!voiceStream) {
           throw new Error('Voice recording is not supported on this device');
@@ -1190,6 +1218,7 @@ export default function HomeScreen() {
       setChatMessages((prev) => [...prev, aiMsg]);
     } finally {
       setIsAiThinking(false);
+      loadRealInbox();
       setTimeout(() => scrollToConversation(true), 50);
     }
   };

@@ -83,6 +83,22 @@ async function getMuseChatReply({ system, messages, env = process.env }) {
   return text;
 }
 
+
+/**
+ * Accepts plain base64 or a `data:...;base64,...` URL and returns the raw
+ * base64 payload. Some clients send the full data URL; decoding the
+ * `data:...` prefix itself as base64 yields 14 garbage bytes that fail WAV
+ * validation, so strip the prefix up front.
+ */
+function stripDataUrlPrefix(input) {
+  const s = String(input || '').trim();
+  if (/^data:/i.test(s)) {
+    const comma = s.indexOf(',');
+    return comma >= 0 ? s.slice(comma + 1).trim() : '';
+  }
+  return s;
+}
+
 /**
  * Minimal RIFF/WAVE header reader. The file endpoint only accepts mono
  * 16-bit integer PCM at 16 or 24 kHz, so reject anything else up front
@@ -255,6 +271,7 @@ module.exports = {
   contentToText,
   getMuseChatReply,
   transcribeMuseAudio,
+  stripDataUrlPrefix,
   readWavFormat,
   buildWavTranscodeArgs,
   transcodeToWavMono24k,

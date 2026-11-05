@@ -10,8 +10,8 @@ const {
   getPageMessages,
   sendPageReply,
 } = require('./services/facebook');
-const { getMumeAiReply, buildSessionSummary, detectTopic } = require('./services/ai');
-const { isMuseConfigured, getMuseChatReply, transcribeMuseAudio } = require('./services/muse');
+const { getMumeAiReply, buildSessionSummary, detectTopic, isApprovalConfirmation, asksAboutInquiries, buildPendingStatusReply, buildConfirmationSentReply } = require('./services/ai');
+const { isMuseConfigured, getMuseChatReply, transcribeMuseAudio, stripDataUrlPrefix } = require('./services/muse');
 
 /**
  * Escapes a string for safe interpolation into HTML responses.
@@ -801,7 +801,61 @@ function createApp(env = process.env) {
     }
 
     const trimmed = text.trim();
-    const replyText = await resolveAssistantReply(trimmed, []);
+
+    // Voice/chat confirmations ("yes, send it") and live inquiry status.
+    // A confirmation IS the human approval, so matching waiting replies are
+    // dispatched here through the same helper as the approve endpoint.
+    let confirmedReply = null;
+    if (supabase) {
+      try {
+        let chatPageId = reqPageId;
+        if (!chatPageId) {
+          const { data: firstPage } = await supabase.from('pages').select('id').limit(1).maybeSingle();
+          chatPageId = firstPage?.id || null;
+        }
+        if (chatPageId) {
+          const chatIsUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(chatPageId);
+          const chatPageQuery = chatIsUuid
+            ? supabase.from('pages').select('id').eq('id', chatPageId)
+            : supabase.from('pages').select('id').eq('fb_page_id', chatPageId);
+          const { data: chatPage } = await chatPageQuery.maybeSingle();
+          if (chatPage) {
+            const { data: chatConvs } = await supabase
+              .from('conversations')
+              .select('id, customer_name')
+              .eq('page_id', chatPage.id)
+              .neq('customer_psid', 'mume_assistant');
+            const chatConvIds = (chatConvs || []).map((c) => c.id);
+            const chatNameByConv = {};
+            for (const c of chatConvs || []) chatNameByConv[c.id] = c.customer_name || 'Customer';
+            let chatPending = [];
+            if (chatConvIds.length > 0) {
+              const { data: waiting } = await supabase
+                .from('pending_actions')
+                .select('id, conversation_id, draft_reply')
+                .in('conversation_id', chatConvIds)
+                .eq('status', 'waiting_approval')
+                .order('created_at', { ascending: true });
+              chatPending = (waiting || []).map((a) => ({ ...a, customer_name: chatNameByConv[a.conversation_id] || 'Customer' }));
+            }
+            if (chatPending.length > 0 && isApprovalConfirmation(trimmed)) {
+              const sentTo = [];
+              for (const cp of chatPending) {
+                const dispatched = await dispatchPendingApproval(cp.id);
+                sentTo.push({ customer_name: cp.customer_name, replyText: dispatched.replyText });
+              }
+              confirmedReply = buildConfirmationSentReply(sentTo);
+            } else if (asksAboutInquiries(trimmed)) {
+              confirmedReply = buildPendingStatusReply(chatPending);
+            }
+          }
+        }
+      } catch (confirmErr) {
+        console.warn('[chat-confirm] Warning:', confirmErr.message);
+      }
+    }
+
+    const replyText = confirmedReply || (await resolveAssistantReply(trimmed, []));
 
     if (!supabase) {
       return res.json({
@@ -865,7 +919,7 @@ function createApp(env = process.env) {
       } catch (histErr) {
         console.warn('[chat-history] Warning:', histErr.message);
       }
-      const contextReply = await resolveAssistantReply(trimmed, history);
+      const contextReply = confirmedReply || (await resolveAssistantReply(trimmed, history));
 
       // Insert User Message into Supabase
       const { data: userMsg, error: userMsgErr } = await supabase
@@ -949,8 +1003,11 @@ function createApp(env = process.env) {
     }
 
     try {
-      const bytes = Buffer.from(audio, 'base64');
+      // Some clients send a full `data:...;base64,...` URL; decoding the
+      // prefix as base64 yields 14 garbage bytes, so strip it first.
+      const bytes = Buffer.from(stripDataUrlPrefix(audio), 'base64');
       if (bytes.length === 0) {
+        console.warn('[voice-transcribe] Rejected: empty audio after decode (raw head:', JSON.stringify(String(audio).slice(0, 48)), ')');
         return res.status(400).json({ error: 'Invalid base64 audio' });
       }
       const text = await transcribeMuseAudio({ audio: bytes, env });
@@ -958,7 +1015,7 @@ function createApp(env = process.env) {
     } catch (err) {
       const status = /not configured/i.test(err.message) ? 500 : 502;
       if (status === 502) {
-        console.warn('[voice-transcribe] Upstream failure:', err.message);
+        console.warn('[voice-transcribe] Upstream failure:', err.message, 'raw head:', JSON.stringify(String(audio).slice(0, 48)));
       }
       res.status(status).json({ error: err.message });
     }
@@ -1130,6 +1187,41 @@ function createApp(env = process.env) {
     }
   });
 
+  // Shared approval dispatch: marks a waiting pending_action sent, delivers
+  // the reply through Meta when a page token exists, and persists the
+  // outbound message. Used by the approve endpoint and by chat
+  // confirmations ("yes, send it"), where the merchant message IS the
+  // human approval.
+  async function dispatchPendingApproval(actionId, editedReply) {
+    const { data: action, error: actErr } = await supabase
+      .from('pending_actions')
+      .select(`
+        id,
+        draft_reply,
+        conversation_id
+      `)
+      .eq('id', actionId)
+      .single();
+    if (actErr || !action) throw new Error('Pending action not found');
+    const replyText = editedReply || action.draft_reply;
+    let graphResult = null;
+    try {
+      const { data: conv } = await supabase.from('conversations').select('id, page_id, customer_psid, last_message_at').eq('id', action.conversation_id).maybeSingle();
+      if (conv && conv.customer_psid && conv.customer_psid !== 'mume_assistant') {
+        const { data: page } = await supabase.from('pages').select('fb_page_id, page_access_token_encrypted').eq('id', conv.page_id).maybeSingle();
+        if (page && page.page_access_token_encrypted) {
+          const plainToken = decryptToken(page.page_access_token_encrypted, env);
+          graphResult = await sendPageReply({ pageId: page.fb_page_id, pageAccessToken: plainToken, appSecret: env.FB_APP_SECRET, psid: conv.customer_psid, text: replyText, lastCustomerMessageAt: conv.last_message_at, approvalStatus: 'approved' });
+        }
+      }
+    } catch (graphErr) {
+      console.warn('[approve-dispatch] Warning:', graphErr.message);
+    }
+    const { data: updated } = await supabase.from('pending_actions').update({ status: 'sent', draft_reply: replyText, updated_at: new Date().toISOString() }).eq('id', actionId).select().single();
+    await supabase.from('messages').insert({ conversation_id: action.conversation_id, fb_message_id: (graphResult && graphResult.message_id) || `action-${Date.now()}`, sender: 'page', text: replyText, is_from_customer: false });
+    return { updated, graphResult, replyText };
+  }
+
   // 12. POST /api/pending-actions/:id/approve -> Approve pending reply and dispatch
   app.post('/api/pending-actions/:id/approve', async (req, res) => {
     const { id } = req.params;
@@ -1137,80 +1229,11 @@ function createApp(env = process.env) {
 
     try {
       if (!supabase) return res.json({ status: 'approved' });
-
-      const { data: action, error: actErr } = await supabase
-        .from('pending_actions')
-        .select(`
-          id,
-          draft_reply,
-          conversation_id
-        `)
-        .eq('id', id)
-        .single();
-
-      if (actErr || !action) {
-        return res.status(404).json({ error: 'Pending action not found' });
-      }
-
-      const replyText = editedReply || action.draft_reply;
-
-      // Dispatch outbound reply via Meta Graph API when conversation + page token exist
-      let graphResult = null;
-      try {
-        const { data: conv } = await supabase
-          .from('conversations')
-          .select('id, page_id, customer_psid, last_message_at')
-          .eq('id', action.conversation_id)
-          .maybeSingle();
-
-        if (conv && conv.customer_psid && conv.customer_psid !== 'mume_assistant') {
-          const { data: page } = await supabase
-            .from('pages')
-            .select('fb_page_id, page_access_token_encrypted')
-            .eq('id', conv.page_id)
-            .maybeSingle();
-
-          if (page && page.page_access_token_encrypted) {
-            const plainToken = decryptToken(page.page_access_token_encrypted, env);
-            graphResult = await sendPageReply({
-              pageId: page.fb_page_id,
-              pageAccessToken: plainToken,
-              appSecret: env.FB_APP_SECRET,
-              psid: conv.customer_psid,
-              text: replyText,
-              lastCustomerMessageAt: conv.last_message_at,
-              approvalStatus: 'approved',
-            });
-          }
-        }
-      } catch (graphErr) {
-        console.warn('[approve-dispatch] Warning:', graphErr.message);
-      }
-
-      // Update pending action to 'sent'
-      const { data: updated } = await supabase
-        .from('pending_actions')
-        .update({
-          status: 'sent',
-          draft_reply: replyText,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id)
-        .select()
-        .single();
-
-      // Persist outbound reply in messages
-      await supabase.from('messages').insert({
-        conversation_id: action.conversation_id,
-        fb_message_id: graphResult?.message_id || `action-${Date.now()}`,
-        sender: 'page',
-        text: replyText,
-        is_from_customer: false,
-      });
-
+      const { updated, graphResult } = await dispatchPendingApproval(id, editedReply);
       res.json({ status: 'sent', action: updated, graphResult });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      const status = /not found/i.test(err.message) ? 404 : 500;
+      res.status(status).json({ error: err.message });
     }
   });
 

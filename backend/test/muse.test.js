@@ -236,3 +236,16 @@ test('POST /api/voice/transcribe fails closed without API key', async () => {
   const json = await res.json();
   assert.match(json.error, /not configured/i);
 });
+
+test('POST /api/voice/transcribe strips a data-URL prefix before decoding', async () => {
+  const res = await fetch(`${base}/api/voice/transcribe`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ audio: 'data:audio/wav;base64,' }),
+  });
+  // An empty data URL carries zero audio bytes, not a 14-byte WAV; the
+  // route must report invalid audio (400), never a 502 WAV-size error.
+  assert.equal(res.status, 400);
+  const json = await res.json();
+  assert.match(json.error, /Invalid base64 audio/);
+});

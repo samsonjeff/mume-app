@@ -13,22 +13,22 @@
 ### 1.1 Canvas & export (16:9 landscape)
 - Set project to **1920×1080, 30fps**. Export H.264, 12–16 Mbps, AAC 320kbps. Title: `mume-app`.
 - If recording a phone / narrow web app (`src/App.tsx`), do **not** export vertical. Frame it inside a 16:9 scene:
-  - Left 60%: screen capture of the app (pillarboxed, rounded phone frame).
+  - Left 60%: real screen footage (`public/raw-video.mp4`) in a rounded frame with Ken Burns push + screenshot PIP (`public/mume-logo.png`).
   - Right 40%: animated captions, step number, and feature label.
-- Background: Antigravity canvas `#F8F9FC`, cards `#FFFFFF`, ink `#121317` (per [PLAN.md](/D:/mume-app/PLAN.md) §3.3 + `frontend/constants/theme.ts`).
+- Background: Antigravity canvas `#F8F9FC`, cards `#FFFFFF`, ink `#121317` (per [PLAN.md](/D:/mume-app/PLAN.md) §3.3 + `frontend/constants/theme.ts`). Staged Remotion assets live in `mume-video/public/`: `mume-black.svg`, `mume-white.svg`, `mume-logo.png`, `mume-logo-white.png`, `raw-video.mp4`, `vo/*.mp3` (copied from `mume-video/raw/` + `mume-video/raw/male/`).
 
 ### 1.2 Animation pack (reusable, keeps video under 210s)
-1. **Cold open (2.5s):** cross-fade `mume-black.svg` (white canvas) → `mume-white.svg` (obsidian `#121317`) → app header. This is the real startup intro from PLAN §3.2 / `src/App.tsx`. Record it once, reuse as Scene 1.
+1. **Cold open / logo first (`LogoSting.tsx`, Scene 1 frames 0–90):** spring-in `mume-black.svg` on white canvas → cross-fade to `mume-white.svg` on obsidian `#121317` → dissolve into the Scene 1 card. The logo is the first thing on screen; no footage plays before it. This mirrors the real startup intro from PLAN §3.2 / `src/App.tsx`, rendered in code.
 2. **Lower-thirds:** pill badge style from app — white pill, obsidian text `#121317`, e.g. `1 action to approve`, `Listening`, `Thinking`, `Typing…`.
 3. **Focus glow:** Electric Blue `#3279F9` ring + pulsing dot when voice/typing/scroll is active (PLAN §3.2). Add in edit as a stroke animation around the mic / chat box.
-4. **VoiceWave:** 5-bar 60fps pulse (`VoiceWave` in `src/App.tsx`, blue `#3279F9`). Screen-record the real one; do not fake it.
+4. **VoiceWave:** live 5-bar pulse (`mume-video/src/scenes/VoiceWave.tsx`, blue `#3279F9`) rendered in code over the footage on the voice scene, plus a breathing blue focus-glow ring on approve/chat/voice beats (`MediaPanel.tsx`). Screenshot PIP (`mume-logo.png`) drifts in mid-scene; footage gets a slow Ken Burns push; captions stagger in beat-by-beat with a spring badge, progress hairline, and slide-up lower-third (`SceneCard.tsx`).
 5. **Transitions:** 12-frame cross-dissolve only. No spins/slides — total transition budget < 8s.
 6. **Captions:** burn in English captions + key Tagalog cue words (`mansanas`, `magkano po`) since demo uses them.
 
 ### 1.3 Audio & voice
 - One narrator, close mic, 150–160 wpm (~460–480 words total for 3:10 of VO + 0:20 music-only intro/outro). Script below is ~475 words — read at natural pace to land exactly 3:30. Do not add lines; if over, trim Scene 9 first.
 - Record VO first, then cut screen recording to VO. Add royalty-free upbeat track at −22 dB under VO, full volume only on intro/outro.
-- Voice AI demo: use real mic dictation in the app dock. Speak clearly: *"Mume, magkano ang mansanas?"*
+- Voice AI demo: per-scene voiceover is wired in code — `Composition.tsx` plays `public/vo/<scene-id>.mp3` inside each scene's `TransitionSeries.Sequence`, so the render at `mume-video/out/mume-demo.mp4` already carries narration (no separate VO dub step).
 
 ### 1.4 Recording checklist
 - [ ] Facebook test Page linked, status badge green `Live Page` visible.
@@ -38,8 +38,8 @@
 - [ ] Settings screen shows Login with Facebook (`baseline-facebook.svg`), Page sync, currency USD.
 - [ ] Pro modal ready: auto-pops 3s after splash on Home + reopens via header ticket icon (`subscription-upgrade` in `src/App.tsx` + `src/components/Header.tsx`). Price $9.99/mo visible; toast `Welcome to Mume Pro!` tested.
 
-### 1.5 Take list (minimum coverage)
-1. Full startup 2.5s intro + Pro auto-pop (3s). 2. Approve flow end-to-end (edit draft → Approve → `All Caught Up!`). 3. Voice query + reply. 4. Typed query + reply. 5. Inbox scroll. 6. Catalog Add/Edit. 7. Settings pan. 8. Header ticket tap → Pro modal benefits → trial tap → Pro toast. 9. Architecture diagram hold (5s).
+### 1.5 Take list (minimum coverage) — all rendered in code, no manual takes
+1. Logo sting first (Scene 1 frames 0-90, no footage beneath) + Pro tease card. 2. Approve flow end-to-end (edit draft → Approve → `All Caught Up!`). 3. Voice query + reply. 4. Typed query + reply. 5. Inbox scroll. 6. Catalog Add/Edit. 7. Settings pan. 8. Header ticket tap → Pro modal benefits → trial tap → Pro toast. 9. Architecture diagram hold (5s). Verify: `npm test` 4/4 + `npx tsc --noEmit` clean + spot stills (frames 20/55/200/1000), then `npx remotion render src/index.ts mume-demo out/mume-demo.mp4 --overwrite`.
 
 ---
 
