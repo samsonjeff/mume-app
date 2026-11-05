@@ -51,9 +51,11 @@ Thumbs.db
 .turbo/
 .cache/
 
-# Superpowers & managed agent skills (third-party caches stay untracked)
+# Superpowers & local agent state stay untracked, except project skills below
 .superpowers/
-.agents/
+.agents/*
+!.agents/skills/
+!.agents/skills.json
 # Project skills in skills/ ARE tracked and shared as open source.
 # Never put secrets, tokens, app IDs, or customer data in skill files.
 **/SKILLS.md
