@@ -1,6 +1,6 @@
 /**
  * Mume AI Assistant reply generator.
- * Inventory-aware, Tagalog- and English-friendly responses for store merchants.
+ * Inventory-aware, English-only responses for store merchants.
  *
  * Context-aware: pass recent thread history + the persisted session summary so
  * follow-up questions ("how much?", "meron pa?") inherit the product topic
@@ -139,9 +139,33 @@ function getMumeAiReply(query, context) {
 function isApprovalConfirmation(text) {
   const q = String(text || '').toLowerCase().replace(/[^a-z\s]/g, ' ').replace(/\s+/g, ' ').trim();
   if (!q) return false;
-  return /^(yes( please| po)?( send( it| them| now)?)?|send( it| them| now| the repl(ies|y)| all)?|approve(d)?( it| all| them)?|go ahead( send( it)?)?|please send( it)?|(sige|oo|opo)( na| po| send| padala)?|(ok|okay)( send( it)?)?)$/.test(q);
+  return /^(yes( please| po)?( send( it| them| now)?)?|send( it| them| now| the repl(ies|y)| all)?|reply( now| to them| all)?|approve(d)?( it| all| them)?|go ahead( send( it)?)?|please send( it)?|(sige|oo|opo)( na| po| send| padala)?|(ok|okay)( send( it)?)?)$/.test(q);
 }
 
+/**
+ * True when the merchant declines sending waiting customer replies.
+ * Covers "no", "not yet", "cancel", "wait". Anchored short on purpose:
+ * anything longer is a new instruction, not a decline.
+ */
+function isDeclineConfirmation(text) {
+  const q = String(text || '').toLowerCase().replace(/[^a-z\s]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!q) return false;
+  return /^(no|nope|not yet|not now|cancel|don't send|do not send|wait|hold on|later|not today)$/.test(q);
+}
+
+/**
+ * Acknowledgement when the merchant holds waiting replies.
+ * Pass the waiting_approval actions enriched with customer_name.
+ */
+function buildDeclineReply(pending) {
+  const list = (pending || []).filter(Boolean);
+  const names = list.map((a) => String(a.customer_name || 'Customer').replace(/\.+$/, ''));
+  const who = names.length === 0 ? 'the waiting replies'
+    : names.length === 1 ? `the reply to ${names[0]}`
+    : names.length === 2 ? `the replies to ${names[0]} and ${names[1]}`
+    : `the replies to ${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
+  return `Got it — I\u2019ll hold ${who} for now. Just say \u2018send it\u2019 whenever you\u2019re ready.`;
+}
 /**
  * True when the merchant asks about customer inquiries / pending replies.
  * Confirmation phrases are excluded so "yes, send it" dispatches
@@ -150,7 +174,7 @@ function isApprovalConfirmation(text) {
 function asksAboutInquiries(text) {
   const q = String(text || '').toLowerCase();
   if (!q || isApprovalConfirmation(text)) return false;
-  return /(inquir|inbox|pending|waiting|approval|customer|message)/.test(q);
+  return /(inquir|inbox|pending|waiting|approval|customer|message|reply|draft)/.test(q);
 }
 
 /**
@@ -160,7 +184,7 @@ function asksAboutInquiries(text) {
 function buildPendingStatusReply(actions) {
   const list = (actions || []).filter(Boolean);
   if (list.length === 0) return 'You have no customer inquiries waiting right now.';
-  const names = list.map((a) => a.customer_name || 'Customer');
+  const names = list.map((a) => String(a.customer_name || 'Customer').replace(/\.+$/, ''));
   const who = names.length === 1 ? names[0]
     : names.length === 2 ? `${names[0]} and ${names[1]}`
     : `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
@@ -175,8 +199,8 @@ function buildPendingStatusReply(actions) {
  * Pass the sent entries ({ customer_name }).
  */
 function buildConfirmationSentReply(sent) {
-  const names = (sent || []).filter(Boolean).map((e) => (typeof e === 'string' ? e : e.customer_name || 'Customer'));
-  if (names.length === 0) return 'Sent!';
+  const rawNames = (sent || []).filter(Boolean).map((e) => (typeof e === 'string' ? e : e.customerName || e.customer_name || 'Customer'));
+  const names = rawNames.map((n) => String(n).replace(/\.+$/, ''));  if (names.length === 0) return 'Sent!';
   const who = names.length === 1 ? names[0]
     : names.length === 2 ? `${names[0]} and ${names[1]}`
     : `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
@@ -273,7 +297,7 @@ function getCatalogAwareReply(query, opts) {
     if (Array.isArray(o.pendingActions)) return buildPendingStatusReply(o.pendingActions);
     return 'Your approval cards live in the Home tab \u2014 approve there and I\u2019ll dispatch right away.';
   }
-  if (/(inquir|inbox|pending|waiting|approval|customer|message)/.test(q)) {
+  if (/(inquir|inbox|pending|waiting|approval|customer|message|reply|draft)/.test(q)) {
     if (Array.isArray(o.pendingActions)) return buildPendingStatusReply(o.pendingActions);
     return 'You have no customer inquiries waiting right now.';
   }
@@ -302,9 +326,11 @@ function buildAssistantSystemPrompt(opts) {
     'You adapt to whatever business this store is \u2014 food, retail, services, or anything else.',
     'Ground every product answer in the store catalog below. Never invent products, prices, or stock levels.',
     'You help the merchant: answer price and availability questions, summarize customer inquiries, and draft customer replies.',
+    'The latest merchant message is the instruction to act on; earlier messages are context for deciding what to do next.',
     "Nothing is ever sent to a customer without the merchant's explicit approval.",
-    "Be concise and friendly. Mirror the merchant's language (English with some Tagalog is fine).",
+    "Reply in English at all times, no matter what language the merchant writes in. Never reply in Tagalog or any other language.",
   ];
+  if (o.sessionContext) lines.push('Conversation so far: ' + o.sessionContext);
   if (o.storeName) lines.push('Store: ' + o.storeName + '.');
   if (o.catalogContext) lines.push(o.catalogContext);
   else lines.push('No catalog items are registered yet; say so honestly instead of inventing products or prices.');
@@ -319,4 +345,4 @@ function buildCatalogContext(products) {
   return 'Store catalog (' + items.length + ' item' + (items.length === 1 ? '' : 's') + '):\n' + lines.join('\n') + more;
 }
 
-module.exports = { getMumeAiReply, buildSessionSummary, resolveTopic, detectTopic, isApprovalConfirmation, asksAboutInquiries, buildPendingStatusReply, buildConfirmationSentReply, matchCatalogItem, resolveCatalogItem, formatMoney, formatCatalogLine, buildCatalogContext, buildAssistantSystemPrompt, listCatalogReply };
+module.exports = { getMumeAiReply, buildSessionSummary, resolveTopic, detectTopic, isApprovalConfirmation, asksAboutInquiries, buildPendingStatusReply, buildConfirmationSentReply, isDeclineConfirmation, buildDeclineReply, matchCatalogItem, resolveCatalogItem, formatMoney, formatCatalogLine, buildCatalogContext, buildAssistantSystemPrompt, listCatalogReply };

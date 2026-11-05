@@ -64,6 +64,7 @@ async function getMuseChatReply({ system, messages, env = process.env }) {
 
   const res = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
+    signal: AbortSignal.timeout(20000),
     headers: {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',

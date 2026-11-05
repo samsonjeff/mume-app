@@ -84,7 +84,7 @@ export const WakeWordButton: React.FC<WakeWordButtonProps> = ({
   return (
     <View style={styles.container}>
       {/* Outer Pulse Ring */}
-      <Animated.View
+      <Animated.View pointerEvents="none"
         style={[
           styles.wakeRing,
           {

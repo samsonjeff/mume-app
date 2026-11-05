@@ -94,7 +94,7 @@ export const api = {
     return res.json();
   },
 
-  async sendChatMessage(text: string, pageId?: string): Promise<{ conversationId: string; userMessage: any; aiMessage: any }> {
+  async sendChatMessage(text: string, pageId?: string): Promise<{ conversationId: string; userMessage: any; aiMessage: any; sentTo?: Array<{ conversationId: string; customerName: string }> }> {
     const res = await fetch(`${API_BASE_URL}/api/chat/messages`, {
       method: 'POST',
       headers: authHeaders({ 'Content-Type': 'application/json' }),

@@ -50,6 +50,12 @@ description: Use when designing, building, styling, animating, or reviewing the 
 - **Isolated Inner Scrolling:** The user can ONLY scroll inside dynamic content lists (such as the AI Chat message stream). Inner scroll containers must use `nestedScrollEnabled={true}`, `showsVerticalScrollIndicator={false}`, `bounces={true}`, `overScrollMode="always"`, and `overscrollBehavior: 'contain'`.
 - **DPI-Aware Typography:** Avoid micro-typography below 12dp on budget/entry displays (e.g. 240–270 ppi) to preserve legibility. Keep tap targets >= 48x48dp (Android) / 44x44pt (iOS).
 
+**Touch Handling (mandatory patterns — learned from real device bugs):**
+- **Modal overlay dismiss:** outer `Pressable onPress={close}` + inner card as plain `View onStartShouldSetResponder={() => true}`. Never nest `Pressable` with `onPress={(e) => e.stopPropagation()}` — RN `PressEvent` has no `stopPropagation` on native, so the tap throws/falls through and the overlay closes.
+- **`hitSlop` is always an object** `{ top: 12, bottom: 12, left: 12, right: 12 }`, never a bare number (`hitSlop={8}` is ignored on native). Size sub-48dp buttons (e.g. 36px collapse chevron) up to 48dp effective.
+- **Decorative overlays never intercept:** pulse rings / animated halos over a button get `pointerEvents="none"` so edge taps land on the button.
+- **Verify:** grep `frontend/` for `stopPropagation` and `hitSlop={[0-9]}` (must be zero hits) + `npx tsc --project frontend/tsconfig.json --noEmit` clean.
+
 **Future iOS Adaptability (Android-first, iOS-ready):**
 - No Android-only modules, use `Platform.select` + Expo modules only
 - Expo Managed + EAS Build, no bare native code, enables `eas build -p ios` from Windows

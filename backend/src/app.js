@@ -10,7 +10,7 @@ const {
   getPageMessages,
   sendPageReply,
 } = require('./services/facebook');
-const { getMumeAiReply, buildSessionSummary, detectTopic, isApprovalConfirmation, asksAboutInquiries, buildPendingStatusReply, buildConfirmationSentReply, matchCatalogItem, buildCatalogContext, buildAssistantSystemPrompt, formatMoney } = require('./services/ai');
+const { getMumeAiReply, buildSessionSummary, detectTopic, isApprovalConfirmation, asksAboutInquiries, buildPendingStatusReply, buildConfirmationSentReply, isDeclineConfirmation, buildDeclineReply, matchCatalogItem, buildCatalogContext, buildAssistantSystemPrompt, formatMoney } = require('./services/ai');
 const { isMuseConfigured, getMuseChatReply, transcribeMuseAudio, stripDataUrlPrefix } = require('./services/muse');
 
 /**
@@ -174,11 +174,12 @@ function createApp(env = process.env) {
     const system = buildAssistantSystemPrompt({
       storeName: o.storeName,
       catalogContext: buildCatalogContext(catalog),
+      sessionContext: o.sessionContext,
     });
     if (isMuseConfigured(env)) {
       try {
         const messages = (Array.isArray(history) ? history : [])
-          .slice(-20)
+          .slice(-10)
           .filter((m) => m && m.text)
           .map((m) => ({
             role: m.sender === 'mume' ? 'assistant' : 'user',
@@ -869,6 +870,7 @@ function createApp(env = process.env) {
     // A confirmation IS the human approval, so matching waiting replies are
     // dispatched here through the same helper as the approve endpoint.
     let confirmedReply = null;
+    let chatSentTo = [];
     if (supabase) {
       try {
         let chatPageId = reqPageId;
@@ -902,13 +904,16 @@ function createApp(env = process.env) {
               chatPending = (waiting || []).map((a) => ({ ...a, customer_name: chatNameByConv[a.conversation_id] || 'Customer' }));
             }
             if (chatPending.length > 0 && isApprovalConfirmation(trimmed)) {
-              const sentTo = [];
+              const sentTo = (chatSentTo = []);
               for (const cp of chatPending) {
                 const dispatched = await dispatchPendingApproval(cp.id);
-                sentTo.push({ customer_name: cp.customer_name, replyText: dispatched.replyText });
+                sentTo.push({ conversationId: cp.conversation_id, customerName: cp.customer_name, customer_name: cp.customer_name, replyText: dispatched.replyText });
               }
               confirmedReply = buildConfirmationSentReply(sentTo);
-            } else if (asksAboutInquiries(trimmed)) {
+            } else if (chatPending.length > 0 && isDeclineConfirmation(trimmed)) {
+              confirmedReply = buildDeclineReply(chatPending);
+            } else if (asksAboutInquiries(trimmed) || isApprovalConfirmation(trimmed) || isDeclineConfirmation(trimmed)) {
+              // A yes/no/reply with nothing waiting is a status question, not a dispatch.
               confirmedReply = buildPendingStatusReply(chatPending);
             }
           }
@@ -918,10 +923,10 @@ function createApp(env = process.env) {
       }
     }
 
-    const replyText = confirmedReply || (await resolveAssistantReply(trimmed, []));
-
     if (!supabase) {
+      const fallbackReply = confirmedReply || (await resolveAssistantReply(trimmed, []));
       return res.json({
+        sentTo: [],
         userMessage: {
           id: `user-${Date.now()}`,
           sender: 'user',
@@ -932,7 +937,7 @@ function createApp(env = process.env) {
         aiMessage: {
           id: `ai-${Date.now()}`,
           sender: 'mume',
-          text: replyText,
+          text: fallbackReply,
           time: 'Just now',
           created_at: new Date().toISOString(),
         },
@@ -977,10 +982,17 @@ function createApp(env = process.env) {
           .select('sender, text')
           .eq('conversation_id', conv.id)
           .order('created_at', { ascending: false })
-          .limit(20);
+          .limit(10);
         history = (recent || []).reverse();
       } catch (histErr) {
         console.warn('[chat-history] Warning:', histErr.message);
+      }
+      let sessionContext = '';
+      try {
+        const { data: sess } = await supabase.from('conversation_sessions').select('summary, last_customer_topic').eq('conversation_id', conv.id).maybeSingle();
+        if (sess && sess.summary) sessionContext = sess.summary + (sess.last_customer_topic ? ` Current topic: ${sess.last_customer_topic}.` : '');
+      } catch (sessReadErr) {
+        console.warn('[session-read] Warning:', sessReadErr.message);
       }
       const chatPage = await getPageRecord(pageId);
       const chatCatalog = await getPageCatalog(chatPage);
@@ -989,6 +1001,7 @@ function createApp(env = process.env) {
         (await resolveAssistantReply(trimmed, history, {
           catalog: chatCatalog,
           storeName: chatPage ? chatPage.page_name : undefined,
+          sessionContext,
         }));
 
       // Insert User Message into Supabase
@@ -1019,7 +1032,25 @@ function createApp(env = process.env) {
 
       if (aiMsgErr) throw aiMsgErr;
 
-      // Persist session memory so the next reply has thread reference
+      res.json({
+        conversationId: conv.id,
+        userMessage: {
+          id: userMsg.id,
+          sender: 'user',
+          text: userMsg.text,
+          time: 'Just now',
+          created_at: userMsg.created_at,
+        },
+        aiMessage: {
+          id: aiMsg.id,
+          sender: 'mume',
+          text: aiMsg.text,
+          time: 'Just now',
+          created_at: aiMsg.created_at,
+        },
+        sentTo: chatSentTo,
+      });
+      // Bookkeeping runs after responding so it never delays the reply.
       try {
         const sessionHistory = [
           ...history,
@@ -1039,24 +1070,6 @@ function createApp(env = process.env) {
       } catch (sessErr) {
         console.warn('[session-upsert] Warning:', sessErr.message);
       }
-
-      res.json({
-        conversationId: conv.id,
-        userMessage: {
-          id: userMsg.id,
-          sender: 'user',
-          text: userMsg.text,
-          time: 'Just now',
-          created_at: userMsg.created_at,
-        },
-        aiMessage: {
-          id: aiMsg.id,
-          sender: 'mume',
-          text: aiMsg.text,
-          time: 'Just now',
-          created_at: aiMsg.created_at,
-        },
-      });
     } catch (err) {
       console.error('[post-chat-message] Error:', err.message);
       res.status(500).json({ error: err.message });

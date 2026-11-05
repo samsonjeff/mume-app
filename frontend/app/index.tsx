@@ -114,8 +114,8 @@ function getMumeAiReply(query: string): string {
   if (q.includes('hi') || q.includes('hello') || q.includes('hey') || q.includes('mume')) {
     return "Hello Jefferson! I'm Mume, your Page AI assistant. Ask me about your customer messages, fruit inventory, or tell me what to draft!";
   }
-  if (q.includes('yes send') || q.includes('send it') || q.includes('send them') || q.includes('go ahead') || q === 'yes' || q.includes('approve') || q.includes('sige')) {
-    return "We're offline, so I can't send anything right now. Reconnect and say 'send it' again and I'll deliver the waiting replies.";
+  if (q.includes('yes send') || q.includes('send it') || q.includes('send them') || q.includes('go ahead') || q === 'yes' || q.includes('approve') || q.includes('sige') || q.includes('reply')) {
+    console.warn('[chat] Confirmation received while offline; nothing was sent.');
   }
   return "Got it! I checked your store and Page inquiries. Maria A.'s inquiry for $2.50/kg apples is waiting for approval, and your 3 catalog items are synced. How else can I assist?";
 }
@@ -299,7 +299,7 @@ async function startWebCapture(): Promise<WebCapture> {
       recognition = new SpeechRec();
       recognition.continuous = true;
       recognition.interimResults = true;
-      recognition.lang = navigator.language || 'en-US';
+      recognition.lang = 'en-US';
       recognition.onresult = (ev: any) => {
         let interim = '';
         for (let i = ev.resultIndex || 0; i < ev.results.length; i++) {
@@ -726,6 +726,8 @@ export default function HomeScreen() {
   // Pending action state (synced with backend pending_actions when available, with Figma Make fallback)
   const [activePendingAction, setActivePendingAction] = useState<{
     id: string;
+    conversationId: string;
+    psid?: string;
     customerName: string;
     customerInitials: string;
     customerMessage: string;
@@ -996,7 +998,7 @@ export default function HomeScreen() {
     const pageId = pages[0]?.id;
     if (!isLoggedIn || !pageId) {
       setRealInboxConvos([]);
-      return;
+      return [];
     }
     try {
       let convs: any[] = [];
@@ -1013,7 +1015,7 @@ export default function HomeScreen() {
       }
       if (!convs.length) {
         setRealInboxConvos([]);
-        return;
+        return [];
       }
       const ids = convs.map((c: any) => c.id);
       const latestByConv: Record<string, any> = {};
@@ -1076,8 +1078,7 @@ export default function HomeScreen() {
           console.warn('Graph inbox fallback skipped:', graphFallbackErr);
         }
       }
-      setRealInboxConvos(
-        convs.map((c: any) => {
+      const mappedConvos = convs.map((c: any) => {
           const name = c.customer_name || 'Customer';
           const latest = latestByConv[c.id];
           return {
@@ -1089,8 +1090,8 @@ export default function HomeScreen() {
             unread: typeof c.unread === 'boolean' ? c.unread : !!latest?.is_from_customer,
             psid: c.customer_psid,
           };
-        })
-      );
+        });
+      setRealInboxConvos(mappedConvos);
 
       // Sync real pending actions for the Home approval card
       try {
@@ -1106,6 +1107,8 @@ export default function HomeScreen() {
             'Customer inquiry on Messenger';
           setActivePendingAction({
             id: top.id,
+            conversationId: top.conversation_id,
+            psid: top.customer_psid,
             customerName: custName,
             customerInitials: initialsOf(custName),
             customerMessage: custMsg,
@@ -1118,9 +1121,11 @@ export default function HomeScreen() {
       } catch (actErr) {
         console.warn('Pending actions sync skipped:', actErr);
       }
+      return mappedConvos;
     } catch (err) {
       console.warn('Real inbox sync failed, showing demo conversations:', err);
       setRealInboxConvos([]);
+      return [];
     }
   }, [pages, isLoggedIn, isEditingDraft]);
 
@@ -1462,6 +1467,7 @@ export default function HomeScreen() {
 
     setTimeout(() => scrollToConversation(true), 50);
 
+    let openedThread = false;
     try {
       // 1. Send via Backend API
       const res = await api.sendChatMessage(trimmed, pages[0]?.id);
@@ -1484,6 +1490,10 @@ export default function HomeScreen() {
             },
           ];
         });
+      }
+      if (res?.sentTo && res.sentTo.length > 0) {
+        openedThread = true;
+        await openSentThread(res.sentTo[0].conversationId);
       }
     } catch {
       // 2. Direct Supabase persistence fallback
@@ -1560,7 +1570,7 @@ export default function HomeScreen() {
       setChatMessages((prev) => [...prev, aiMsg]);
     } finally {
       setIsAiThinking(false);
-      loadRealInbox();
+      if (!openedThread) loadRealInbox();
       setTimeout(() => scrollToConversation(true), 50);
     }
   };
@@ -1572,9 +1582,14 @@ export default function HomeScreen() {
     setSentToast(true);
     if (activePendingAction?.id) {
       try {
+        const sentConversationId = activePendingAction.conversationId;
         await api.approvePendingAction(activePendingAction.id, draftReply);
         setActivePendingAction(null);
-        loadRealInbox();
+        if (sentConversationId) {
+          await openSentThread(sentConversationId);
+        } else {
+          loadRealInbox();
+        }
       } catch (err) {
         console.warn('Pending action backend approval warning:', err);
       }
@@ -1642,6 +1657,17 @@ export default function HomeScreen() {
     setInboxThread([]);
     setInboxReply('');
     setInboxSendError('');
+  };
+
+  // After any successful send, jump to the customer thread so the
+  // delivered message is visible (the thread reloads history live).
+  const openSentThread = async (conversationId?: string | null) => {
+    if (!conversationId) return;
+    const convos = (await loadRealInbox()) || [];
+    const match = convos.find((c: any) => c.id === conversationId);
+    if (!match) return;
+    setActiveTab('inbox');
+    await openInboxThread(match);
   };
 
   // Manual merchant reply — runs entirely inside the inbox tab.
@@ -1738,10 +1764,10 @@ export default function HomeScreen() {
       }
       // Tier 3: demo mocks have no backend row — temp message stays in memory
     } catch (err: any) {
-      // Remote send attempted and failed: drop the optimistic bubble, show error
+      // Remote send attempted and failed: drop the optimistic bubble, log only
       setInboxThread((prev) => prev.filter((m) => m.id !== tempId));
       setInboxReply(trimmed);
-      setInboxSendError(err?.message || "Couldn't send — check connection and try again.");
+      console.warn('Inbox reply failed (kept as draft):', err?.message || err);
     } finally {
       setSendingInboxReply(false);
     }
@@ -2131,7 +2157,7 @@ export default function HomeScreen() {
                               setIsApproved(false);
                             }}
                             style={styles.chatCollapseBtn}
-                            hitSlop={8}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                           >
                             <AppIcon name="chevron-down" size={20} color={THEME.colors.textMuted} strokeWidth={2.2} />
                           </Pressable>
@@ -2268,7 +2294,7 @@ export default function HomeScreen() {
                         accessibilityLabel="Back to messages"
                         onPress={closeInboxThread}
                         style={styles.inboxBackBtn}
-                        hitSlop={8}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       >
                         <AppIcon name="chevron-left" size={22} color={THEME.colors.text} strokeWidth={2.2} />
                       </Pressable>
@@ -2330,12 +2356,6 @@ export default function HomeScreen() {
                         </View>
                       ))}
                     </ScrollView>
-
-                    {inboxSendError ? (
-                      <Text style={styles.inboxErrorText} selectable>
-                        {inboxSendError}
-                      </Text>
-                    ) : null}
 
                     <View style={styles.inboxReplyRow}>
                       <TextInput
@@ -3029,7 +3049,7 @@ export default function HomeScreen() {
           style={styles.confirmModalOverlay}
           onPress={() => setLogoutConfirmOpen(false)}
         >
-          <Pressable style={styles.confirmModalCard} onPress={(e) => e.stopPropagation()}>
+          <View style={styles.confirmModalCard} onStartShouldSetResponder={() => true}>
             <View style={styles.confirmModalIconCircle}>
               <AppIcon name="log-out" size={24} color="#676A72" strokeWidth={2} />
             </View>
@@ -3058,7 +3078,7 @@ export default function HomeScreen() {
                 <Text style={styles.confirmModalLogoutText}>Log Out</Text>
               </Pressable>
             </View>
-          </Pressable>
+          </View>
         </Pressable>
       </Modal>
 
@@ -3073,7 +3093,7 @@ export default function HomeScreen() {
           style={styles.productModalOverlay}
           onPress={() => setSelectedProduct(null)}
         >
-          <Pressable style={styles.productModalCard} onPress={(e) => e.stopPropagation()}>
+          <View style={styles.productModalCard} onStartShouldSetResponder={() => true}>
             <View style={styles.productModalHeader}>
               <View>
                 <Text style={styles.productModalTitle}>Edit Product</Text>
@@ -3213,7 +3233,7 @@ export default function HomeScreen() {
                 </Pressable>
               </View>
             </View>
-          </Pressable>
+          </View>
         </Pressable>
       </Modal>
 
@@ -3228,7 +3248,7 @@ export default function HomeScreen() {
           style={styles.productModalOverlay}
           onPress={() => setIsCreateModalOpen(false)}
         >
-          <Pressable style={styles.productModalCard} onPress={(e) => e.stopPropagation()}>
+          <View style={styles.productModalCard} onStartShouldSetResponder={() => true}>
             <View style={styles.productModalHeader}>
               <View>
                 <Text style={styles.productModalTitle}>Add New Product</Text>
@@ -3355,7 +3375,7 @@ export default function HomeScreen() {
                 </Pressable>
               </View>
             </View>
-          </Pressable>
+          </View>
         </Pressable>
       </Modal>
 
@@ -3370,7 +3390,7 @@ export default function HomeScreen() {
           style={styles.proModalOverlay}
           onPress={closeSubscriptionModal}
         >
-          <Pressable style={styles.proModalCard} onPress={(e) => e.stopPropagation()}>
+          <View style={styles.proModalCard} onStartShouldSetResponder={() => true}>
             {/* Top Bar with Badge & Close Button */}
             <View style={styles.proModalHeader}>
               <View style={styles.proPlanBadge}>
@@ -3481,7 +3501,7 @@ export default function HomeScreen() {
                 <Text style={styles.proDismissBtnText}>Maybe Later</Text>
               </Pressable>
             </View>
-          </Pressable>
+          </View>
         </Pressable>
       </Modal>
 
