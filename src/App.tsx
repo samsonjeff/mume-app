@@ -101,7 +101,7 @@ function PendingAction({
   isApproved = false,
   onEditingChange,
 }: {
-  onApproved: () => void;
+  onApproved: (sentText: string) => void;
   isApproved?: boolean;
   onEditingChange?: (isEditing: boolean) => void;
 }) {
@@ -218,7 +218,7 @@ function PendingAction({
           onClick={() => {
             setEditing(false);
             onEditingChange?.(false);
-            onApproved();
+            onApproved(draftReply);
           }}
           type="button"
         >
@@ -251,7 +251,7 @@ function HomeScreen({
   userName: string;
   isLoggedIn: boolean;
   onLogin: () => void;
-  onApproved: () => void;
+  onApproved: (sentText: string) => void;
   onOpenInbox: () => void;
   onOpenCatalog: () => void;
   onOpenSettings: () => void;
@@ -439,6 +439,43 @@ const DUMMY_CONVOS = [
   { id: '3', initials: 'RS', name: 'Rica S.', message: 'Thank you po!', time: '1h', unread: false },
 ];
 
+interface ThreadMsg {
+  id: string;
+  from: 'customer' | 'merchant';
+  text: string;
+  time: string;
+  // Live delivery receipt for merchant replies, mirrored to the customer thread.
+  status?: 'sending' | 'sent-live' | 'seen';
+  // How this merchant message entered the thread: typed manually or approved from Home.
+  via?: 'manual' | 'approval';
+}
+
+// Seed history per thread so tapping a conversation opens a real thread.
+// Merchant bubbles are manual replies the seller typed (not AI drafts).
+const THREAD_SEED: Record<string, ThreadMsg[]> = {
+  '1': [
+    { id: 't1-m1', from: 'customer', text: 'Hi po, how much ang red apples?', time: 'now' },
+    { id: 't1-m2', from: 'merchant', text: 'Hello po! Red apples are $2.50 per kilo. In stock po today.', time: 'now' },
+    { id: 't1-m3', from: 'customer', text: 'Pwede po pa-reserve ng 2kg for today?', time: 'now' },
+  ],
+  '2': [
+    { id: 't2-m1', from: 'customer', text: 'Available pa po ang mango?', time: '8m' },
+    { id: 't2-m2', from: 'merchant', text: 'Yes po! Carabao mango $4.00/kg, fresh Guimaras harvest.', time: '7m' },
+  ],
+  '3': [
+    { id: 't3-m1', from: 'customer', text: 'Thank you po!', time: '1h' },
+    { id: 't3-m2', from: 'merchant', text: 'Salamat po! Balik po kayo.', time: '1h' },
+  ],
+};
+
+// Simulated live customer follow-up shown after the seller sends a manual
+// reply, so the demo thread feels two-way even while offline.
+const THREAD_AUTO_REPLY: Record<string, string> = {
+  '1': 'Salamat po! Confirm ko po 2kg for pickup today.',
+  '2': 'Sige po, pa-order po ng 3kg bukas.',
+  '3': 'Ok po, order ulit ako next week!',
+};
+
 function initialsOf(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return '??';
@@ -460,12 +497,22 @@ function InboxScreen({
   isLoggedIn,
   onLogin,
   realConvos = [],
+  previews = {},
+  readIds = [],
+  onOpenConversation,
 }: {
   isLoggedIn: boolean;
   onLogin: () => void;
   realConvos?: { id: string; initials: string; name: string; message: string; time: string; unread: boolean; psid?: string }[];
+  previews?: Record<string, string>;
+  readIds?: string[];
+  onOpenConversation?: (id: string) => void;
 }) {
-  const allConvos = [...realConvos, ...DUMMY_CONVOS];
+  const allConvos = [...realConvos, ...DUMMY_CONVOS].map((c) => ({
+    ...c,
+    message: previews[c.id] || c.message,
+    unread: c.unread && !readIds.includes(c.id),
+  }));
   const unreadTotal = allConvos.filter((c) => c.unread).length;
   return (
     <section className="panel-screen">
@@ -475,7 +522,13 @@ function InboxScreen({
       </div>
       {isLoggedIn ? (
         allConvos.map((convo, index) => (
-          <button className="conversation min-h-[56px]" key={convo.id} type="button">
+          <button
+            className="conversation min-h-[56px] text-left w-full"
+            key={convo.id}
+            type="button"
+            onClick={() => onOpenConversation?.(convo.id)}
+            aria-label={`Open conversation with ${convo.name}`}
+          >
             <span className={`avatar conversation-avatar tone-${index % 3}`}>{convo.initials}</span>
             <span className="conversation-copy">
               <strong>{convo.name}</strong>
@@ -500,6 +553,140 @@ function InboxScreen({
           </button>
         </div>
       )}
+    </section>
+  );
+}
+
+function merchantDeliveryLabel(m: ThreadMsg): string {
+  if (m.status === 'sending') return 'Sending…';
+  if (m.status === 'seen') return 'Seen · live';
+  if (m.status === 'sent-live') return 'Sent · live';
+  return `${m.time} · You`;
+}
+
+function ConversationThread({
+  convoName,
+  convoInitials,
+  messages,
+  replyText,
+  sending = false,
+  customerTyping = false,
+  onReplyChange,
+  onSend,
+  onBack,
+}: {
+  convoName: string;
+  convoInitials: string;
+  messages: ThreadMsg[];
+  replyText: string;
+  sending?: boolean;
+  customerTyping?: boolean;
+  onReplyChange: (text: string) => void;
+  onSend: () => void;
+  onBack: () => void;
+}) {
+  const listRef = useRef<HTMLDivElement>(null);
+  const firstName = convoName.split(' ')[0];
+  const liveDraft = replyText.trim();
+
+  useEffect(() => {
+    const list = listRef.current;
+    if (list) {
+      list.scrollTop = list.scrollHeight;
+    }
+  }, [messages, customerTyping, liveDraft]);
+
+  return (
+    <section className="panel-screen thread-screen">
+      <div className="thread-header">
+        <button type="button" className="thread-back-btn" onClick={onBack} aria-label={`Back to messages`}>
+          <Icon name="chevron-left" size={20} />
+        </button>
+        <span className="avatar conversation-avatar tone-0">{convoInitials}</span>
+        <div className="thread-header-copy">
+          <strong>{convoName}</strong>
+          <span className="thread-live-badge">
+            <span className="thread-live-dot" />
+            Live · Messenger sync
+          </span>
+        </div>
+      </div>
+
+      <div
+        className="thread-messages-list"
+        role="log"
+        aria-live="polite"
+        aria-label={`Conversation with ${convoName}`}
+        ref={listRef}
+      >
+        {messages.map((m) =>
+          m.from === 'merchant' ? (
+            <div key={m.id} className="chat-bubble-row user-row">
+              <div className="chat-bubble user-bubble">
+                <p className="chat-bubble-text">{m.text}</p>
+                <span className={`chat-bubble-time delivery-status ${m.status ? `delivery-${m.status}` : ''}`}>
+                  {merchantDeliveryLabel(m)}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div key={m.id} className="chat-bubble-row mume-row">
+              <div className="chat-bubble mume-bubble">
+                <p className="chat-bubble-text">{m.text}</p>
+                <span className="chat-bubble-time">{m.time}</span>
+              </div>
+            </div>
+          )
+        )}
+        {/* Live mirror: what the customer sees the instant the merchant types. */}
+        {liveDraft && (
+          <div className="live-preview-row" aria-hidden="true">
+            <span className="live-preview-label">
+              <span className="live-preview-dot" />
+              Customer sees live
+            </span>
+            <div className="chat-bubble live-preview-bubble">
+              <p className="chat-bubble-text">{liveDraft}</p>
+            </div>
+          </div>
+        )}
+        {customerTyping && (
+          <div className="chat-bubble-row mume-row">
+            <div className="chat-bubble mume-bubble thinking-bubble">
+              <span className="thinking-dot" />
+              <span className="thinking-text">{firstName} is typing…</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="manual-reply-bar">
+        <input
+          type="text"
+          className="manual-reply-input"
+          placeholder={`Reply to ${convoName.split(' ')[0]} manually…`}
+          value={replyText}
+          onChange={(e) => onReplyChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              onSend();
+            }
+          }}
+          aria-label={`Manual reply to ${convoName}`}
+        />
+        <button
+          type="button"
+          className={`manual-send-btn ${replyText.trim() ? 'active' : ''}`}
+          onClick={onSend}
+          disabled={!replyText.trim() || sending}
+          aria-label="Send manual reply to customer"
+        >
+          <Icon name="send" size={16} />
+          <span>{sending ? 'Sending…' : 'Send'}</span>
+        </button>
+      </div>
+      <p className="thread-hint">Manual reply — sends live to the customer thread.</p>
     </section>
   );
 }
@@ -601,6 +788,16 @@ export default function App() {
   const [realInboxConvos, setRealInboxConvos] = useState<
     { id: string; initials: string; name: string; message: string; time: string; unread: boolean; psid?: string }[]
   >([]);
+  const [linkedPageId, setLinkedPageId] = useState<string | null>(null);
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
+  const [threadMsgs, setThreadMsgs] = useState<Record<string, ThreadMsg[]>>(THREAD_SEED);
+  const [threadPreviews, setThreadPreviews] = useState<Record<string, string>>({});
+  const [threadReadIds, setThreadReadIds] = useState<string[]>([]);
+  const [manualReplyText, setManualReplyText] = useState('');
+  const [manualSending, setManualSending] = useState(false);
+  const [customerTypingId, setCustomerTypingId] = useState<string | null>(null);
+  const [sentLabel, setSentLabel] = useState('Reply sent to Maria');
+  const customerReplyTimerRef = useRef<number | null>(null);
   const [chatInput, setChatInput] = useState('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
@@ -725,6 +922,7 @@ export default function App() {
       try {
         const linkedPages = await api.getLinkedPages();
         const pageId = linkedPages[0]?.id;
+        if (isMounted && pageId) setLinkedPageId(pageId);
         const fbPageIdStr = String(linkedPages[0]?.fb_page_id || '');
         if (isMounted && pageId) {
           const convs = await api.getPageConversations(pageId);
@@ -1128,10 +1326,104 @@ export default function App() {
   const handleApproved = () => {
     setIsApproved(true);
     setShowApprovedCard(true);
+    setSentLabel('Reply sent to Maria');
     setSent(true);
     window.setTimeout(() => setShowApprovedCard(false), 2000);
     window.setTimeout(() => setSent(false), 3500);
   };
+
+  const selectedThread = [...realInboxConvos, ...DUMMY_CONVOS].find((c) => c.id === selectedThreadId) || null;
+
+  const handleOpenThread = (id: string) => {
+    setSelectedThreadId(id);
+    setThreadReadIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    setManualReplyText('');
+    setCustomerTypingId(null);
+    if (customerReplyTimerRef.current !== null) {
+      window.clearTimeout(customerReplyTimerRef.current);
+      customerReplyTimerRef.current = null;
+    }
+  };
+
+  const handleCloseThread = () => {
+    setSelectedThreadId(null);
+    setManualReplyText('');
+    setCustomerTypingId(null);
+    if (customerReplyTimerRef.current !== null) {
+      window.clearTimeout(customerReplyTimerRef.current);
+      customerReplyTimerRef.current = null;
+    }
+  };
+
+  const handleSendManualReply = async () => {
+    const trimmed = manualReplyText.trim();
+    if (!trimmed || manualSending || !selectedThreadId) return;
+    const threadId = selectedThreadId;
+    const threadName = selectedThread?.name || 'Customer';
+    setManualSending(true);
+    const merchantMsg: ThreadMsg = {
+      id: `manual-${Date.now()}`,
+      from: 'merchant',
+      text: trimmed,
+      time: 'Just now',
+    };
+    setThreadMsgs((prev) => ({ ...prev, [threadId]: [...(prev[threadId] || []), merchantMsg] }));
+    setThreadPreviews((prev) => ({ ...prev, [threadId]: trimmed }));
+    setManualReplyText('');
+    setManualSending(false);
+
+    // Live dispatch: try the real Graph Send API path, fall back to local.
+    try {
+      const real = realInboxConvos.find((c) => c.id === threadId);
+      if (linkedPageId && real?.psid) {
+        await api.replyToCustomer(linkedPageId, {
+          psid: real.psid,
+          text: trimmed,
+          lastCustomerMessageAt: new Date().toISOString(),
+        });
+      }
+    } catch {
+      // Local thread update above already shows the live change.
+    }
+
+    setSentLabel(`Sent to ${threadName} · live`);
+    setSent(true);
+    window.setTimeout(() => setSent(false), 3500);
+
+    // Live customer echo so the demo visibly goes both ways.
+    if (customerReplyTimerRef.current !== null) {
+      window.clearTimeout(customerReplyTimerRef.current);
+    }
+    setCustomerTypingId(threadId);
+    customerReplyTimerRef.current = window.setTimeout(() => {
+      const echo: ThreadMsg = {
+        id: `echo-${Date.now()}`,
+        from: 'customer',
+        text: THREAD_AUTO_REPLY[threadId] || 'Salamat po! Noted po.',
+        time: 'Just now',
+      };
+      setThreadMsgs((prev) => ({ ...prev, [threadId]: [...(prev[threadId] || []), echo] }));
+      setThreadPreviews((prev) => ({ ...prev, [threadId]: echo.text }));
+      setCustomerTypingId((cur) => (cur === threadId ? null : cur));
+      customerReplyTimerRef.current = null;
+    }, 2400);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (customerReplyTimerRef.current !== null) {
+        window.clearTimeout(customerReplyTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (activeTab !== 'inbox' && selectedThreadId !== null) {
+      setSelectedThreadId(null);
+      setManualReplyText('');
+      setCustomerTypingId(null);
+    }
+  }, [activeTab, selectedThreadId]);
 
   const handleLogout = () => {
     setIsLoggedIn(false);
@@ -1213,11 +1505,27 @@ export default function App() {
               onEditingChange={setIsEditingActionDraft}
             />
           )}
-          {activeTab === 'inbox' && (
+          {activeTab === 'inbox' && selectedThread && (
+            <ConversationThread
+              convoName={selectedThread.name}
+              convoInitials={selectedThread.initials}
+              messages={threadMsgs[selectedThread.id] || []}
+              replyText={manualReplyText}
+              sending={manualSending}
+              customerTyping={customerTypingId === selectedThread.id}
+              onReplyChange={setManualReplyText}
+              onSend={handleSendManualReply}
+              onBack={handleCloseThread}
+            />
+          )}
+          {activeTab === 'inbox' && !selectedThread && (
             <InboxScreen
               isLoggedIn={isLoggedIn}
               onLogin={handleLogin}
               realConvos={realInboxConvos}
+              previews={threadPreviews}
+              readIds={threadReadIds}
+              onOpenConversation={handleOpenThread}
             />
           )}
           {activeTab === 'catalog' && (
@@ -1239,7 +1547,7 @@ export default function App() {
         </div>
 
         {/* Gemini-Style Floating Bottom Input Capsule Dock (Size x 2 with Multi-Line Text Input & Send) */}
-        {activeTab !== 'settings' && activeTab !== 'catalog' && !isEditingActionDraft && (
+        {activeTab !== 'settings' && activeTab !== 'catalog' && !isEditingActionDraft && !selectedThreadId && (
           <div className="input-capsule-container">
             <div className="input-capsule size-x2">
               {/* Top Row: Merchant can write a message to talk to AI */}
@@ -1876,7 +2184,7 @@ export default function App() {
             <span>
               <Icon name="check" size={18} />
             </span>
-            <span>Reply sent to Maria</span>
+            <span>{sentLabel}</span>
           </div>
         )}
 

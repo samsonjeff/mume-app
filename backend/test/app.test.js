@@ -349,11 +349,11 @@ test('voice: transcode args target mono 24 kHz PCM WAV over pipes', () => {
   assert.ok(args.includes('pipe:0') && args.includes('pipe:1'));
 });
 
-test('voice: tiny clips are rejected as too short before any conversion', async () => {
+test('voice: tiny non-WAV clips are rejected with a byte count before any conversion', async () => {
   const env = { META_MODEL_API_KEY: 'test-key' };
   await assert.rejects(
     transcribeMuseAudio({ audio: Buffer.alloc(100, 0), env }),
-    /too short/i
+    /WAV file \(100 bytes received/
   );
 });
 

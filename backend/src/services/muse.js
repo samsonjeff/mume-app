@@ -196,8 +196,11 @@ async function transcribeMuseAudio({ audio, env = process.env }) {
   if (bytes.length > MAX_AUDIO_BYTES) {
     throw new Error('Audio too large (max 8 MB)');
   }
-  if (bytes.length < 4096) {
-    throw new Error(`Recording too short to transcribe (${bytes.length} bytes) — hold the mic longer`);
+  // Junk too small to hold speech that is not even WAV-shaped is rejected
+  // up front with a byte count, skipping a doomed ffmpeg run. Valid WAV of
+  // any size always proceeds to validation/upload.
+  if (bytes.length < 4096 && !readWavFormat(bytes)) {
+    throw new Error(`Audio must be a WAV file (${bytes.length} bytes received — hold the mic longer)`);
   }
   let wav = bytes;
   if (!readWavFormat(wav)) {
