@@ -898,8 +898,20 @@ export default function HomeScreen() {
       }
       const file = await voiceStream.stopFileRecordingAsync();
       voiceStream.stop();
+      if (!file?.uri) throw new Error('No recording captured');
       if (file.sampleRate !== 16000 && file.sampleRate !== 24000) {
         throw new Error('Microphone does not support 16/24 kHz recording');
+      }
+      // Trust the recorder's own measurements over wall-clock: a real
+      // utterance is seconds long and thousands of bytes. Anything less
+      // means the mic delivered no data — uploading it can only fail.
+      if (file.duration < 1) {
+        throw new Error(`That tap was too short (${file.duration.toFixed(1)}s) — hold the mic and speak.`);
+      }
+      if (file.size < 4096) {
+        throw new Error(
+          `Mic captured only ${file.size} bytes in ${file.duration.toFixed(1)}s — check microphone access and try again.`
+        );
       }
       const { base64 } = await uriToBase64(file.uri);
       const { text } = await api.transcribeVoice({ audio: base64 });
