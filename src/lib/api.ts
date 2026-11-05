@@ -58,6 +58,23 @@ export const api = {
     return res.json();
   },
 
+  async transcribeVoice(payload: {
+    audio: string;
+    mimeType?: string;
+    language?: string;
+  }): Promise<{ text: string }> {
+    const res = await fetch(`${API_BASE_URL}/api/voice/transcribe`, {
+      method: 'POST',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Voice transcription failed');
+    }
+    return res.json();
+  },
+
   async getPageConversations(pageId: string): Promise<any[]> {
     try {
       const res = await fetch(`${API_BASE_URL}/api/pages/${encodeURIComponent(pageId)}/conversations`, {

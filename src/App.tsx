@@ -775,11 +775,257 @@ function CatalogScreen({
   );
 }
 
+/** Handle for an in-progress browser microphone capture. */
+interface WebCapture {
+  ctx: AudioContext;
+  source: MediaStreamAudioSourceNode;
+  proc: ScriptProcessorNode;
+  chunks: Float32Array[];
+  sampleRate: number;
+  micStream: MediaStream;
+  recognition?: any;
+  getBrowserTranscript?: () => string;
+}
+
+/** Plays a subtle two-note earcon when toggling the mic on or off. */
+function playWebEarcon(kind: 'on' | 'off') {
+  try {
+    const Ctor = window.AudioContext || (window as any).webkitAudioContext;
+    if (!Ctor) return;
+    const ctx: AudioContext = new Ctor();
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    if (kind === 'on') {
+      osc.frequency.setValueAtTime(520, now);
+      osc.frequency.exponentialRampToValueAtTime(740, now + 0.09);
+    } else {
+      osc.frequency.setValueAtTime(680, now);
+      osc.frequency.exponentialRampToValueAtTime(440, now + 0.09);
+    }
+    gain.gain.setValueAtTime(0.06, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.12);
+    osc.onended = () => {
+      ctx.close().catch(() => {});
+    };
+  } catch {
+    // Best-effort earcon only.
+  }
+}
+
+/**
+ * Resamples captured browser audio to 24 kHz mono 16-bit PCM and encodes
+ * a WAV file as base64: the exact format the transcription endpoint takes.
+ */
+function encodeWavBase64(chunks: Float32Array[], fromRate: number, toRate = 24000): string {
+  let total = 0;
+  for (const c of chunks) total += c.length;
+  const pcm = new Float32Array(total);
+  let o = 0;
+  for (const c of chunks) {
+    pcm.set(c, o);
+    o += c.length;
+  }
+  const outLen = Math.max(1, Math.floor((total * toRate) / fromRate));
+  const data = new Int16Array(outLen);
+  for (let i = 0; i < outLen; i++) {
+    const pos = (i * fromRate) / toRate;
+    const i0 = Math.floor(pos);
+    const frac = pos - i0;
+    const a = pcm[Math.min(i0, total - 1)] || 0;
+    const b = pcm[Math.min(i0 + 1, total - 1)] || 0;
+    const v = Math.max(-1, Math.min(1, a + (b - a) * frac));
+    data[i] = v < 0 ? Math.round(v * 32768) : Math.round(v * 32767);
+  }
+  const buffer = new ArrayBuffer(44 + outLen * 2);
+  const v = new DataView(buffer);
+  const writeStr = (off: number, s: string) => {
+    for (let i = 0; i < s.length; i++) v.setUint8(off + i, s.charCodeAt(i));
+  };
+  writeStr(0, 'RIFF');
+  v.setUint32(4, 36 + outLen * 2, true);
+  writeStr(8, 'WAVE');
+  writeStr(12, 'fmt ');
+  v.setUint32(16, 16, true);
+  v.setUint16(20, 1, true);
+  v.setUint16(22, 1, true);
+  v.setUint32(24, toRate, true);
+  v.setUint32(28, toRate * 2, true);
+  v.setUint16(32, 2, true);
+  v.setUint16(34, 16, true);
+  writeStr(36, 'data');
+  v.setUint32(40, outLen * 2, true);
+  new Int16Array(buffer, 44).set(data);
+  const bytes = new Uint8Array(buffer);
+  const CH = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let out = '';
+  for (let i = 0; i < bytes.length; i += 3) {
+    const a = bytes[i];
+    const b = i + 1 < bytes.length ? bytes[i + 1] : 0;
+    const c = i + 2 < bytes.length ? bytes[i + 2] : 0;
+    out += CH[a >> 2] + CH[((a & 3) << 4) | (b >> 4)];
+    out += i + 1 < bytes.length ? CH[((b & 15) << 2) | (c >> 6)] : '=';
+    out += i + 2 < bytes.length ? CH[c & 63] : '=';
+  }
+  return out;
+}
+
+async function startWebCapture(): Promise<WebCapture> {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    throw new Error('Microphone is not available in this browser');
+  }
+  let micStream: MediaStream;
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+    });
+  } catch {
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  }
+  const liveTrack = micStream.getAudioTracks()[0];
+  if (!liveTrack || liveTrack.readyState !== 'live') {
+    micStream.getTracks().forEach((t) => t.stop());
+    throw new Error('Microphone is not available in this browser');
+  }
+  const Ctor = window.AudioContext || (window as any).webkitAudioContext;
+  const ctx: AudioContext = new Ctor();
+  try {
+    await ctx.resume();
+  } catch {
+    // Handled by ctx.state check below.
+  }
+  if (ctx.state !== 'running') {
+    micStream.getTracks().forEach((t) => t.stop());
+    try {
+      await ctx.close();
+    } catch {
+      // Already closed.
+    }
+    throw new Error('Microphone is not available in this browser');
+  }
+  const source = ctx.createMediaStreamSource(micStream);
+  const proc = ctx.createScriptProcessor(4096, 1, 1);
+  const chunks: Float32Array[] = [];
+  proc.onaudioprocess = (e) => {
+    chunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+  };
+  source.connect(proc);
+  const silent = ctx.createGain();
+  silent.gain.value = 0;
+  proc.connect(silent);
+  silent.connect(ctx.destination);
+
+  let recognition: any = null;
+  const finalParts: string[] = [];
+  let interimPart = '';
+  try {
+    const isMobileUa = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+    const SpeechRec =
+      !isMobileUa &&
+      ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+    if (SpeechRec) {
+      recognition = new SpeechRec();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = navigator.language || 'en-US';
+      recognition.onresult = (ev: any) => {
+        let interim = '';
+        for (let i = ev.resultIndex || 0; i < ev.results.length; i++) {
+          const res = ev.results[i];
+          const txt = String(res?.[0]?.transcript || '').trim();
+          if (!txt) continue;
+          if (res.isFinal) finalParts.push(txt);
+          else interim += (interim ? ' ' : '') + txt;
+        }
+        interimPart = interim;
+      };
+      recognition.onerror = () => {};
+      recognition.start();
+    }
+  } catch {
+    recognition = null;
+  }
+
+  return {
+    ctx,
+    source,
+    proc,
+    chunks,
+    sampleRate: ctx.sampleRate,
+    micStream,
+    recognition,
+    getBrowserTranscript: () => [...finalParts, interimPart].filter(Boolean).join(' ').trim(),
+  };
+}
+
+async function stopWebCapture(cap: WebCapture): Promise<{ base64: string; browserTranscript: string }> {
+  try {
+    cap.proc.disconnect();
+  } catch {
+    // Already torn down.
+  }
+  try {
+    cap.source.disconnect();
+  } catch {
+    // Already torn down.
+  }
+  try {
+    cap.micStream.getTracks().forEach((t) => t.stop());
+  } catch {
+    // Tracks already stopped.
+  }
+  if (cap.recognition) {
+    await new Promise<void>((resolve) => {
+      const done = () => resolve();
+      const timer = window.setTimeout(done, 250);
+      try {
+        cap.recognition.onend = () => {
+          window.clearTimeout(timer);
+          done();
+        };
+        cap.recognition.stop();
+      } catch {
+        window.clearTimeout(timer);
+        done();
+      }
+    });
+  }
+  const base64 = encodeWavBase64(cap.chunks, cap.sampleRate);
+  cap.ctx.close().catch(() => {});
+  const browserTranscript = cap.getBrowserTranscript ? cap.getBrowserTranscript() : '';
+  return { base64, browserTranscript };
+}
+
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>('home');
   const [menuOpen, setMenuOpen] = useState(false);
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
+  const [voiceError, setVoiceError] = useState<string>('');
+  const voiceErrorTimerRef = useRef<number | null>(null);
+  const webRecRef = useRef<WebCapture | null>(null);
+  const voiceRecordStartedAt = useRef<number>(0);
+  const showVoiceError = useCallback((msg: string) => {
+    setVoiceError(msg);
+    if (voiceErrorTimerRef.current !== null) {
+      window.clearTimeout(voiceErrorTimerRef.current);
+      voiceErrorTimerRef.current = null;
+    }
+    if (msg) {
+      voiceErrorTimerRef.current = window.setTimeout(() => {
+        setVoiceError('');
+      }, 5000);
+    }
+  }, []);
   const [userName, setUserName] = useState<string>('Jefferson');
   const [isLoggedIn, setIsLoggedIn] = useState(true);
   const [sent, setSent] = useState(false);
@@ -1177,8 +1423,8 @@ export default function App() {
     setIsCreateModalOpen(false);
   };
 
-  const handleSendMessage = async () => {
-    const trimmed = chatInput.trim();
+  const handleSendMessage = async (sendText?: string) => {
+    const trimmed = (typeof sendText === 'string' ? sendText : chatInput).trim();
     if (!trimmed || isAiThinking) return;
 
     if (typingTimeoutRef.current) {
@@ -1205,7 +1451,7 @@ export default function App() {
 
     try {
       // 1. Send via Backend API (persists in Supabase)
-      const res = await api.sendChatMessage(trimmed);
+      const res = await api.sendChatMessage(trimmed, linkedPageId || undefined);
       if (res?.aiMessage) {
         setChatMessages((prev) => {
           const withoutTemp = prev.filter((m) => m.id !== tempUserId);
@@ -1310,15 +1556,80 @@ export default function App() {
     : '?';
 
   useEffect(() => {
-    if (voiceState !== 'thinking') return;
-    const timeout = window.setTimeout(() => setVoiceState('idle'), 1800);
-    return () => window.clearTimeout(timeout);
-  }, [voiceState]);
+    return () => {
+      if (voiceErrorTimerRef.current !== null) {
+        window.clearTimeout(voiceErrorTimerRef.current);
+      }
+      if (webRecRef.current) {
+        stopWebCapture(webRecRef.current).catch(() => {});
+        webRecRef.current = null;
+      }
+    };
+  }, []);
 
-  const handleVoice = () => {
-    if (voiceState === 'idle') setVoiceState('listening');
-    else if (voiceState === 'listening') setVoiceState('thinking');
-    else setVoiceState('idle');
+  const handleVoice = async () => {
+    if (voiceState === 'thinking') return;
+    if (voiceState === 'idle') {
+      showVoiceError('');
+      try {
+        playWebEarcon('on');
+        webRecRef.current = await startWebCapture();
+        voiceRecordStartedAt.current = Date.now();
+        setVoiceState('listening');
+      } catch (err: any) {
+        const msg = err?.message || 'Microphone access denied';
+        console.warn('Voice record start failed:', msg);
+        showVoiceError(msg);
+      }
+      return;
+    }
+
+    const elapsedMs = Date.now() - voiceRecordStartedAt.current;
+    try {
+      setVoiceState('thinking');
+      playWebEarcon('off');
+      const cap = webRecRef.current;
+      webRecRef.current = null;
+      if (elapsedMs < 1000) {
+        if (cap) await stopWebCapture(cap);
+        const secs = (elapsedMs / 1000).toFixed(1);
+        throw new Error(`That tap was too short (${secs}s) — tap mic, speak, then tap again.`);
+      }
+      if (!cap || cap.chunks.length === 0) {
+        throw new Error('No recording captured');
+      }
+      const { base64, browserTranscript } = await stopWebCapture(cap);
+      const approxBytes = Math.floor((base64.length * 3) / 4);
+      if (approxBytes < 4096 && !browserTranscript) {
+        throw new Error(
+          `Mic captured only ${approxBytes} bytes — check microphone access and try again.`
+        );
+      }
+      let transcribedText = '';
+      try {
+        const { text } = await api.transcribeVoice({ audio: base64 });
+        transcribedText = (text || '').trim();
+      } catch (apiErr: any) {
+        if (browserTranscript.trim()) {
+          transcribedText = browserTranscript.trim();
+        } else {
+          throw apiErr;
+        }
+      }
+      if (!transcribedText && browserTranscript.trim()) {
+        transcribedText = browserTranscript.trim();
+      }
+      if (!transcribedText) {
+        throw new Error("Couldn't hear that — try again.");
+      }
+      await handleSendMessage(transcribedText);
+    } catch (err: any) {
+      const msg = err?.message || 'Voice transcription failed';
+      console.warn('Voice transcribe failed:', msg);
+      showVoiceError(msg);
+    } finally {
+      setVoiceState('idle');
+    }
   };
 
   const [isApproved, setIsApproved] = useState(false);
@@ -1603,7 +1914,12 @@ export default function App() {
                       <span className="capsule-status">Checking your page…</span>
                     </div>
                   )}
-                  {voiceState === 'idle' && !chatInput && (
+                  {voiceState === 'idle' && voiceError && (
+                    <span className="capsule-error" title={voiceError}>
+                      {voiceError}
+                    </span>
+                  )}
+                  {voiceState === 'idle' && !voiceError && !chatInput && (
                     <span className="capsule-hint">Tap mic or write to AI</span>
                   )}
                 </div>
@@ -1627,7 +1943,7 @@ export default function App() {
                   <button
                     type="button"
                     className={`capsule-send-button ${chatInput.trim() ? 'active' : ''}`}
-                    onClick={handleSendMessage}
+                    onClick={() => handleSendMessage()}
                     disabled={!chatInput.trim() || isAiThinking}
                     aria-label="Send message to AI"
                   >

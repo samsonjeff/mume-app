@@ -140,13 +140,55 @@ function decodeBase64Head(b64: string, count: number): number[] {
 }
 
 /**
+ * Normalizes Android single-slash file URLs (`file:/data/...` produced by
+ * `java.io.File.toURI().toURL()`) into standard `file:///data/...` URIs.
+ */
+function normalizeFileUri(uri: string): string {
+  return String(uri || '').replace(/^file:\/(?!\/)/i, 'file:///');
+}
+
+/**
+ * Converts a raw PCM ArrayBuffer emitted by `useAudioStream`'s `onBuffer`
+ * callback into mono Float32 samples in [-1, 1].
+ */
+function pcmBufferToMonoFloat32(
+  data: ArrayBuffer,
+  channels = 1,
+  encoding: 'int16' | 'float32' = 'int16'
+): Float32Array {
+  if (!data || data.byteLength === 0) return new Float32Array(0);
+  const bytes = ArrayBuffer.isView(data)
+    ? new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
+    : new Uint8Array(data);
+  const ch = Math.max(1, channels || 1);
+  const bytesPerSample = encoding === 'float32' ? 4 : 2;
+  const frames = Math.floor(bytes.byteLength / (ch * bytesPerSample));
+  if (frames <= 0) return new Float32Array(0);
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const out = new Float32Array(frames);
+  for (let f = 0; f < frames; f++) {
+    let sum = 0;
+    for (let c = 0; c < ch; c++) {
+      const off = (f * ch + c) * bytesPerSample;
+      const sample =
+        encoding === 'float32'
+          ? view.getFloat32(off, true)
+          : view.getInt16(off, true) / 32768;
+      sum += sample;
+    }
+    out[f] = Math.max(-1, Math.min(1, sum / ch));
+  }
+  return out;
+}
+
+/**
  * Reads a recorded audio file URI into base64 for the transcription endpoint.
  * Refuses to return non-audio bytes: a missing/unreadable file can surface
  * as an error page (e.g. the text "File not found"), which must never be
  * uploaded as if it were a recording.
  */
 async function uriToBase64(uri: string): Promise<{ base64: string; mimeType: string }> {
-  const res = await fetch(uri);
+  const res = await fetch(normalizeFileUri(uri));
   if (typeof res.status === 'number' && res.status >= 400) {
     throw new Error(`Failed to read recording (HTTP ${res.status})`);
   }
@@ -184,6 +226,8 @@ interface WebCapture {
   chunks: Float32Array[];
   sampleRate: number;
   micStream: MediaStream;
+  recognition?: any;
+  getBrowserTranscript?: () => string;
 }
 
 /**
@@ -195,7 +239,18 @@ async function startWebCapture(): Promise<WebCapture> {
   if (!navigator.mediaDevices?.getUserMedia) {
     throw new Error('Microphone is not available in this browser');
   }
-  const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  let micStream: MediaStream;
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+    });
+  } catch {
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  }
   const liveTrack = micStream.getAudioTracks()[0];
   if (!liveTrack || liveTrack.readyState !== 'live') {
     micStream.getTracks().forEach((t) => t.stop());
@@ -229,7 +284,50 @@ async function startWebCapture(): Promise<WebCapture> {
   silent.gain.value = 0;
   proc.connect(silent);
   silent.connect(ctx.destination);
-  return { ctx, source, proc, chunks, sampleRate: ctx.sampleRate, micStream };
+
+  // Best-effort browser SpeechRecognition on desktop web as a fallback
+  // if the backend ASR endpoint is unreachable.
+  let recognition: any = null;
+  const finalParts: string[] = [];
+  let interimPart = '';
+  try {
+    const isMobileUa = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+    const SpeechRec =
+      !isMobileUa &&
+      ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+    if (SpeechRec) {
+      recognition = new SpeechRec();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = navigator.language || 'en-US';
+      recognition.onresult = (ev: any) => {
+        let interim = '';
+        for (let i = ev.resultIndex || 0; i < ev.results.length; i++) {
+          const res = ev.results[i];
+          const txt = String(res?.[0]?.transcript || '').trim();
+          if (!txt) continue;
+          if (res.isFinal) finalParts.push(txt);
+          else interim += (interim ? ' ' : '') + txt;
+        }
+        interimPart = interim;
+      };
+      recognition.onerror = () => {};
+      recognition.start();
+    }
+  } catch {
+    recognition = null;
+  }
+
+  return {
+    ctx,
+    source,
+    proc,
+    chunks,
+    sampleRate: ctx.sampleRate,
+    micStream,
+    recognition,
+    getBrowserTranscript: () => [...finalParts, interimPart].filter(Boolean).join(' ').trim(),
+  };
 }
 
 /**
@@ -369,8 +467,8 @@ function encodeWavBase64(chunks: Float32Array[], fromRate: number, toRate = 2400
   return out;
 }
 
-/** Stops a browser capture started with startWebCapture and returns base64 WAV. */
-function stopWebCapture(cap: WebCapture): string {
+/** Stops a browser capture started with startWebCapture and returns base64 WAV + any browser transcript. */
+async function stopWebCapture(cap: WebCapture): Promise<{ base64: string; browserTranscript: string }> {
   try {
     cap.proc.disconnect();
   } catch {
@@ -386,9 +484,26 @@ function stopWebCapture(cap: WebCapture): string {
   } catch {
     // Tracks already stopped.
   }
+  if (cap.recognition) {
+    await new Promise<void>((resolve) => {
+      const done = () => resolve();
+      const timer = setTimeout(done, 250);
+      try {
+        cap.recognition.onend = () => {
+          clearTimeout(timer);
+          done();
+        };
+        cap.recognition.stop();
+      } catch {
+        clearTimeout(timer);
+        done();
+      }
+    });
+  }
   const base64 = encodeWavBase64(cap.chunks, cap.sampleRate);
   cap.ctx.close().catch(() => {});
-  return base64;
+  const browserTranscript = cap.getBrowserTranscript ? cap.getBrowserTranscript() : '';
+  return { base64, browserTranscript };
 }
 
 // Demo conversations — NEVER deleted. Real synced Facebook conversations
@@ -421,10 +536,41 @@ export default function HomeScreen() {
   const [activeTab, setActiveTab] = useState<Tab>('today');
   const [menuOpen, setMenuOpen] = useState(false);
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
+  const [voiceError, setVoiceError] = useState<string>('');
+  const voiceErrorTimerRef = useRef<any>(null);
+  const showVoiceError = useCallback((msg: string) => {
+    setVoiceError(msg);
+    if (voiceErrorTimerRef.current) clearTimeout(voiceErrorTimerRef.current);
+    if (msg) {
+      voiceErrorTimerRef.current = setTimeout(() => {
+        setVoiceError('');
+      }, 5000);
+    }
+  }, []);
+  // In-memory PCM buffer accumulator for native Android/iOS streams so
+  // encoding does not depend on broken `file:/` URIs or BlobModule fetches.
+  const nativePcmRef = useRef<{ chunks: Float32Array[]; sampleRate: number }>({
+    chunks: [],
+    sampleRate: 24000,
+  });
   // 24 kHz mono 16-bit PCM WAV: exactly what the Muse Voice file endpoint accepts.
   // On web useAudioStream returns a null stream, so the mic falls back to
   // browser PCM capture (see startWebCapture).
-  const { stream: voiceStream } = useAudioStream({ sampleRate: 24000, channels: 1, encoding: 'int16' });
+  const { stream: voiceStream } = useAudioStream({
+    sampleRate: 24000,
+    channels: 1,
+    encoding: 'int16',
+    onBuffer: (buf) => {
+      if (!buf?.data || buf.data.byteLength === 0) return;
+      if (typeof buf.sampleRate === 'number' && buf.sampleRate >= 8000) {
+        nativePcmRef.current.sampleRate = buf.sampleRate;
+      }
+      const chunk = pcmBufferToMonoFloat32(buf.data, buf.channels || 1, 'int16');
+      if (chunk.length > 0) {
+        nativePcmRef.current.chunks.push(chunk);
+      }
+    },
+  });
   const micOnPlayer = useAudioPlayer(require('../assets/sounds/mic-on.wav'));
   const micOffPlayer = useAudioPlayer(require('../assets/sounds/mic-off.wav'));
   const webRecRef = useRef<WebCapture | null>(null);
@@ -1102,24 +1248,17 @@ export default function HomeScreen() {
     if (activeTab === 'inbox') loadRealInbox();
   }, [activeTab, loadRealInbox]);
 
-  useEffect(() => {
-    if (voiceState !== 'thinking') return;
-    const t = setTimeout(() => {
-      setVoiceState('idle');
-    }, 2200);
-    return () => clearTimeout(t);
-  }, [voiceState]);
-
   const onRefresh = () => {
     setRefreshing(true);
     loadLinkedPages();
     loadRealInbox();
   };
 
-  // Never leave speech running after the screen unmounts.
+  // Never leave speech or timers running after the screen unmounts.
   useEffect(() => {
     return () => {
       Speech.stop();
+      if (voiceErrorTimerRef.current) clearTimeout(voiceErrorTimerRef.current);
     };
   }, []);
 
@@ -1142,11 +1281,12 @@ export default function HomeScreen() {
     // to browser PCM capture (see startWebCapture).
     const onWeb = Platform.OS === 'web';
     if (voiceState === 'idle') {
+      showVoiceError('');
       try {
         if (onWeb) {
+          playEarcon(micOnPlayer);
           webRecRef.current = await startWebCapture();
           voiceRecordStartedAt.current = Date.now();
-          playEarcon(micOnPlayer);
           setVoiceState('listening');
           return;
         }
@@ -1155,39 +1295,46 @@ export default function HomeScreen() {
         }
         const { granted } = await requestRecordingPermissionsAsync();
         if (!granted) {
-          console.warn('Microphone permission denied');
+          showVoiceError('Microphone permission denied — enable it in Settings.');
           return;
         }
+        Speech.stop();
+        playEarcon(micOnPlayer);
+        nativePcmRef.current = { chunks: [], sampleRate: 24000 };
         await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
         await voiceStream.start();
-        await voiceStream.startFileRecordingAsync();
-        Speech.stop();
+        try {
+          await voiceStream.startFileRecordingAsync();
+        } catch {
+          // Live onBuffer PCM capture is primary; file recording is fallback only.
+        }
         voiceRecordStartedAt.current = Date.now();
-        playEarcon(micOnPlayer);
         setVoiceState('listening');
       } catch (err: any) {
-        console.warn('Voice record start failed:', err?.message || err);
+        const msg = err?.message || 'Could not start microphone';
+        console.warn('Voice record start failed:', msg);
+        showVoiceError(msg);
       }
       return;
     }
+    const elapsedMs = Date.now() - voiceRecordStartedAt.current;
     try {
       setVoiceState('thinking');
-      playEarcon(micOffPlayer);
-      if (Date.now() - voiceRecordStartedAt.current < 1000) {
-        const secs = ((Date.now() - voiceRecordStartedAt.current) / 1000).toFixed(1);
-        throw new Error(`That tap was too short (${secs}s) — hold the mic and speak.`);
-      }
-      let base64: string;
+      let base64 = '';
+      let browserTranscript = '';
       if (onWeb) {
+        playEarcon(micOffPlayer);
         const cap = webRecRef.current;
         webRecRef.current = null;
+        if (elapsedMs < 1000) {
+          if (cap) await stopWebCapture(cap);
+          const secs = (elapsedMs / 1000).toFixed(1);
+          throw new Error(`That tap was too short (${secs}s) — tap mic, speak, then tap again.`);
+        }
         if (!cap || cap.chunks.length === 0) throw new Error('No recording captured');
-        base64 = stopWebCapture(cap);
-        // Same stub-size floor as native recordings: a real utterance is
-        // thousands of bytes, so anything smaller means the mic delivered
-        // no data and uploading it can only fail.
+        ({ base64, browserTranscript } = await stopWebCapture(cap));
         const approxBytes = Math.floor((base64.length * 3) / 4);
-        if (approxBytes < 4096) {
+        if (approxBytes < 4096 && !browserTranscript) {
           throw new Error(
             `Mic captured only ${approxBytes} bytes — check microphone access and try again.`
           );
@@ -1196,39 +1343,91 @@ export default function HomeScreen() {
         if (!voiceStream) {
           throw new Error('Voice recording is not supported on this device');
         }
-        const file = await voiceStream.stopFileRecordingAsync();
-        voiceStream.stop();
-        if (!file?.uri) throw new Error('No recording captured');
-        console.warn('[voice] captured size:', file.size, 'rate:', file.sampleRate, 'dur:', typeof file.duration === 'number' ? file.duration.toFixed(1) : file.duration);
-        // Trust the recorder's own measurements over wall-clock: a real
-        // utterance is seconds long and thousands of bytes. Anything less
-        // means the mic delivered no data — uploading it can only fail.
-        if (file.duration < 1) {
-          throw new Error(`That tap was too short (${file.duration.toFixed(1)}s) — hold the mic and speak.`);
+        // Allow any in-flight native buffer event on mainQueue to land before stopping.
+        await new Promise((r) => setTimeout(r, 60));
+        let file: any = null;
+        try {
+          file = await voiceStream.stopFileRecordingAsync();
+        } catch {
+          // File writer may not have been active; live chunks are primary.
         }
-        if (file.size < 4096) {
-          throw new Error(
-            `Mic captured only ${file.size} bytes in ${file.duration.toFixed(1)}s — check microphone access and try again.`
-          );
+        try {
+          voiceStream.stop();
+        } catch {
+          // Stream already stopped.
         }
-        ({ base64 } = await uriToBase64(file.uri));
-        // Normalize to the exact shape the transcription endpoint takes
-        // (mono 16-bit PCM WAV at 24 kHz), whatever rate the hardware
-        // delivered. This also re-validates the WAV header post-decode.
-        const recorded = wavToMonoFloat32(decodeBase64ToBytes(base64));
-        base64 = encodeWavBase64([recorded.pcm], recorded.sampleRate, 24000);
-        console.warn('[voice] normalized upload bytes:', Math.floor((base64.length * 3) / 4));
+        // Restore playback session on iOS/Android so earcons & TTS work after recording.
+        try {
+          await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+        } catch {
+          // Best-effort session restore.
+        }
+        playEarcon(micOffPlayer);
+
+        const liveChunks = nativePcmRef.current.chunks;
+        const liveSampleRate = nativePcmRef.current.sampleRate || file?.sampleRate || 24000;
+        nativePcmRef.current = { chunks: [], sampleRate: 24000 };
+        let totalLiveSamples = 0;
+        for (const c of liveChunks) totalLiveSamples += c.length;
+
+        if (elapsedMs < 1000 && totalLiveSamples < liveSampleRate) {
+          const secs = (elapsedMs / 1000).toFixed(1);
+          throw new Error(`That tap was too short (${secs}s) — tap mic, speak, then tap again.`);
+        }
+
+        if (totalLiveSamples > 0) {
+          base64 = encodeWavBase64(liveChunks, liveSampleRate, 24000);
+          const approxBytes = Math.floor((base64.length * 3) / 4);
+          if (approxBytes < 4096) {
+            throw new Error(
+              `Mic captured only ${approxBytes} bytes — check microphone access and try again.`
+            );
+          }
+        } else {
+          if (!file?.uri) throw new Error('No recording captured');
+          if (file.duration < 1) {
+            throw new Error(`That tap was too short (${file.duration.toFixed(1)}s) — tap mic, speak, then tap again.`);
+          }
+          if (file.size < 4096) {
+            throw new Error(
+              `Mic captured only ${file.size} bytes in ${file.duration.toFixed(1)}s — check microphone access and try again.`
+            );
+          }
+          ({ base64 } = await uriToBase64(file.uri));
+          const recorded = wavToMonoFloat32(decodeBase64ToBytes(base64));
+          base64 = encodeWavBase64([recorded.pcm], recorded.sampleRate, 24000);
+        }
       }
-      const { text } = await api.transcribeVoice({ audio: base64 });
-      if (!text.trim()) throw new Error("Couldn't hear that — try again.");
-      await handleSendMessage(text);
+      let transcribedText = '';
+      try {
+        const { text } = await api.transcribeVoice({ audio: base64 });
+        transcribedText = (text || '').trim();
+      } catch (apiErr: any) {
+        if (browserTranscript.trim()) {
+          transcribedText = browserTranscript.trim();
+        } else {
+          throw apiErr;
+        }
+      }
+      if (!transcribedText && browserTranscript.trim()) {
+        transcribedText = browserTranscript.trim();
+      }
+      if (!transcribedText) throw new Error("Couldn't hear that — try again.");
+      await handleSendMessage(transcribedText);
     } catch (err: any) {
-      console.warn('Voice transcribe failed:', err?.message || err);
+      const msg = err?.message || 'Voice transcription failed';
+      console.warn('Voice transcribe failed:', msg);
+      showVoiceError(msg);
       if (!onWeb) {
         try {
           voiceStream?.stop();
         } catch {
           // Stream already stopped.
+        }
+        try {
+          await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+        } catch {
+          // Best-effort session restore.
         }
       }
     } finally {
@@ -2471,7 +2670,12 @@ export default function HomeScreen() {
                     <Text style={styles.voiceStateThinkingText}>Checking your page…</Text>
                   </View>
                 )}
-                {voiceState === 'idle' && !chatInput && (
+                {voiceState === 'idle' && !!voiceError && (
+                  <Text style={styles.capsuleErrorText} numberOfLines={1} selectable>
+                    {voiceError}
+                  </Text>
+                )}
+                {voiceState === 'idle' && !voiceError && !chatInput && (
                   <Text style={styles.capsuleHintText}>Tap mic or write to AI</Text>
                 )}
               </View>
@@ -4436,6 +4640,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: THEME.colors.textMuted,
     fontWeight: '500',
+  },
+  capsuleErrorText: {
+    fontSize: 11.5,
+    color: THEME.colors.danger,
+    fontWeight: '600',
   },
   capsuleActionsRight: {
     flexDirection: 'row',

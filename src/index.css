@@ -276,6 +276,15 @@
   text-overflow: ellipsis;
 }
 
+.capsule-error {
+  font-size: 0.72rem;
+  color: #dc2626;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .capsule-voice-row {
   display: flex;
   align-items: center;
