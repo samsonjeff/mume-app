@@ -121,11 +121,39 @@ function getMumeAiReply(query: string): string {
 }
 
 /**
+ * Decodes the first `count` bytes of a base64 string without atob,
+ * so header checks work on every runtime (Hermes included).
+ */
+function decodeBase64Head(b64: string, count: number): number[] {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  const clean = b64.replace(/[^A-Za-z0-9+/=]/g, '');
+  const out: number[] = [];
+  for (let i = 0; i + 4 <= clean.length && out.length < count; i += 4) {
+  const sextets = [clean[i], clean[i + 1], clean[i + 2], clean[i + 3]].map((ch) =>
+      ch === '=' ? 0 : alphabet.indexOf(ch)
+    );
+    out.push((sextets[0] << 2) | (sextets[1] >> 4));
+    if (out.length < count && clean[i + 2] !== '=') out.push(((sextets[1] & 15) << 4) | (sextets[2] >> 2));
+    if (out.length < count && clean[i + 3] !== '=') out.push(((sextets[2] & 3) << 6) | sextets[3]);
+  }
+  return out.slice(0, count);
+}
+
+/**
  * Reads a recorded audio file URI into base64 for the transcription endpoint.
+ * Refuses to return non-audio bytes: a missing/unreadable file can surface
+ * as an error page (e.g. the text "File not found"), which must never be
+ * uploaded as if it were a recording.
  */
 async function uriToBase64(uri: string): Promise<{ base64: string; mimeType: string }> {
   const res = await fetch(uri);
+  if (typeof res.status === 'number' && res.status >= 400) {
+    throw new Error(`Failed to read recording (HTTP ${res.status})`);
+  }
   const blob = await res.blob();
+  if (!blob || blob.size === 0) {
+    throw new Error('Failed to read recording');
+  }
   const dataUrl: string = await new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error('Failed to read recording'));
@@ -137,6 +165,14 @@ async function uriToBase64(uri: string): Promise<{ base64: string; mimeType: str
   const base64 = comma >= 0 ? dataUrl.slice(comma + 1) : '';
   const mime = /data:(.*?);base64/.exec(header)?.[1] || 'audio/wav';
   if (!base64) throw new Error('Failed to read recording');
+  // Never upload something that is not WAV bytes. Checks the 44-byte
+  // header magic (RIFF....WAVE) from the encoded payload directly.
+  const head = decodeBase64Head(base64, 12);
+  const tag = (offset: number) =>
+    String.fromCharCode(head[offset] || 0, head[offset + 1] || 0, head[offset + 2] || 0, head[offset + 3] || 0);
+  if (base64.length < 60 || tag(0) !== 'RIFF' || tag(8) !== 'WAVE') {
+    throw new Error("That recording didn't save properly — try again.");
+  }
   return { base64, mimeType: mime };
 }
 
@@ -160,8 +196,26 @@ async function startWebCapture(): Promise<WebCapture> {
     throw new Error('Microphone is not available in this browser');
   }
   const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const liveTrack = micStream.getAudioTracks()[0];
+  if (!liveTrack || liveTrack.readyState !== 'live') {
+    micStream.getTracks().forEach((t) => t.stop());
+    throw new Error('Microphone is not available in this browser');
+  }
   const Ctor = window.AudioContext || (window as any).webkitAudioContext;
   const ctx: AudioContext = new Ctor();
+  // The context is created after an await, so the browser may start it
+  // suspended (no user gesture). Without resume(), onaudioprocess never
+  // fires and the capture is silently empty.
+  try {
+    await ctx.resume();
+  } catch {
+    // resume() itself failing means capture cannot proceed.
+  }
+  if (ctx.state !== 'running') {
+    micStream.getTracks().forEach((t) => t.stop());
+    try { await ctx.close(); } catch { /* already closed */ }
+    throw new Error('Microphone is not available in this browser');
+  }
   const source = ctx.createMediaStreamSource(micStream);
   const proc = ctx.createScriptProcessor(4096, 1, 1);
   const chunks: Float32Array[] = [];
@@ -169,10 +223,95 @@ async function startWebCapture(): Promise<WebCapture> {
     chunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
   };
   source.connect(proc);
-  proc.connect(ctx.destination);
+  // Keep the processor clocked via the destination without feeding the live
+  // mic back through the speakers (zero gain = no feedback howl).
+  const silent = ctx.createGain();
+  silent.gain.value = 0;
+  proc.connect(silent);
+  silent.connect(ctx.destination);
   return { ctx, source, proc, chunks, sampleRate: ctx.sampleRate, micStream };
 }
 
+/**
+ * Decodes a base64 string into bytes without atob,
+ * so it works on every runtime (Hermes included).
+ */
+function decodeBase64ToBytes(b64: string): Uint8Array {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  const clean = b64.replace(/[^A-Za-z0-9+/=]/g, '');
+  const out: number[] = [];
+  for (let i = 0; i + 4 <= clean.length; i += 4) {
+    const a = alphabet.indexOf(clean[i]);
+    const b = alphabet.indexOf(clean[i + 1]);
+    const c = clean[i + 2] === '=' ? 0 : alphabet.indexOf(clean[i + 2]);
+    const d = clean[i + 3] === '=' ? 0 : alphabet.indexOf(clean[i + 3]);
+    out.push((a << 2) | (b >> 4));
+    if (clean[i + 2] !== '=') out.push(((b & 15) << 4) | (c >> 2));
+    if (clean[i + 3] !== '=') out.push(((c & 3) << 6) | d);
+  }
+  return new Uint8Array(out);
+}
+
+/**
+ * Parses recorded WAV bytes into mono float PCM plus the true sample rate.
+ * Rejects non-audio payloads and unsupported shapes with a retryable error.
+ */
+function wavToMonoFloat32(bytes: Uint8Array): { pcm: Float32Array; sampleRate: number } {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const tag = (o: number) =>
+    String.fromCharCode(bytes[o] || 0, bytes[o + 1] || 0, bytes[o + 2] || 0, bytes[o + 3] || 0);
+  if (bytes.length < 44 || tag(0) !== 'RIFF' || tag(8) !== 'WAVE') {
+    throw new Error("That recording didn't save properly — try again.");
+  }
+  let offset = 12;
+  let audioFormat = 0;
+  let channels = 0;
+  let sampleRate = 0;
+  let bits = 0;
+  let dataStart = -1;
+  let dataLen = 0;
+  while (offset + 8 <= bytes.length) {
+    const id = tag(offset);
+    const size = view.getUint32(offset + 4, true);
+    if (id === 'fmt ') {
+      audioFormat = view.getUint16(offset + 8, true);
+      channels = view.getUint16(offset + 10, true);
+      sampleRate = view.getUint32(offset + 12, true);
+      bits = view.getUint16(offset + 22, true);
+    } else if (id === 'data') {
+      dataStart = offset + 8;
+      dataLen = size;
+      break;
+    }
+    offset += 8 + size;
+  }
+  const supported =
+    dataStart >= 0 &&
+    channels >= 1 &&
+    channels <= 2 &&
+    sampleRate >= 8000 &&
+    sampleRate <= 96000 &&
+    ((audioFormat === 1 && (bits === 8 || bits === 16)) || (audioFormat === 3 && bits === 32));
+  if (!supported) {
+    throw new Error("That recording didn't save properly — try again.");
+  }
+  const bytesPerSample = bits / 8;
+  const frames = Math.floor(dataLen / (channels * bytesPerSample));
+  const pcm = new Float32Array(frames);
+  for (let f = 0; f < frames; f++) {
+    let sum = 0;
+    for (let c = 0; c < channels; c++) {
+      const o = dataStart + (f * channels + c) * bytesPerSample;
+      let sample = 0;
+      if (audioFormat === 1 && bits === 16) sample = view.getInt16(o, true) / 32768;
+      else if (audioFormat === 1 && bits === 8) sample = (view.getUint8(o) - 128) / 128;
+      else sample = view.getFloat32(o, true);
+      sum += sample;
+    }
+    pcm[f] = Math.max(-1, Math.min(1, sum / channels));
+  }
+  return { pcm, sampleRate };
+}
 /**
  * Resamples captured browser audio to 24 kHz mono 16-bit PCM and encodes
  * a WAV file as base64: the exact format the transcription endpoint takes.
@@ -1060,9 +1199,7 @@ export default function HomeScreen() {
         const file = await voiceStream.stopFileRecordingAsync();
         voiceStream.stop();
         if (!file?.uri) throw new Error('No recording captured');
-        if (file.sampleRate !== 16000 && file.sampleRate !== 24000) {
-          throw new Error('Microphone does not support 16/24 kHz recording');
-        }
+        console.warn('[voice] captured size:', file.size, 'rate:', file.sampleRate, 'dur:', typeof file.duration === 'number' ? file.duration.toFixed(1) : file.duration);
         // Trust the recorder's own measurements over wall-clock: a real
         // utterance is seconds long and thousands of bytes. Anything less
         // means the mic delivered no data — uploading it can only fail.
@@ -1075,6 +1212,12 @@ export default function HomeScreen() {
           );
         }
         ({ base64 } = await uriToBase64(file.uri));
+        // Normalize to the exact shape the transcription endpoint takes
+        // (mono 16-bit PCM WAV at 24 kHz), whatever rate the hardware
+        // delivered. This also re-validates the WAV header post-decode.
+        const recorded = wavToMonoFloat32(decodeBase64ToBytes(base64));
+        base64 = encodeWavBase64([recorded.pcm], recorded.sampleRate, 24000);
+        console.warn('[voice] normalized upload bytes:', Math.floor((base64.length * 3) / 4));
       }
       const { text } = await api.transcribeVoice({ audio: base64 });
       if (!text.trim()) throw new Error("Couldn't hear that — try again.");

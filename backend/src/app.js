@@ -201,27 +201,31 @@ function createApp(env = process.env) {
   // Facebook webhook verification handshake on /webhook
   app.get('/webhook', handleWebhookVerification);
 
-  // Facebook webhook events (incoming messages, postbacks, feed comments)
+  // Rejects requests with a missing/invalid Meta signature. Returns true
+  // when the request was rejected (caller must stop), false when verified.
   // Signature verification is mandatory: without FB_APP_SECRET the endpoint
   // fails closed instead of accepting unverified payloads.
-  app.post('/webhook', (req, res) => {
+  function rejectBadWebhookSignature(req, res) {
     const signature = req.get('x-hub-signature-256');
     if (!env.FB_APP_SECRET) {
       console.warn('[webhook] Rejected: FB_APP_SECRET not configured - failing closed');
-      return res.sendStatus(401);
+      res.sendStatus(401);
+      return true;
     }
     if (!signature || !req.rawBody || !verifyMetaSignature(req.rawBody, signature, env.FB_APP_SECRET)) {
       console.warn('[webhook] Rejected missing or invalid X-Hub-Signature-256');
-      return res.sendStatus(401);
+      res.sendStatus(401);
+      return true;
     }
+    return false;
+  }
 
-    // Fast 200 ACK to Meta within < 5 seconds
-    res.status(200).send('EVENT_RECEIVED');
-
+  // Shared async worker: persists verified page events to Supabase.
+  // It always runs after the fast 200 ACK, so Meta never waits on DB I/O.
+  function queuePageWebhook(body) {
     // Asynchronously process events and persist to Supabase
     setImmediate(async () => {
       try {
-        const body = req.body;
         if (body?.object === 'page' && Array.isArray(body.entry)) {
           for (const entry of body.entry) {
             console.log('[webhook] Event from page_id=%s time=%s', entry.id, entry.time);
@@ -325,10 +329,27 @@ function createApp(env = process.env) {
         console.error('[webhook-worker] Error processing events:', err.message);
       }
     });
+  }
+
+  // Facebook webhook events (incoming messages, postbacks, feed comments)
+  app.post('/webhook', (req, res) => {
+    if (rejectBadWebhookSignature(req, res)) return;
+
+    // Fast 200 ACK to Meta within < 5 seconds
+    res.status(200).send('EVENT_RECEIVED');
+    queuePageWebhook(req.body);
   });
 
-  // Fallback webhook at root if Meta sends events to root
+  // Meta POSTs every event to the single callback URL in the app dashboard.
+  // If that URL is the site root instead of /webhook, page events land here:
+  // verify them exactly like /webhook and process them instead of ACK-and-drop.
   app.post('/', (req, res, next) => {
+    if (req.body && req.body.object === 'page') {
+      if (rejectBadWebhookSignature(req, res)) return;
+      res.status(200).send('EVENT_RECEIVED');
+      queuePageWebhook(req.body);
+      return;
+    }
     if (req.body && req.body.object) {
       return res.status(200).send('EVENT_RECEIVED');
     }
