@@ -808,29 +808,49 @@ function createApp(env = process.env) {
         return res.json({ conversationId: null, messages: [] });
       }
 
-      // Find or create AI assistant conversation
-      let { data: conv } = await supabase
-        .from('conversations')
-        .select('id')
-        .eq('page_id', pageId)
-        .eq('customer_psid', 'mume_assistant')
-        .maybeSingle();
-
-      if (!conv) {
-        const { data: newConv, error: createErr } = await supabase
+      // Find or create AI assistant conversation. Atomic upsert: concurrent
+      // first-loads (double mount, refresh + poll) must not race into a
+      // duplicate-key 500 the way find-then-insert does.
+      let conv = null;
+      try {
+        const { data, error: upsertErr } = await supabase
           .from('conversations')
-          .insert({
-            page_id: pageId,
-            customer_psid: 'mume_assistant',
-            customer_name: 'Mume AI Assistant',
-            last_message_at: new Date().toISOString(),
-          })
+          .upsert(
+            {
+              page_id: pageId,
+              customer_psid: 'mume_assistant',
+              customer_name: 'Mume AI Assistant',
+            },
+            { onConflict: 'page_id,customer_psid' }
+          )
           .select('id')
           .single();
-        if (createErr) throw createErr;
-        conv = newConv;
+        if (upsertErr) throw upsertErr;
+        conv = data;
+      } catch (upsertEx) {
+        // Extreme concurrent-insert race: fall back to reading the winner.
+        const msg = upsertEx?.message || '';
+        if (upsertEx?.code === '23505' || /duplicate key|already exists/i.test(msg)) {
+          const { data } = await supabase
+            .from('conversations')
+            .select('id')
+            .eq('page_id', pageId)
+            .eq('customer_psid', 'mume_assistant')
+            .maybeSingle();
+          conv = data;
+        } else {
+          throw upsertEx;
+        }
+      }
+      if (!conv) throw new Error('Failed to load assistant conversation');
 
-        // Seed initial greeting message
+      // Seed initial greeting message once (best effort; a doubled seed
+      // from a dead-even race is cosmetic and self-heals via TTL).
+      const { count: existingCount } = await supabase
+        .from('messages')
+        .select('id', { count: 'exact', head: true })
+        .eq('conversation_id', conv.id);
+      if (!existingCount) {
         await supabase.from('messages').insert({
           conversation_id: conv.id,
           sender: 'mume',

@@ -257,6 +257,15 @@ test('POST /api/chat/messages validates required text and responds with AI reply
   assert.equal(json.aiMessage.sender, 'mume');
   assert.ok(json.aiMessage.text.includes('2.50'));
 });
+
+test('GET /api/chat/messages handles concurrent first-loads without a 500', async () => {
+  const results = await Promise.all(
+    Array.from({ length: 5 }, () => fetch(`${base}/api/chat/messages`).then((r) => r.status))
+  );
+  for (const status of results) {
+    assert.equal(status, 200);
+  }
+});
 test('ai: follow-up inherits product topic from session history', () => {
   const history = [
     { sender: 'user', text: 'Do you have mango?' },
