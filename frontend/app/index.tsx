@@ -893,7 +893,8 @@ export default function HomeScreen() {
     try {
       setVoiceState('thinking');
       if (Date.now() - voiceRecordStartedAt.current < 1000) {
-        throw new Error('That tap was too short — hold the mic and speak.');
+        const secs = ((Date.now() - voiceRecordStartedAt.current) / 1000).toFixed(1);
+        throw new Error(`That tap was too short (${secs}s) — hold the mic and speak.`);
       }
       const file = await voiceStream.stopFileRecordingAsync();
       voiceStream.stop();

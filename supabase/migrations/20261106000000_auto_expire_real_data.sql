@@ -69,16 +69,19 @@ $$;
 -- e.g. self-hosted Postgres). On hosted Supabase without pg_cron, the
 -- backend sweeper (backend/src/index.js, 60s interval) + per-request prune
 -- perform the same system auto-delete, so this schedule is optional.
-do $$
+do $do$
 begin
   if exists (select 1 from pg_extension where extname = 'pg_cron') then
-    perform cron.schedule(
-      'mume-expire-real-data-10min',
-      '* * * * *',
-      $$select public.expire_real_data_older_than_10_minutes()$$
-    );
+    -- Re-runnable: only schedule when the job does not exist yet.
+    if not exists (select 1 from cron.job where jobname = 'mume-expire-real-data-10min') then
+      perform cron.schedule(
+        'mume-expire-real-data-10min',
+        '* * * * *',
+        'select public.expire_real_data_older_than_10_minutes()'
+      );
+    end if;
   end if;
 exception
   when others then
     raise notice 'pg_cron schedule skipped: %', sqlerrm;
-end $$;
+end $do$;

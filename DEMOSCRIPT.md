@@ -26,7 +26,7 @@
 6. **Captions:** burn in English captions + key Tagalog cue words (`mansanas`, `magkano po`) since demo uses them.
 
 ### 1.3 Audio & voice
-- One narrator, close mic, 150–160 wpm (~440–470 words total for 3:10 of VO + 0:20 music-only intro/outro). Script below is ~455 words — read at natural pace to land 3:30.
+- One narrator, close mic, 150–160 wpm (~460–480 words total for 3:10 of VO + 0:20 music-only intro/outro). Script below is ~475 words — read at natural pace to land exactly 3:30. Do not add lines; if over, trim Scene 9 first.
 - Record VO first, then cut screen recording to VO. Add royalty-free upbeat track at −22 dB under VO, full volume only on intro/outro.
 - Voice AI demo: use real mic dictation in the app dock. Speak clearly: *"Mume, magkano ang mansanas?"*
 
@@ -36,9 +36,10 @@
 - [ ] Browser zoom 125–150%, hide bookmarks, Do Not Disturb on, 1920×1080 capture.
 - [ ] Mic permission granted for voice scene. Second take ready in case speech-to-text mishears.
 - [ ] Settings screen shows Login with Facebook (`baseline-facebook.svg`), Page sync, currency USD.
+- [ ] Pro modal ready: auto-pops 3s after splash on Home + reopens via header ticket icon (`subscription-upgrade` in `src/App.tsx` + `src/components/Header.tsx`). Price $9.99/mo visible; toast `Welcome to Mume Pro!` tested.
 
 ### 1.5 Take list (minimum coverage)
-1. Full startup 2.5s intro. 2. Approve flow end-to-end (edit draft → Approve → `All Caught Up!`). 3. Voice query + reply. 4. Typed query + reply. 5. Inbox scroll. 6. Catalog Add/Edit. 7. Settings pan. 8. Architecture diagram hold (5s).
+1. Full startup 2.5s intro + Pro auto-pop (3s). 2. Approve flow end-to-end (edit draft → Approve → `All Caught Up!`). 3. Voice query + reply. 4. Typed query + reply. 5. Inbox scroll. 6. Catalog Add/Edit. 7. Settings pan. 8. Header ticket tap → Pro modal benefits → trial tap → Pro toast. 9. Architecture diagram hold (5s).
 
 ---
 
@@ -46,33 +47,35 @@
 
 | # | Time | Dur | Beat (required) | On-screen |
 |---|------|-----|-----------------|-----------|
-| 1 | 0:00–0:20 | 20s | Opening the app | Intro animation → obsidian header + `Welcome to Mume!` hero |
-| 2 | 0:20–0:50 | 30s | Approve the AI (human-in-the-loop) | `Ready for You` badge → edit draft → Approve → `All Caught Up!` |
-| 3 | 0:50–1:20 | 30s | Talk with AI using voice | Bottom dock mic → `Listening` + VoiceWave → `Thinking` → reply |
-| 4 | 1:20–1:45 | 25s | Talk with AI using manual chat | Type in dock → `Typing…` blue glow → reply |
-| 5 | 1:45–2:10 | 25s | Messages / conversation tab | Inbox tab, Maria A. thread, Realtime insert, history scroll |
-| 6 | 2:10–2:30 | 20s | Catalog | Catalog tab, CRUD Add/Edit, stock pills, USD pricing |
-| 7 | 2:30–2:50 | 20s | Settings | Drawer → Settings, FB Login status, Page sync, currency |
-| 8 | 2:50–3:20 | 30s | How I built it in 10 days (hackathon) | Architecture diagram + stack cards |
-| 9 | 3:20–3:30 | 10s | Closing CTA | Logo, tagline, links |
+| 1 | 0:00–0:18 | 18s | Opening the app | Intro animation → Pro auto-pop (3s) → obsidian header + `Welcome to Mume!` |
+| 2 | 0:18–0:46 | 28s | Approve the AI (human-in-the-loop) | `Ready for You` badge → edit draft → Approve → `All Caught Up!` |
+| 3 | 0:46–1:14 | 28s | Talk with AI using voice | Bottom dock mic → `Listening` + VoiceWave → `Thinking` → reply |
+| 4 | 1:14–1:37 | 23s | Talk with AI using manual chat | Type in dock → `Typing…` blue glow → reply |
+| 5 | 1:37–2:00 | 23s | Messages / conversation tab | Inbox tab, Maria A. thread, Realtime insert, history scroll |
+| 6 | 2:00–2:18 | 18s | Catalog | Catalog tab, CRUD Add/Edit, stock pills, USD pricing |
+| 7 | 2:18–2:35 | 17s | Settings | Drawer → Settings, FB Login status, Page sync, currency |
+| 8 | 2:35–2:55 | 20s | Pro plan modal + benefits | Header ticket → `MUME PRO $9.99/mo` → 3 benefits → trial → Pro toast |
+| 9 | 2:55–3:20 | 25s | How I built it in 10 days (hackathon) | Architecture diagram + stack cards |
+| 10 | 3:20–3:30 | 10s | Closing CTA | Logo, tagline, links |
 
 ---
 
 ## 3. Word-for-Word Script (VO + action + graphics)
 
-### SCENE 1 — Opening the app (0:00–0:20)
-**VO (20s):**
+### SCENE 1 — Opening the app (0:00–0:18)
+**VO (18s):**
 > "Meet Mume — Muse plus Messenger. Manage your Business Page Messenger without opening Messenger. Built for vendors who work with their hands, not keyboards. Watch — it opens in two and a half seconds."
 
 **Action:**
 - 0:00–0:03: Black screen. Animated title `mume-app` + tagline types in.
 - 0:03–0:06: Real startup cross-fade (`mume-black.svg` → `mume-white.svg`, PLAN §3.2).
-- 0:06–0:20: Land on Home. Slow zoom to obsidian header `#121317` with centered white Mume logo, `Welcome to Mume!` hero, green `Live` Page badge.
+- 0:06–0:09: Pro modal auto-pops on Home for 3s (`subscriptionModalOpen` in `src/App.tsx`) — tease it, then dismiss. Do not read benefits yet; Scene 8 covers them.
+- 0:09–0:18: Land on Home. Slow zoom to obsidian header `#121317` with centered white Mume logo, `Welcome to Mume!` hero, green `Live` Page badge.
 
-**Graphics:** lower-third `01 · Open — 2.5s intro`.
+**Graphics:** lower-third `01 · Open — 2.5s intro + Pro tease`.
 
-### SCENE 2 — Approve the AI (0:20–0:50)
-**VO (30s):**
+### SCENE 2 — Approve the AI (0:18–0:46)
+**VO (28s):**
 > "A customer just asked about apples. Mume drafts the reply with price and stock — but it never sends alone. I review, I can edit the full message, then I tap Approve. One tap, sent through the Messenger Send API. All caught up."
 
 **Action:**
@@ -82,8 +85,8 @@
 
 **Graphics:** callout `Human-in-the-loop gate: approvalStatus must be approved — 403 COMPLIANCE_BLOCK otherwise` + `24-hour window enforced` (PLAN §2.2, `backend/src/app.js`).
 
-### SCENE 3 — Talk with AI using voice (0:50–1:20)
-**VO (30s):**
+### SCENE 3 — Talk with AI using voice (0:46–1:14)
+**VO (28s):**
 > "Hands full? Just talk. I tap the mic in the thumb-zone dock and ask in Tagalog — Magkano ang mansanas? Mume listens, thinks, and answers with price and stock from my catalog."
 
 **Action:**
@@ -92,8 +95,8 @@
 
 **Graphics:** lower-third `03 · Voice-first — 72dp thumb zone · 60fps VoiceWave`.
 
-### SCENE 4 — Talk with AI using manual chat (1:20–1:45)
-**VO (25s):**
+### SCENE 4 — Talk with AI using manual chat (1:14–1:37)
+**VO (23s):**
 > "Or just type. Same dock, same brain — inventory, orders, follow-ups. It remembers the thread, so 'and the mangoes?' still knows what I mean."
 
 **Action:**
@@ -102,8 +105,8 @@
 
 **Graphics:** split caption `Voice and chat share one session memory`.
 
-### SCENE 5 — Messages / conversation tab (1:45–2:10)
-**VO (25s):**
+### SCENE 5 — Messages / conversation tab (1:37–2:00)
+**VO (23s):**
 > "Every inquiry lives here. Live inbox — new threads pop in over Supabase Realtime, no refresh. I open Maria's thread and see the full history before I approve anything."
 
 **Action:**
@@ -112,8 +115,8 @@
 
 **Graphics:** callout `Supabase Realtime: messages + pending_actions INSERT → instant UI`.
 
-### SCENE 6 — Checking the catalog (2:10–2:30)
-**VO (20s):**
+### SCENE 6 — Checking the catalog (2:00–2:18)
+**VO (18s):**
 > "My catalog, my prices. Three fruits, dollar pricing, stock pills. I add a photo, edit a price, and the AI quotes it correctly next time."
 
 **Action:**
@@ -122,18 +125,33 @@
 
 **Graphics:** callout `products table + pgvector embedding (1536) — price-aware replies`.
 
-### SCENE 7 — Settings feature (2:30–2:50)
-**VO (20s):**
-> "Settings keeps me in control — Facebook Login, linked Page and sync status, currency in USD, and a safe logout with confirmation."
+### SCENE 7 — Settings feature (2:18–2:35)
+**VO (17s):**
+> "Settings keeps me in control — Facebook Login, linked Page and sync status, currency in USD, and safe logout."
 
 **Action:**
 - Open drawer → Settings. Pan: `Login using Facebook` (`baseline-facebook.svg`), Connected Page card with sync indicator, USD currency row, `Log Out?` confirmation modal (session reset + empty states per PLAN §3.1).
 
 **Graphics:** lower-third `07 · Settings — connect, currency, session`.
 
-### SCENE 8 — How I built it in 10 days (2:50–3:20)
-**VO (30s):**
-> "How did I ship this in ten days for the Meta Global AI Developer Hackathon, Indie track? Day one to three: Express backend on Graph API v21 — HMAC webhooks, AES token vault, approval gate, twenty-six tests green. Days four to six: Expo voice ergonomics and the Figma web mirror you're seeing. Days seven to ten: Realtime inbox, session memory, hardening — zero secrets, locked-down RLS, clean TypeScript and Vite build."
+### SCENE 8 — Pro plan modal + benefits (2:35–2:55)
+**VO (20s):**
+> "Need more? Tap the ticket icon for Mume Pro — nine-ninety-nine a month. Unlimited catalog space, unlimited voice chat, and twenty-four-seven Messenger auto-sync. Start the free trial — welcome to Pro."
+
+**Action:**
+- From any screen, tap header ticket icon (top-right, `subscription-upgrade` in `src/components/Header.tsx` → `setSubscriptionModalOpen(true)` in `src/App.tsx`).
+- Hold modal full-frame 8s so all text is readable: `MUME PRO` badge → `Upgrade to Pro` → `Pro Store Membership $9.99 / month · Most Popular · 7-day free trial · Cancel anytime`.
+- Slow pan down the 3 benefits (exact app copy, `pro-features-list` in `src/App.tsx` + `src/index.css`):
+  1. `Additional Product Space for Catalog` — unlimited items, custom photos, high-res variants.
+  2. `Unlimited Voice Chat` — dictate commands, stock inquiries, draft replies, zero audio limits.
+  3. `24/7 Meta Messenger Auto-Sync` — instant inquiry detection, smart reply generation.
+- Tap `Start 7-Day Free Trial` → modal closes → toast `Welcome to Mume Pro! Unlimited features unlocked.` Button flips to `Pro Plan`. Then tap `Maybe Later` path on retake to show dismiss works.
+
+**Graphics:** lower-third `08 · Pro — $9.99/mo · trial · 3 benefits`. Zoom-callout each benefit line as VO names it. Freeze price card 2s.
+
+### SCENE 9 — How I built it in 10 days (2:55–3:20)
+**VO (25s):**
+> "How did I ship this in ten days for the Meta Global AI Developer Hackathon, Indie track? Days one to three: Express backend on Graph API v21 — HMAC, AES vault, approval gate, twenty-six tests green. Days four to ten: Expo voice ergonomics, Realtime inbox, hardening — zero secrets, clean build."
 
 **Action:**
 - Hold architecture diagram (PLAN §1: Meta Platform → Express backend → Supabase Postgres; mobile client ↔ REST + Realtime).
@@ -142,7 +160,7 @@
 
 **Graphics:** timeline bar `Oct 26 → Nov 4 · 10 days`.
 
-### SCENE 9 — Closing (3:20–3:30)
+### SCENE 10 — Closing (3:20–3:30)
 **VO (10s):**
 > "Mume — hands-free Messenger for real stores. Try it, star it, message the Page. Salamat!"
 
@@ -151,9 +169,9 @@
 ---
 
 ## 4. Edit-Time Budget Control
-- Total VO target: **~455 words**. If over 3:30 in rehearsal, trim Scene 8 first (drop rate-telemetry line), never trim the Approve gate or voice scenes — judges score those.
-- Hard out at 3:30: place end card at 3:20 and allow only 10s CTA. Use YouTube chapters matching the 9 timestamps above.
-- Pre-shoot rehearsal: read Scenes 2–4 aloud with a stopwatch — must land 85s combined.
+- Total VO target: **~475 words**. If over 3:30 in rehearsal, trim Scene 9 first (drop hardening line), never trim Approve gate, voice, or Pro benefits — judges score those.
+- Hard out at 3:30: place end card at 3:20 and allow only 10s CTA. Use YouTube chapters matching the 10 timestamps above.
+- Pre-shoot rehearsal: read Scenes 2–4 aloud with a stopwatch — must land 79s combined; read Scene 8 aloud — must land 20s.
 
 ## 5. Compliance & Honesty Notes (from PLAN.md — keep in video or description)
 - Human approval is mandatory (`approvalStatus !== 'approved'` → 403); 24-hour Standard Messaging Window enforced; `messaging_type: RESPONSE`.
