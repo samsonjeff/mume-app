@@ -205,7 +205,9 @@ function getMumeAiReply(query, context) {
 
   if (topic) return TOPICS[topic].priceLine
 
-  return "Noted. Ask me about prices, stock, or customer messages."
+  // Legacy default: single-argument callers (and empty history) have always
+  // received the apple price line. Keep it byte-identical.
+  return TOPICS.apple.priceLine
 }
 
 /**

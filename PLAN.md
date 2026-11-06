@@ -32,10 +32,10 @@ mume/
 │   │       ├── crypto.js   # AES-256-GCM cipher & HMAC-SHA256 signature verification
 │   │       ├── facebook.js # Meta Graph API v21.0 client with rate-limit telemetry
 │   │       ├── supabase.js # Supabase Admin client with service_role isolation
-│   │       └── ai.js       # Context-aware getMumeAiReply (history + session summary; still rule-based, NOT live Meta Model API yet)
-│   └── test/               # Node native test suite (26 tests: crypto, webhook, OAuth, link-direct, reply, CORS, chat, AI session, approvalStatus gate)
+│   │       └── ai.js       # Context-aware getMumeAiReply (history + session summary; still rule-based, NOT live Meta Model API yet; legacy default reply pinned by regression test)
+│   └── test/               # Node native test suite (68 tests: crypto, webhook, OAuth, link-direct, reply, CORS, chat, voice/transcribe, catalog, AI session, muse service, approvalStatus gate)
 ├── src/                    # Figma Make React 19 + Tailwind CSS v4 web companion dashboard (mirrors frontend tabs + PendingAction + AI chat)
-├── supabase/migrations/    # 20261031_create_mume_schema (strict base) + 20261102_fix_realtime_and_rls (permissive demo RLS — harden before prod) + 20261105_add_conversation_sessions (AI session memory + realtime, locked-down RLS)
+├── supabase/migrations/    # 20261031_create_mume_schema (strict base) + 20261102_fix_realtime_and_rls (permissive demo Realtime) + 20261104_lock_down_public_rls (owner-scoped lockdown, applied) + 20261105_add_conversation_sessions (AI session memory + realtime, locked-down RLS)
 └── skills/                 # mume-frontend-ui, enforcing-meta-platform-compliance, mume-qa-qc
 ```
 
@@ -171,7 +171,7 @@ conversation_sessions (id, conversation_id UNIQUE, summary, last_customer_topic,
 - [x] Supabase Postgres schema migration with pgvector and RLS policies.
 - [x] Meta Graph API v21.0 integration (OAuth callback, Webhooks, Page linking).
 - [x] AES-256-GCM token encryption with authentication tag.
-- [x] Automated test suite verifying crypto and API endpoints (26 passing: crypto, webhook, OAuth, link-direct, reply, CORS, chat, AI session, approvalStatus gate).
+- [x] Automated test suite verifying crypto and API endpoints (68 passing: crypto, webhook, OAuth, link-direct, reply, CORS, chat, voice/transcribe, catalog, AI session, muse service, approvalStatus gate).
 
 ### Phase 2: Mobile UI & Voice Ergonomics [COMPLETED]
 - [x] Port verified Figma Make design tokens and Google Antigravity palette.
@@ -187,7 +187,7 @@ conversation_sessions (id, conversation_id UNIQUE, summary, last_customer_topic,
 - [x] Meta rate-limit header parsing (`x-app-usage`, `x-page-usage`, `x-business-use-case-usage`).
 - [x] HMAC-SHA256 timing-safe webhook authentication.
 - [x] Meta compliance pages `/privacy` and `/data-deletion`.
-- [x] Rule-based `getMumeAiReply` inventory stub (`backend/src/services/ai.js`) with Supabase-persisted assistant chat (`mume_assistant` conversation, `GET/POST /api/chat/messages`) — live Muse Model API wiring still PENDING.
+- [x] Rule-based `getMumeAiReply` inventory stub (`backend/src/services/ai.js`) with Supabase-persisted assistant chat (`mume_assistant` conversation, `GET/POST /api/chat/messages`) — live Muse Model API wiring still PENDING. Nov 7: legacy single-argument default reply locked by regression test (`ai: empty history keeps legacy default reply`).
 - [x] Session-aware replies: `POST /api/chat/messages` loads the last 20 thread messages as context (follow-ups inherit the product topic); webhook upserts `conversation_sessions` per customer thread so the AI has reference when the customer messages again.
 - [x] Live inbox: frontend subscribes to `conversations` INSERT/UPDATE via Supabase Realtime (`realtime_inbox` channel) so new threads appear without refresh; open threads already append `messages` INSERTs live.
 - [x] Approval-flow APIs: `GET /api/pages/:pageId/conversations`, `GET /api/pages/:pageId/pending-actions`, `POST /api/pending-actions/:id/approve` (`waiting_approval` → `sent` + `messages` insert).
@@ -229,7 +229,7 @@ conversation_sessions (id, conversation_id UNIQUE, summary, last_customer_topic,
   - Comprehensive `.gitignore` protecting local `.env` files, build caches, mobile keystores, signing certificates, and local debug logs.
   - Sanitized `.env.example` templates in root, `backend/`, and `frontend/` with zero real secrets.
   - Open source licensing established in [LICENSE](file:///d:/mume-app/LICENSE) and [README.md](file:///d:/mume-app/README.md) with mandatory author attribution (credit to Jefferson Samson) and strict prohibition against claiming authorship.
-  - Verified 26 backend tests passing (incl. 3 AI session-memory tests and strict human approval gate).
+  - Verified 68 backend tests passing (incl. AI session-memory tests and strict human approval gate).
   - Verified clean TypeScript compilation and Vite production build.
 
 ### Phase 7: Real-Device Tactile Ergonomics & Private Distribution via Amazon Live App Testing (LAT) [PLANNED]
@@ -248,13 +248,20 @@ conversation_sessions (id, conversation_id UNIQUE, summary, last_customer_topic,
   - Whitelist invited merchant testers via their Amazon account emails for instant distribution through the standard Amazon Appstore client.
   - Maintain one-click "End Test" capability to instantly withdraw the testing build whenever necessary.
 
+### Phase 8: Production Readiness Verification (Nov 7) [COMPLETED]
+- [x] Full verification matrix green: root `tsc` 0 errors, Expo `tsc -p frontend` 0 errors, `vite build` clean, backend 68/68, Expo lib 12/12, secrets audit clean (only `.env.example` tracked).
+- [x] Fixed `ai: empty history keeps legacy default reply` regression (suite was 67/68): `getMumeAiReply` fallback restored to byte-identical `TOPICS.apple.priceLine`.
+- [x] Removed destructive `oxfmt@0.2.0` formatter (stripped separators in type literals, broke `tsc` + build): dropped `format` script + devDependency, pruned `package-lock.json`, updated `AGENTS.md`.
+- [ ] Deploy-time (owner): set production env on hosts, apply the 4 Supabase migrations to the live project, smoke-test deployed backend + apps.
+
 ---
 
 ## 6. Verification Checklist
 
 | Check | Target | Status | Verification Command |
 | :--- | :--- | :--- | :--- |
-| **Backend Tests** | 26 passing | PASSED | `npm --prefix backend test` |
+| **Backend Tests** | 68 passing | PASSED | `npm --prefix backend test` |
+| **Expo Lib Tests** | 12 passing | PASSED | `node --test frontend/lib/sendIntent.test.js frontend/lib/transcribeClient.test.js` |
 | **Frontend Typecheck** | 0 TS errors | PASSED | `npx tsc --project frontend/tsconfig.json --noEmit` |
 | **Root Typecheck** | 0 TS errors | PASSED | `npx tsc --noEmit` |
 | **Vite Bundle Build** | Clean build | PASSED | `npm run build` |

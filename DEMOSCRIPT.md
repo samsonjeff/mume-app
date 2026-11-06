@@ -151,11 +151,11 @@
 
 ### SCENE 9 — How I built it in 10 days (2:55–3:20)
 **VO (25s):**
-> "How did I ship this in ten days for the Meta Global AI Developer Hackathon, Indie track? Days one to three: Express backend on Graph API v21 — HMAC, AES vault, approval gate, twenty-six tests green. Days four to ten: Expo voice ergonomics, Realtime inbox, hardening — zero secrets, clean build."
+> "How did I ship this in ten days for the Meta Global AI Developer Hackathon, Indie track? Days one to three: Express backend on Graph API v21 — HMAC, AES vault, approval gate, sixty-eight tests green. Days four to ten: Expo voice ergonomics, Realtime inbox, hardening — zero secrets, clean build."
 
 **Action:**
 - Hold architecture diagram (PLAN §1: Meta Platform → Express backend → Supabase Postgres; mobile client ↔ REST + Realtime).
-- Cycle 4 cards, 6s each: `Graph API v21.0 + HMAC + AES-256-GCM` → `approvalStatus gate + 24h window + rate telemetry` → `Supabase: conversations/messages/pending_actions + sessions + pgvector` → `26 tests · 0 TS errors · clean build` (PLAN §6).
+- Cycle 4 cards, 6s each: `Graph API v21.0 + HMAC + AES-256-GCM` → `approvalStatus gate + 24h window + rate telemetry` → `Supabase: conversations/messages/pending_actions + sessions + pgvector` → `68 tests · 0 TS errors · clean build` (PLAN §6 + Phase 8).
 - Honest note on screen (small print): `Assistant brain today: rule-based getMumeAiReply with session context (backend/src/services/ai.js); live Meta Model API wiring is next.`
 
 **Graphics:** timeline bar `Oct 26 → Nov 4 · 10 days`.

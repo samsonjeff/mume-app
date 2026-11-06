@@ -17,7 +17,7 @@ This is the canonical project structure. Start with task-relevant files below. O
 - `src/App.tsx` - Primary application component and the usual starting point for UI work
 - `src/index.css` - Global CSS entrypoint and Tailwind CSS v4 import
 - `index.html` - Vite HTML shell containing the `#root` element and loading `src/main.tsx`
-- `package.json` - Project dependencies and the Vite build, development, preview, and formatting scripts
+- `package.json` - Project dependencies and the Vite build, development, and preview scripts
 - `vite.config.ts` - Vite configuration with React, Tailwind CSS v4, and Figma Make plugins plus the `@` alias for `src`
 - `.mise.toml` - Toolchain versions for Node.js and pnpm
 
@@ -26,7 +26,6 @@ This is the canonical project structure. Start with task-relevant files below. O
 - Runtime: React 19 and React DOM 19
 - Styling: Tailwind CSS v4 with the `@tailwindcss/vite` plugin
 - Build tooling: Vite 8, TypeScript 5.7, and `@vitejs/plugin-react`
-- Formatting: oxfmt
 
 ## Styling
 
@@ -39,4 +38,3 @@ Tailwind emits utility classes in `@layer utilities`, and CSS outside any cascad
 ## Commands
 
 - `npm run build` — build the project
-- `npm run format` — run the format task
