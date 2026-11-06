@@ -368,8 +368,7 @@
   transition: border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
 }
 
-/* Highlighted conversation when user is chatting, typing, scrolling, or reading */
-.chat-section-card:hover,
+/* Highlighted conversation when user is actively chatting or typing */
 .chat-section-card:focus-within,
 .chat-section-card.highlighted-active {
   border-color: #3279F9;

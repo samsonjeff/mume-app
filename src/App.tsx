@@ -129,6 +129,29 @@ function getMumeAiReply(query: string): string {
   return "Noted. Ask me about prices, stock, or messages."
 }
 
+const AI_REPLY_MAX_LEN = 320
+
+// Mume AI chat output must stay short and simple plain text: strip markdown
+// and clamp length at the display layer so every source (API, Supabase,
+// realtime, fallback) renders the same way without touching stored data.
+function toShortPlainText(text: string): string {
+  let out = String(text || '')
+  out = out.replace(/```[\s\S]*?```/g, ' ')
+  out = out.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1')
+  out = out.replace(/(\*\*|__)(.*?)\1/g, '$2')
+  out = out.replace(/^\s{0,3}#{1,6}\s+/gm, '')
+  out = out.replace(/^\s{0,3}(?:[-*+]|\d+[.)])\s+/gm, '')
+  out = out.replace(/`([^`]*)`/g, '$1')
+  out = out.replace(/[*_~]/g, '')
+  out = out.replace(/\s+/g, ' ').trim()
+  if (out.length > AI_REPLY_MAX_LEN) {
+    const cut = out.slice(0, AI_REPLY_MAX_LEN)
+    const lastSpace = cut.lastIndexOf(' ')
+    out = (lastSpace > 200 ? cut.slice(0, lastSpace) : cut).trim() + ' …'
+  }
+  return out
+}
+
 function VoiceWave() {
   return (
     <span aria-hidden="true" className="voice-wave">
@@ -393,42 +416,6 @@ function HomeScreen({
 
   const activeChatScrollRef = chatScrollRef || localChatScrollRef
 
-  const [isReadingOrScrolling, setIsReadingOrScrolling] = useState(false)
-
-  const readingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-
-  const handleStartReading = useCallback(() => {
-    if (readingTimeoutRef.current) {
-      clearTimeout(readingTimeoutRef.current)
-
-      readingTimeoutRef.current = null
-    }
-
-    setIsReadingOrScrolling(true)
-  }, [])
-
-  const handleStopReadingWithDelay = useCallback(() => {
-    if (readingTimeoutRef.current) {
-      clearTimeout(readingTimeoutRef.current)
-    }
-
-    readingTimeoutRef.current = setTimeout(() => {
-      setIsReadingOrScrolling(false)
-    }, 1500)
-  }, [])
-
-  const handleChatScroll = useCallback(() => {
-    handleStartReading()
-
-    handleStopReadingWithDelay()
-  }, [handleStartReading, handleStopReadingWithDelay])
-
-  useEffect(() => {
-    return () => {
-      if (readingTimeoutRef.current) clearTimeout(readingTimeoutRef.current)
-    }
-  }, [])
-
   useEffect(() => {
     if (activeChatScrollRef.current) {
       activeChatScrollRef.current.scrollTop =
@@ -491,20 +478,14 @@ function HomeScreen({
             <div
               ref={chatCardRef}
               className={`chat-section-card ${
-                isChattingOrTyping || isReadingOrScrolling
-                  ? "highlighted-active"
-                  : ""
+                isChattingOrTyping ? "highlighted-active" : ""
               } ${isApproved && !showApprovedCard ? "expanded" : ""}`}
-              onMouseEnter={handleStartReading}
-              onMouseLeave={handleStopReadingWithDelay}
-              onTouchStart={handleStartReading}
-              onTouchEnd={handleStopReadingWithDelay}
             >
               <div className="chat-section-header">
                 <div className="chat-header-left">
                   <span
                     className={`chat-header-badge ${
-                      isChattingOrTyping || isReadingOrScrolling ? "active" : ""
+                      isChattingOrTyping ? "active" : ""
                     }`}
                   >
                     <Icon name="bot-svg" size={18} />
@@ -518,11 +499,6 @@ function HomeScreen({
                       {voiceState === "listening" ? "Listening" : "Typing…"}
                     </span>
                   </span>
-                ) : isReadingOrScrolling ? (
-                  <span className="active-highlight-badge">
-                    <span className="active-highlight-dot" />
-                    <span>Reading conversation</span>
-                  </span>
                 ) : (
                   <span className="chat-header-subtitle">Talk to AI</span>
                 )}
@@ -531,7 +507,6 @@ function HomeScreen({
               <div
                 className="chat-messages-list"
                 ref={activeChatScrollRef}
-                onScroll={handleChatScroll}
               >
                 <div className="chat-messages-spacer" />
                 {chatMessages.map((msg) => (
@@ -551,7 +526,7 @@ function HomeScreen({
                         msg.sender === "user" ? "user-bubble" : "mume-bubble"
                       }`}
                     >
-                      <p className="chat-bubble-text">{msg.text}</p>
+                      <p className="chat-bubble-text">{msg.sender === 'mume' ? toShortPlainText(msg.text) : msg.text}</p>
                       <span className="chat-bubble-time">{msg.time}</span>
                     </div>
                   </div>

@@ -16,6 +16,8 @@ import chevronRightSvg from "../assets/chevron-right.svg"
 
 import dollarSignSvg from "../assets/dollar-sign.svg"
 
+import downLineSvg from "../assets/down-line.svg"
+
 import editSvg from "../assets/edit.svg"
 
 import folderSvg from "../assets/folder.svg"
@@ -34,7 +36,7 @@ import logOutSvg from "../assets/log-out.svg"
 
 import logInSvg from "../assets/log-in.svg"
 
-export type VerifiedIconName = "audio-waveform" | "bookmark" | "bot-svg" | "check" | "chevron-left" | "chevron-right" | "dollar-sign" | "edit" | "folder" | "home" | "message-circle" | "wrench" | "x" | "mume-black" | "log-out" | "log-in"
+export type VerifiedIconName = "audio-waveform" | "bookmark" | "bot-svg" | "check" | "chevron-left" | "chevron-right" | "dollar-sign" | "down-line" | "edit" | "folder" | "home" | "message-circle" | "wrench" | "x" | "mume-black" | "log-out" | "log-in"
 
 export type MissingIconName = "settings" | "menu" | "meta-facebook" | "baseline-facebook" | "facebook" | "send" | "trash" | "plus" | "round-plus" | "camera" | "subscription-upgrade"
 
@@ -54,6 +56,8 @@ const VERIFIED_ASSETS: Record<VerifiedIconName, string> = {
   "chevron-right": chevronRightSvg,
 
   "dollar-sign": dollarSignSvg,
+
+  "down-line": downLineSvg,
 
   edit: editSvg,
 
