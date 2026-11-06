@@ -326,16 +326,23 @@ function buildPendingStatusReply(actions) {
  */
 
 function buildConfirmationSentReply(sent) {
-  const rawNames = (sent || [])
-    .filter(Boolean)
-    .map((e) =>
-      typeof e === "string"
-        ? e
-        : e.customerName || e.customer_name || "Customer",
-    )
+  const entries = (sent || []).filter(Boolean)
+
+  const delivered = entries.filter(
+    (e) => typeof e === "string" || e.delivered !== false,
+  )
+
+  const failed = entries.filter(
+    (e) => typeof e !== "string" && e.delivered === false,
+  )
+
+  const rawNames = delivered.map((e) =>
+    typeof e === "string"
+      ? e
+      : e.customerName || e.customer_name || "Customer",
+  )
 
   const names = rawNames.map((n) => String(n).replace(/\.+$/, ""))
-  if (names.length === 0) return "Sent!"
 
   const who =
     names.length === 1
@@ -344,7 +351,17 @@ function buildConfirmationSentReply(sent) {
         ? `${names[0]} and ${names[1]}`
         : `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`
 
-  return `Sent to ${who}!`
+  let reply = names.length === 0 ? "Sent!" : `Sent to ${who}!`
+
+  if (failed.length > 0) {
+    const failedName = String(
+      failed[0].customerName || failed[0].customer_name || "customer",
+    ).replace(/\.+$/, "")
+
+    reply += ` Couldn't reach ${failedName}.`
+  }
+
+  return reply
 }
 
 /**

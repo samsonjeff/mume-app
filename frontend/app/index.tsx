@@ -1021,6 +1021,8 @@ export default function HomeScreen() {
   const [unreadCount, setUnreadCount] = useState(2)
 
   const [sentToast, setSentToast] = useState(false)
+  const [sentToastText, setSentToastText] = useState("Reply sent to Maria A.")
+
 
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false)
 
@@ -2509,28 +2511,88 @@ export default function HomeScreen() {
   const handleApprove = async () => {
     setIsEditingDraft(false)
 
-    setIsApproved(true)
+    if (!activePendingAction?.id) {
+      setIsApproved(true)
 
-    setShowApprovedCard(true)
+      setShowApprovedCard(true)
 
-    setSentToast(true)
+      setSentToastText("Reply sent to Maria A.")
 
-    if (activePendingAction?.id) {
-      try {
-        const sentConversationId = activePendingAction.conversationId
+      setSentToast(true)
 
-        await api.approvePendingAction(activePendingAction.id, draftReply)
+      setTimeout(() => {
+        setShowApprovedCard(false)
+      }, 2000)
 
-        setActivePendingAction(null)
+      setTimeout(() => {
+        setSentToast(false)
+      }, 3500)
 
-        if (sentConversationId) {
-          await openSentThread(sentConversationId)
-        } else {
-          loadRealInbox()
-        }
-      } catch (err) {
-        console.warn("Pending action backend approval warning:", err)
+      return
+    }
+
+    try {
+      const result: any = await api.approvePendingAction(
+        activePendingAction.id,
+        draftReply,
+      )
+
+      const delivered = !!(
+        result &&
+        result.status === "sent" &&
+        result.graphResult &&
+        result.graphResult.message_id
+      )
+
+      if (!delivered) {
+        const reason =
+          result?.warning ||
+          result?.error ||
+          "Messenger dispatch did not confirm delivery."
+
+        setSentToastText(`Approved \u2014 NOT delivered: ${reason}`)
+
+        setSentToast(true)
+
+        setTimeout(() => {
+          setSentToast(false)
+        }, 5000)
+
+        return
       }
+
+      const sentConversationId = activePendingAction.conversationId
+
+      setIsApproved(true)
+
+      setShowApprovedCard(true)
+
+      setSentToastText(`Reply sent to ${activePendingAction.customerName}.`)
+
+      setSentToast(true)
+
+      setActivePendingAction(null)
+
+      if (sentConversationId) {
+        await openSentThread(sentConversationId)
+      } else {
+        loadRealInbox()
+      }
+    } catch (err) {
+      console.warn("Pending action backend approval warning:", err)
+
+      const reason =
+        err instanceof Error ? err.message : "Approve request failed."
+
+      setSentToastText(`Approve failed \u2014 NOT sent: ${reason}`)
+
+      setSentToast(true)
+
+      setTimeout(() => {
+        setSentToast(false)
+      }, 5000)
+
+      return
     }
 
     setTimeout(() => {
@@ -5170,7 +5232,7 @@ export default function HomeScreen() {
       {sentToast && (
         <View style={styles.toast}>
           <AppIcon name="check" size={18} color="#FFFFFF" strokeWidth={2.5} />
-          <Text style={styles.toastText}>Reply sent to Maria A.</Text>
+          <Text style={styles.toastText}>{sentToastText}</Text>
         </View>
       )}
 

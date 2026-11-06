@@ -2599,29 +2599,58 @@ export default function App() {
 
     let remaining = realPendingActions
 
+    let delivered = false
+
+    let failureReason: string | null = null
+
     if (action?.id) {
       try {
-        await api.approvePendingAction(action.id, sentText)
+        const result: any = await api.approvePendingAction(action.id, sentText)
 
-        remaining = realPendingActions.filter((a) => a.id !== action.id)
+        delivered = !!(
+          result &&
+          result.status === "sent" &&
+          result.graphResult &&
+          result.graphResult.message_id
+        )
 
-        setRealPendingActions(remaining)
+        if (delivered) {
+          remaining = realPendingActions.filter((a) => a.id !== action.id)
+
+          setRealPendingActions(remaining)
+        } else {
+          failureReason =
+            result?.warning ||
+            result?.error ||
+            "Messenger dispatch did not confirm delivery."
+        }
       } catch (approveErr) {
-        console.warn("Approve via API failed, confirming locally:", approveErr)
+        console.warn("Approve via API failed:", approveErr)
+
+        failureReason =
+          approveErr instanceof Error
+            ? approveErr.message
+            : "Approve request failed."
       }
     } else {
       remaining = []
     }
 
-    if (remaining.length === 0) {
-      setIsApproved(true)
+    if (delivered || !action?.id) {
+      if (remaining.length === 0) {
+        setIsApproved(true)
 
-      setShowApprovedCard(true)
+        setShowApprovedCard(true)
 
-      window.setTimeout(() => setShowApprovedCard(false), 2000)
+        window.setTimeout(() => setShowApprovedCard(false), 2000)
+      }
+
+      setSentLabel(`Reply sent to ${targetName}`)
+    } else {
+      setSentLabel(
+        `Approved \u2014 NOT delivered to Messenger: ${failureReason || "unknown error."}`,
+      )
     }
-
-    setSentLabel(`Reply sent to ${targetName}`)
 
     setSent(true)
 

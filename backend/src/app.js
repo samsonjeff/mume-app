@@ -1417,6 +1417,8 @@ function createApp(env = process.env) {
                   customerName: cp.customer_name,
                   customer_name: cp.customer_name,
                   replyText: dispatched.replyText,
+                  delivered: dispatched.dispatched,
+                  dispatchError: dispatched.dispatchError,
                 })
               }
 
@@ -1997,6 +1999,10 @@ function createApp(env = process.env) {
 
     let graphResult = null
 
+    let dispatchError = null
+
+    let dispatchAttempted = false
+
     try {
       const { data: conv } = await supabase
         .from("conversations")
@@ -2018,6 +2024,8 @@ function createApp(env = process.env) {
         if (page && page.page_access_token_encrypted) {
           const plainToken = decryptToken(page.page_access_token_encrypted, env)
 
+          dispatchAttempted = true
+
           graphResult = await sendPageReply({
             pageId: page.fb_page_id,
             pageAccessToken: plainToken,
@@ -2027,16 +2035,34 @@ function createApp(env = process.env) {
             lastCustomerMessageAt: conv.last_message_at,
             approvalStatus: "approved",
           })
+        } else {
+          dispatchError =
+            "Message approved but NOT sent: the page has no stored access token."
         }
+      } else {
+        dispatchError =
+          "Message approved but NOT sent: no customer conversation is linked to this action."
       }
     } catch (graphErr) {
+      dispatchError = graphErr.message
+
       console.warn("[approve-dispatch] Warning:", graphErr.message)
+    }
+
+    const dispatched = !!(
+      dispatchAttempted &&
+      graphResult &&
+      graphResult.message_id
+    )
+
+    if (!dispatched && !dispatchError) {
+      dispatchError = "Message approved but NOT sent to Messenger."
     }
 
     const { data: updated } = await supabase
       .from("pending_actions")
       .update({
-        status: "sent",
+        status: dispatched ? "sent" : "approved",
         draft_reply: replyText,
         updated_at: new Date().toISOString(),
       })
@@ -2044,18 +2070,24 @@ function createApp(env = process.env) {
       .select()
       .single()
 
-    await supabase
-      .from("messages")
-      .insert({
+    if (dispatched) {
+      await supabase.from("messages").insert({
         conversation_id: action.conversation_id,
-        fb_message_id:
-          (graphResult && graphResult.message_id) || `action-${Date.now()}`,
+        fb_message_id: graphResult.message_id,
         sender: "page",
         text: replyText,
         is_from_customer: false,
       })
+    }
 
-    return { updated, graphResult, replyText }
+    return {
+      updated,
+      graphResult,
+      replyText,
+      dispatched,
+      dispatchAttempted,
+      dispatchError: dispatched ? null : dispatchError,
+    }
   }
 
   // 12. POST /api/pending-actions/:id/approve -> Approve pending reply and dispatch
@@ -2066,14 +2098,37 @@ function createApp(env = process.env) {
     const { editedReply } = req.body || {}
 
     try {
-      if (!supabase) return res.json({ status: "approved" })
+      if (!supabase)
+        return res.json({
+          status: "approved",
+          warning:
+            "Supabase is not configured — approval recorded locally only; nothing was dispatched to Messenger.",
+          graphResult: null,
+        })
 
-      const { updated, graphResult } = await dispatchPendingApproval(
-        id,
-        editedReply,
-      )
+      const result = await dispatchPendingApproval(id, editedReply)
 
-      res.json({ status: "sent", action: updated, graphResult })
+      if (result.dispatched) {
+        return res.json({
+          status: "sent",
+          action: result.updated,
+          graphResult: result.graphResult,
+        })
+      }
+
+      if (result.dispatchAttempted) {
+        return res.status(502).json({
+          error: result.dispatchError,
+          action: result.updated,
+        })
+      }
+
+      return res.json({
+        status: "approved",
+        warning: result.dispatchError,
+        action: result.updated,
+        graphResult: null,
+      })
     } catch (err) {
       const status = /not found/i.test(err.message) ? 404 : 500
 

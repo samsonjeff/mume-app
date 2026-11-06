@@ -544,3 +544,22 @@ test("voice: non-WAV without a converter fails with an actionable error, never a
     /ffmpeg.*not installed/i,
   )
 })
+
+test("POST /api/pending-actions/:id/approve without Supabase never claims sent", async () => {
+  const res = await fetch(`${base}/api/pending-actions/anything/approve`, {
+    method: "POST",
+
+    headers: { "content-type": "application/json" },
+
+    body: JSON.stringify({}),
+  })
+
+  assert.equal(res.status, 200)
+
+  const json = await res.json()
+
+  assert.equal(json.status, "approved")
+
+  assert.ok(!(json.graphResult && json.graphResult.message_id))
+})
+

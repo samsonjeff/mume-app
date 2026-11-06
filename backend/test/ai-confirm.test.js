@@ -145,3 +145,20 @@ test("ai: merchant-facing replies stay short", () => {
     )
   }
 })
+
+test("ai: confirmation reply reports undelivered customers", () => {
+  const reply = buildConfirmationSentReply([
+    { customer_name: "Maria A.", delivered: true },
+
+    { customer_name: "Jun L.", delivered: false },
+  ])
+
+  assert.ok(/sent/i.test(reply))
+
+  assert.ok(reply.includes("Maria A"))
+
+  assert.ok(/couldn't reach Jun L/i.test(reply))
+
+  assert.ok(reply.length > 0 && reply.length <= 120)
+})
+
