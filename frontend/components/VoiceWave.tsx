@@ -1,6 +1,6 @@
-import React, { useEffect, useRef } from 'react';
-import { StyleSheet, View, Animated } from 'react-native';
-import { THEME } from '../constants/theme';
+import React, { useEffect, useRef } from "react"
+import { StyleSheet, View, Animated } from "react-native"
+import { THEME } from "../constants/theme"
 
 export const VoiceWave: React.FC = () => {
   const anims = [
@@ -9,7 +9,7 @@ export const VoiceWave: React.FC = () => {
     useRef(new Animated.Value(22)).current,
     useRef(new Animated.Value(12)).current,
     useRef(new Animated.Value(8)).current,
-  ];
+  ]
 
   useEffect(() => {
     const loops = anims.map((anim, i) =>
@@ -25,13 +25,13 @@ export const VoiceWave: React.FC = () => {
             duration: 350 + i * 50,
             useNativeDriver: false,
           }),
-        ])
-      )
-    );
+        ]),
+      ),
+    )
 
-    loops.forEach((l) => l.start());
-    return () => loops.forEach((l) => l.stop());
-  }, []);
+    loops.forEach((l) => l.start())
+    return () => loops.forEach((l) => l.stop())
+  }, [])
 
   return (
     <View style={styles.container} aria-hidden={true}>
@@ -47,13 +47,13 @@ export const VoiceWave: React.FC = () => {
         />
       ))}
     </View>
-  );
-};
+  )
+}
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 3,
     height: 24,
     paddingHorizontal: 4,
@@ -63,4 +63,4 @@ const styles = StyleSheet.create({
     backgroundColor: THEME.colors.primary,
     borderRadius: 2,
   },
-});
+})

@@ -1,82 +1,120 @@
-import React, { useState, useEffect } from 'react';
-import { Icon } from './Icon';
-import { api } from '../lib/api';
+import React, { useState, useEffect } from "react"
+
+import { Icon } from "./Icon"
+
+import { api } from "../lib/api"
 
 interface SettingsViewProps {
-  onBack: () => void;
-  userName?: string;
-  onUserNameChange?: (name: string) => void;
+  onBack: () => void
+
+  userName?: string
+
+  onUserNameChange?: (name: string) => void
 }
 
 interface LinkedPage {
-  pageId: string;
-  pageName: string;
-  category: string;
-  syncedAt: string;
-  status: 'active' | 'disconnected';
-  tokenEncrypted: boolean;
+  pageId: string
+
+  pageName: string
+
+  category: string
+
+  syncedAt: string
+
+  status: "active" | "disconnected"
+
+  tokenEncrypted: boolean
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   onBack,
-  userName = 'Jefferson',
+
+  userName = "Jefferson",
+
   onUserNameChange,
 }) => {
-  const [syncState, setSyncState] = useState<'idle' | 'syncing' | 'synced'>('synced');
-  const [lastSyncTime, setLastSyncTime] = useState('Today at 4:32 PM');
-  const [pageData, setPageData] = useState<LinkedPage>({
-    pageId: '2165823377350527',
-    pageName: 'Mume Fresh - Fruit Store',
-    category: 'Retail & Grocery',
-    syncedAt: '2026-10-31T16:32:00Z',
-    status: 'active',
-    tokenEncrypted: true,
-  });
+  const [syncState, setSyncState] = useState<"idle" | "syncing" | "synced">(
+    "synced",
+  )
 
-  const [activeSubView, setActiveSubView] = useState<string | null>(null);
+  const [lastSyncTime, setLastSyncTime] = useState("Today at 4:32 PM")
+
+  const [pageData, setPageData] = useState<LinkedPage>({
+    pageId: "2165823377350527",
+
+    pageName: "Mume Fresh - Fruit Store",
+
+    category: "Retail & Grocery",
+
+    syncedAt: "2026-10-31T16:32:00Z",
+
+    status: "active",
+
+    tokenEncrypted: true,
+  })
+
+  const [activeSubView, setActiveSubView] = useState<string | null>(null)
 
   useEffect(() => {
-    let mounted = true;
+    let mounted = true
+
     api
+
       .getLinkedPages()
+
       .then((pages) => {
         if (mounted && pages.length > 0) {
-          const p = pages[0];
+          const p = pages[0]
+
           setPageData((prev) => ({
             ...prev,
+
             pageId: p.fb_page_id,
+
             pageName: p.page_name,
+
             syncedAt: p.updated_at || prev.syncedAt,
-            status: 'active',
-          }));
+
+            status: "active",
+          }))
         }
       })
-      .catch(() => {});
+
+      .catch(() => {})
+
     return () => {
-      mounted = false;
-    };
-  }, []);
+      mounted = false
+    }
+  }, [])
 
   // Meta Page Login & Sync Protocol Sequence
+
   const handleConnectAndSync = async () => {
     try {
-      setSyncState('syncing');
+      setSyncState("syncing")
 
       try {
-        const pages = await api.getLinkedPages();
+        const pages = await api.getLinkedPages()
+
         if (pages.length > 0) {
-          const p = pages[0];
+          const p = pages[0]
+
           setPageData((prev) => ({
             ...prev,
+
             pageId: p.fb_page_id,
+
             pageName: p.page_name,
+
             syncedAt: p.updated_at || new Date().toISOString(),
-            status: 'active',
-          }));
+
+            status: "active",
+          }))
         } else {
-          const url = await api.getFacebookLoginUrl();
-          if (url && typeof window !== 'undefined') {
-            window.open(url, '_blank', 'noopener,noreferrer');
+          const url = await api.getFacebookLoginUrl()
+
+          if (url && typeof window !== "undefined") {
+            window.open(url, "_blank", "noopener,noreferrer")
           }
         }
       } catch {
@@ -84,83 +122,128 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       }
 
       // Step 3, 4, 5: Simulate retrieval of managed pages & secure credential persistence
-      await new Promise((resolve) => setTimeout(resolve, 1400));
 
-      const updatedTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      setLastSyncTime(`Today at ${updatedTime}`);
+      await new Promise((resolve) => setTimeout(resolve, 1400))
+
+      const updatedTime = new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+
+      setLastSyncTime(`Today at ${updatedTime}`)
+
       setPageData((prev) => ({
         ...prev,
-        status: 'active',
+
+        status: "active",
+
         syncedAt: new Date().toISOString(),
-      }));
-      setSyncState('synced');
+      }))
+
+      setSyncState("synced")
     } catch {
-      setSyncState('idle');
+      setSyncState("idle")
     }
-  };
+  }
 
   const handleDisconnect = () => {
     setPageData((prev) => ({
       ...prev,
-      status: 'disconnected',
-    }));
-    setSyncState('idle');
-  };
+
+      status: "disconnected",
+    }))
+
+    setSyncState("idle")
+  }
 
   const settingsRows = [
     {
-      id: 'fb-credentials',
-      icon: 'edit' as const,
-      title: 'Facebook Page Credentials & ID',
+      id: "fb-credentials",
+
+      icon: "edit" as const,
+
+      title: "Facebook Page Credentials & ID",
+
       desc: `Page ID: ${pageData.pageId}`,
-      badge: pageData.status === 'active' ? 'Verified' : 'Unlinked',
+
+      badge: pageData.status === "active" ? "Verified" : "Unlinked",
     },
+
     {
-      id: 'page-permissions',
-      icon: 'check' as const,
-      title: 'Messaging & Webhook Permissions',
-      desc: 'pages_messaging, pages_manage_metadata, messaging_postbacks',
-      badge: 'Active',
+      id: "page-permissions",
+
+      icon: "check" as const,
+
+      title: "Messaging & Webhook Permissions",
+
+      desc: "pages_messaging, pages_manage_metadata, messaging_postbacks",
+
+      badge: "Active",
     },
+
     {
-      id: 'bot-automation',
-      icon: 'bot-svg' as const,
-      title: 'Meta AI Assistant Automation',
-      desc: 'Porcupine wake word, voice confirmation, draft suggested replies',
-      badge: 'Ready',
+      id: "bot-automation",
+
+      icon: "bot-svg" as const,
+
+      title: "Meta AI Assistant Automation",
+
+      desc: "Porcupine wake word, voice confirmation, draft suggested replies",
+
+      badge: "Ready",
     },
+
     {
-      id: 'storage-bundles',
-      icon: 'folder' as const,
-      title: 'Local Sync Storage Directory',
-      desc: 'Asset manager & cached customer conversation bundles',
-      badge: '12 MB',
+      id: "storage-bundles",
+
+      icon: "folder" as const,
+
+      title: "Local Sync Storage Directory",
+
+      desc: "Asset manager & cached customer conversation bundles",
+
+      badge: "12 MB",
     },
+
     {
-      id: 'saved-posts',
-      icon: 'bookmark' as const,
-      title: 'Saved Pages & Favorited Inquiries',
-      desc: 'Catalog templates and recurring customer orders',
-      badge: '3 items',
+      id: "saved-posts",
+
+      icon: "bookmark" as const,
+
+      title: "Saved Pages & Favorited Inquiries",
+
+      desc: "Catalog templates and recurring customer orders",
+
+      badge: "3 items",
     },
+
     {
-      id: 'monetization',
-      icon: 'dollar-sign' as const,
-      title: 'Monetization & Ad Spend Summary',
-      desc: 'Product pricing rules ($/kg) and order revenue sync',
-      badge: '$14,250',
+      id: "monetization",
+
+      icon: "dollar-sign" as const,
+
+      title: "Monetization & Ad Spend Summary",
+
+      desc: "Product pricing rules ($/kg) and order revenue sync",
+
+      badge: "$14,250",
     },
+
     {
-      id: 'audio-diagnostics',
-      icon: 'audio-waveform' as const,
-      title: 'Voice Wave & Audio Diagnostics',
-      desc: 'Hardware mic sensitivity, VAD threshold, and TTS player',
-      badge: '60 FPS',
+      id: "audio-diagnostics",
+
+      icon: "audio-waveform" as const,
+
+      title: "Voice Wave & Audio Diagnostics",
+
+      desc: "Hardware mic sensitivity, VAD threshold, and TTS player",
+
+      badge: "60 FPS",
     },
-  ];
+  ]
 
   return (
-    <section className="panel-screen" style={{ paddingBottom: '7rem' }}>
+    <section className="panel-screen" style={{ paddingBottom: "7rem" }}>
       {/* Top Header with chevron-left back action and screen title */}
       <div className="flex items-center justify-between mb-4 pb-2 border-b border-[var(--line)]">
         <button
@@ -172,7 +255,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <Icon name="chevron-left" size={22} />
           <span>Back</span>
         </button>
-        <h1 className="text-base font-bold text-[var(--ink)]">Settings & Meta Sync</h1>
+        <h1 className="text-base font-bold text-[var(--ink)]">
+          Settings & Meta Sync
+        </h1>
         <div className="w-[48px]" aria-hidden="true" />
       </div>
 
@@ -182,7 +267,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--muted)]">
             Connected Facebook Business Page
           </span>
-          {pageData.status === 'active' ? (
+          {pageData.status === "active" ? (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
               <Icon name="check" size={14} className="text-emerald-600" />
               <span>Active Sync</span>
@@ -194,11 +279,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           )}
         </div>
 
-        {pageData.status === 'active' ? (
+        {pageData.status === "active" ? (
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-              <strong className="text-base font-bold text-[var(--ink)]">{pageData.pageName}</strong>
+              <strong className="text-base font-bold text-[var(--ink)]">
+                {pageData.pageName}
+              </strong>
             </div>
             <p className="text-xs text-[var(--muted)] mb-3">
               Page ID: {pageData.pageId} · {pageData.category}
@@ -212,10 +299,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <button
                 type="button"
                 onClick={handleConnectAndSync}
-                disabled={syncState === 'syncing'}
+                disabled={syncState === "syncing"}
                 className="flex-1 flex items-center justify-center gap-2 min-h-[48px] px-4 rounded-xl font-bold text-sm bg-[var(--ink)] text-white active:scale-98 transition-transform"
               >
-                {syncState === 'syncing' ? (
+                {syncState === "syncing" ? (
                   <span>Syncing with Meta…</span>
                 ) : (
                   <>
@@ -237,17 +324,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         ) : (
           <div>
             <p className="text-sm text-[var(--muted)] mb-4">
-              No Meta Business Page linked yet. Connect your Facebook Page to allow Mume to read customer inquiries and synchronize product catalogs.
+              No Meta Business Page linked yet. Connect your Facebook Page to
+              allow Mume to read customer inquiries and synchronize product
+              catalogs.
             </p>
 
             <button
               type="button"
               onClick={handleConnectAndSync}
-              disabled={syncState === 'syncing'}
+              disabled={syncState === "syncing"}
               className="w-full flex items-center justify-center gap-2.5 min-h-[48px] px-4 rounded-xl font-bold text-sm bg-[#1877F2] text-white shadow-xs active:scale-98 transition-transform"
             >
               <Icon name="baseline-facebook" size={18} />
-              <span>{syncState === 'syncing' ? 'Connecting to Meta…' : 'Connect & Sync Page'}</span>
+              <span>
+                {syncState === "syncing"
+                  ? "Connecting to Meta…"
+                  : "Connect & Sync Page"}
+              </span>
             </button>
           </div>
         )}
@@ -275,7 +368,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <strong className="block text-sm font-semibold text-[var(--ink)] truncate">
                     {row.title}
                   </strong>
-                  <span className="block text-xs text-[var(--muted)] truncate">{row.desc}</span>
+                  <span className="block text-xs text-[var(--muted)] truncate">
+                    {row.desc}
+                  </span>
                 </div>
               </div>
 
@@ -295,7 +390,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-xs p-3">
           <div className="w-full max-w-[412px] bg-[var(--surface)] rounded-2xl p-5 border border-[var(--line)] shadow-xl animate-in fade-in slide-in-from-bottom duration-200">
             <div className="flex items-center justify-between mb-3 pb-2 border-b border-[var(--line)]">
-              <h3 className="font-bold text-base text-[var(--ink)]">{activeSubView}</h3>
+              <h3 className="font-bold text-base text-[var(--ink)]">
+                {activeSubView}
+              </h3>
               <button
                 type="button"
                 onClick={() => setActiveSubView(null)}
@@ -305,7 +402,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </button>
             </div>
             <p className="text-xs text-[var(--muted)] leading-relaxed mb-4">
-              Configuration details for <strong>{activeSubView}</strong> are active and verified. Real-time updates sync directly through the Meta Graph Webhook subscription.
+              Configuration details for <strong>{activeSubView}</strong> are
+              active and verified. Real-time updates sync directly through the
+              Meta Graph Webhook subscription.
             </p>
             <button
               type="button"
@@ -318,8 +417,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       )}
     </section>
-  );
-};
+  )
+}
 
-export default SettingsView;
-
+export default SettingsView

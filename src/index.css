@@ -2551,3 +2551,34 @@
     animation-iteration-count: 1 !important;
   }
 }
+
+/* Customer thread screen + inbox reply bar */
+.thread-screen { display: flex; flex-direction: column; min-height: 100%; }
+.thread-header { display: flex; align-items: center; gap: 0.6rem; padding: 0.35rem 0 0.8rem; }
+.thread-back-btn { display: grid; width: 2.15rem; height: 2.15rem; place-items: center; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--ink); flex-shrink: 0; }
+.thread-header-copy { display: flex; flex-direction: column; gap: 0.15rem; flex: 1; min-width: 0; }
+.thread-header-copy strong { font-size: 0.9rem; }
+.thread-live-badge { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.68rem; color: #168451; font-weight: 700; }
+.thread-live-dot { width: 0.42rem; height: 0.42rem; border-radius: 50%; background: var(--online); box-shadow: 0 0 0.5rem rgba(32, 185, 107, 0.35); }
+.thread-messages-list { display: flex; flex-direction: column; gap: 0.7rem; padding: 0.5rem 0 0.75rem; }
+.live-preview-row { display: flex; flex-direction: column; gap: 0.25rem; align-items: flex-end; opacity: 0.9; }
+.live-preview-label { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.65rem; font-weight: 700; color: var(--muted); }
+.live-preview-dot { width: 6px; height: 6px; border-radius: 50%; background: #3279F9; }
+.live-preview-bubble { border: 1px dashed #3279F9; background: #fff; }
+.manual-reply-bar { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem; padding: 0.55rem 0.6rem; border: 1px solid var(--line); border-radius: 1.1rem; background: var(--surface); box-shadow: 0 0.4rem 1.2rem rgba(0, 0, 0, 0.05); }
+.manual-reply-input { flex: 1; min-width: 0; border: none; outline: none; background: transparent; font: inherit; font-size: 0.85rem; color: var(--ink); padding: 0.35rem 0.25rem; }
+.manual-reply-input::placeholder { color: var(--muted); }
+.manual-send-btn { display: inline-flex; align-items: center; gap: 0.35rem; border: none; border-radius: 999px; padding: 0.5rem 0.8rem; font-size: 0.75rem; font-weight: 700; background: var(--surface-raised); color: var(--muted); white-space: nowrap; }
+.manual-send-btn.active { background: #121317; color: #fff; }
+.thread-hint { font-size: 0.66rem; color: var(--muted); text-align: center; margin-top: 0.4rem; }
+.delivery-status.delivery-sending { opacity: 0.75; }
+.delivery-status.delivery-sent-live,
+.delivery-status.delivery-seen { color: #a7f3d0; opacity: 0.95; }
+
+/* Capsule dock: recipient picker + will-send hint for customer delivery */
+.capsule-recipient-row { display: flex; align-items: center; gap: 0.4rem; width: 100%; padding: 0.15rem 0.4rem 0.45rem; overflow-x: auto; scrollbar-width: none; }
+.capsule-recipient-row::-webkit-scrollbar { display: none; }
+.capsule-recipient-label { font-size: 0.7rem; font-weight: 700; color: var(--muted); flex-shrink: 0; }
+.capsule-recipient-chip { flex-shrink: 0; border: 1px solid var(--line); background: var(--surface-raised); color: var(--ink); font-size: 0.7rem; font-weight: 700; padding: 0.3rem 0.65rem; border-radius: 999px; }
+.capsule-recipient-chip.active { background: #121317; border-color: #121317; color: #fff; }
+.capsule-will-send { font-size: 0.72rem; color: #168451; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

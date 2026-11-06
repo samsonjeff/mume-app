@@ -1,84 +1,125 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, Pressable, ScrollView, Linking, TextInput, ActivityIndicator, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { THEME } from '../constants/theme';
-import { AppIcon } from '../components/AppIcon';
-import { api, LinkedPage } from '../lib/api';
+import React, { useState, useEffect } from "react"
+
+import {
+  StyleSheet,
+  Text,
+  View,
+  Pressable,
+  ScrollView,
+  Linking,
+  TextInput,
+  ActivityIndicator,
+  Alert,
+} from "react-native"
+
+import { useRouter } from "expo-router"
+
+import { SafeAreaView } from "react-native-safe-area-context"
+
+import { THEME } from "../constants/theme"
+
+import { AppIcon } from "../components/AppIcon"
+
+import { api, LinkedPage } from "../lib/api"
 
 export default function LinkPageScreen() {
-  const router = useRouter();
-  const [pages, setPages] = useState<LinkedPage[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
+  const router = useRouter()
+
+  const [pages, setPages] = useState<LinkedPage[]>([])
+
+  const [loading, setLoading] = useState(true)
+
+  const [submitting, setSubmitting] = useState(false)
 
   // Direct manual linking form for hackathon dev/testing
-  const [fbPageId, setFbPageId] = useState('1447275391796820');
-  const [pageName, setPageName] = useState('Mume Fresh - Fruit Store');
-  const [pageAccessToken, setPageAccessToken] = useState('');
+
+  const [fbPageId, setFbPageId] = useState("1447275391796820")
+
+  const [pageName, setPageName] = useState("Mume Fresh - Fruit Store")
+
+  const [pageAccessToken, setPageAccessToken] = useState("")
 
   const loadPages = async () => {
     try {
-      setLoading(true);
-      const data = await api.getLinkedPages();
-      setPages(data);
+      setLoading(true)
+
+      const data = await api.getLinkedPages()
+
+      setPages(data)
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to load pages');
+      Alert.alert("Error", err.message || "Failed to load pages")
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   useEffect(() => {
-    loadPages();
-  }, []);
+    loadPages()
+  }, [])
 
   const handleOAuthLogin = async () => {
     try {
-      setSubmitting(true);
-      const url = await api.getFacebookLoginUrl();
-      const supported = await Linking.canOpenURL(url);
+      setSubmitting(true)
+
+      const url = await api.getFacebookLoginUrl()
+
+      const supported = await Linking.canOpenURL(url)
+
       if (supported) {
-        await Linking.openURL(url);
+        await Linking.openURL(url)
       } else {
-        Alert.alert('Error', 'Unable to open browser on this device.');
+        Alert.alert("Error", "Unable to open browser on this device.")
       }
     } catch (err: any) {
-      Alert.alert('Facebook Login Error', err.message);
+      Alert.alert("Facebook Login Error", err.message)
     } finally {
-      setSubmitting(false);
+      setSubmitting(false)
     }
-  };
+  }
 
   const handleDirectLink = async () => {
     if (!fbPageId.trim() || !pageName.trim() || !pageAccessToken.trim()) {
-      Alert.alert('Validation Error', 'Please enter Page ID, Page Name, and Page Access Token.');
-      return;
+      Alert.alert(
+        "Validation Error",
+        "Please enter Page ID, Page Name, and Page Access Token.",
+      )
+
+      return
     }
 
     try {
-      setSubmitting(true);
+      setSubmitting(true)
+
       const page = await api.linkDirectPage({
         fbPageId: fbPageId.trim(),
+
         pageName: pageName.trim(),
+
         pageAccessToken: pageAccessToken.trim(),
-      });
-      Alert.alert('Success', `Page "${page.page_name}" linked successfully with encrypted token!`);
-      await loadPages();
-      router.back();
+      })
+
+      Alert.alert(
+        "Success",
+        `Page "${page.page_name}" linked successfully with encrypted token!`,
+      )
+
+      await loadPages()
+
+      router.back()
     } catch (err: any) {
-      Alert.alert('Link Error', err.message);
+      Alert.alert("Link Error", err.message)
     } finally {
-      setSubmitting(false);
+      setSubmitting(false)
     }
-  };
+  }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
+    <SafeAreaView style={styles.safeArea} edges={["bottom", "left", "right"]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Text style={styles.title}>Connect Facebook Page</Text>
         <Text style={styles.subtitle}>
-          Mume requires access to your Business Page Messenger to check inquiries and prepare voice-confirmed drafts.
+          Mume requires access to your Business Page Messenger to check
+          inquiries and prepare voice-confirmed drafts.
         </Text>
 
         {/* Current Linked Status */}
@@ -91,7 +132,12 @@ export default function LinkPageScreen() {
               <View key={p.id} style={styles.pageItem}>
                 <View style={styles.pageItemInfo}>
                   <View style={styles.pageItemTitleRow}>
-                    <AppIcon name="check" size={16} color={THEME.colors.speaking} strokeWidth={2.5} />
+                    <AppIcon
+                      name="check"
+                      size={16}
+                      color={THEME.colors.speaking}
+                      strokeWidth={2.5}
+                    />
                     <Text style={styles.pageItemName}>{p.page_name}</Text>
                   </View>
                   <Text style={styles.pageItemId}>ID: {p.fb_page_id}</Text>
@@ -106,9 +152,12 @@ export default function LinkPageScreen() {
 
         {/* Primary Method: Facebook Login OAuth */}
         <View style={styles.card}>
-          <Text style={styles.sectionHeader}>METHOD 1: OFFICIAL FACEBOOK LOGIN</Text>
+          <Text style={styles.sectionHeader}>
+            METHOD 1: OFFICIAL FACEBOOK LOGIN
+          </Text>
           <Text style={styles.bodyText}>
-            Sign in with Facebook to automatically grant Page messaging permissions and link your Page with an encrypted token.
+            Sign in with Facebook to automatically grant Page messaging
+            permissions and link your Page with an encrypted token.
           </Text>
           <Pressable
             accessibilityRole="button"
@@ -120,16 +169,21 @@ export default function LinkPageScreen() {
             {submitting ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.fbButtonText}>Connect via Facebook OAuth</Text>
+              <Text style={styles.fbButtonText}>
+                Connect via Facebook OAuth
+              </Text>
             )}
           </Pressable>
         </View>
 
         {/* Secondary Method: Direct Token Link (Hackathon / Dev Fast Path) */}
         <View style={styles.card}>
-          <Text style={styles.sectionHeader}>METHOD 2: DIRECT PAGE TOKEN (DEV)</Text>
+          <Text style={styles.sectionHeader}>
+            METHOD 2: DIRECT PAGE TOKEN (DEV)
+          </Text>
           <Text style={styles.bodyText}>
-            Paste a Page Access Token directly to test instantly without opening an external browser.
+            Paste a Page Access Token directly to test instantly without opening
+            an external browser.
           </Text>
 
           <Text style={styles.inputLabel}>Page ID</Text>
@@ -178,127 +232,203 @@ export default function LinkPageScreen() {
         </View>
       </ScrollView>
     </SafeAreaView>
-  );
+  )
 }
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
+
     backgroundColor: THEME.colors.bg,
   },
+
   scrollContent: {
     padding: 20,
+
     paddingBottom: 40,
   },
+
   title: {
     color: THEME.colors.text,
+
     fontSize: 24,
-    fontWeight: '800',
+
+    fontWeight: "800",
+
     marginBottom: 6,
   },
+
   subtitle: {
     color: THEME.colors.textMuted,
+
     fontSize: 14,
+
     lineHeight: 20,
+
     marginBottom: 20,
   },
+
   card: {
     backgroundColor: THEME.colors.card,
+
     borderRadius: 16,
+
     padding: 18,
+
     marginBottom: 16,
+
     borderWidth: 1.5,
+
     borderColor: THEME.colors.cardBorder,
   },
+
   sectionHeader: {
     color: THEME.colors.text,
+
     fontSize: 11,
-    fontWeight: '700',
+
+    fontWeight: "700",
+
     letterSpacing: 0.8,
+
     marginBottom: 10,
   },
+
   bodyText: {
     color: THEME.colors.textMuted,
+
     fontSize: 13,
+
     lineHeight: 18,
+
     marginBottom: 14,
   },
+
   mutedText: {
     color: THEME.colors.textMuted,
+
     fontSize: 14,
   },
+
   pageItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+
+    justifyContent: "space-between",
+
+    alignItems: "center",
+
     paddingVertical: 8,
   },
+
   pageItemInfo: {
     flex: 1,
   },
+
   pageItemTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+
+    alignItems: "center",
+
     gap: 6,
   },
+
   pageItemName: {
     color: THEME.colors.text,
+
     fontSize: 16,
-    fontWeight: '700',
+
+    fontWeight: "700",
   },
+
   pageItemId: {
     color: THEME.colors.textMuted,
+
     fontSize: 12,
   },
+
   tag: {
     color: THEME.colors.speaking,
+
     fontSize: 12,
-    fontWeight: '700',
+
+    fontWeight: "700",
   },
+
   fbButton: {
-    backgroundColor: '#1877F2',
+    backgroundColor: "#1877F2",
+
     minHeight: THEME.ergonomics.minTapTarget,
+
     borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+
+    alignItems: "center",
+
+    justifyContent: "center",
   },
+
   fbButtonText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
+
     fontSize: 15,
-    fontWeight: '700',
+
+    fontWeight: "700",
   },
+
   inputLabel: {
     color: THEME.colors.text,
+
     fontSize: 12,
-    fontWeight: '600',
+
+    fontWeight: "600",
+
     marginBottom: 4,
+
     marginTop: 8,
   },
+
   input: {
     backgroundColor: THEME.colors.bg,
+
     borderWidth: 1,
+
     borderColor: THEME.colors.cardBorder,
+
     borderRadius: 10,
+
     color: THEME.colors.text,
+
     paddingHorizontal: 12,
+
     paddingVertical: 10,
+
     fontSize: 14,
   },
+
   tokenInput: {
     minHeight: 60,
-    textAlignVertical: 'top',
+
+    textAlignVertical: "top",
   },
+
   primaryButton: {
     backgroundColor: THEME.colors.primary,
+
     minHeight: THEME.ergonomics.minTapTarget,
+
     borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+
+    alignItems: "center",
+
+    justifyContent: "center",
+
     marginTop: 16,
   },
+
   primaryButtonText: {
     color: THEME.colors.textInverted,
+
     fontSize: 15,
-    fontWeight: '700',
+
+    fontWeight: "700",
   },
-});
+})

@@ -1,27 +1,34 @@
-const { computeAppSecretProof } = require('./crypto');
+const { computeAppSecretProof } = require("./crypto")
 
-const GRAPH_BASE_URL = 'https://graph.facebook.com/v21.0';
+const GRAPH_BASE_URL = "https://graph.facebook.com/v21.0"
 
 /**
  * Inspects Graph API rate limiting headers to prevent threshold violations.
  * Meta provides x-app-usage, x-page-usage, and x-business-use-case-usage.
  */
 function checkRateLimitHeaders(headers) {
-  if (!headers) return;
-  for (const name of ['x-app-usage', 'x-page-usage', 'x-business-use-case-usage']) {
-    const raw = typeof headers.get === 'function' ? headers.get(name) : headers[name];
-    if (!raw) continue;
+  if (!headers) return
+  for (const name of [
+    "x-app-usage",
+    "x-page-usage",
+    "x-business-use-case-usage",
+  ]) {
+    const raw =
+      typeof headers.get === "function" ? headers.get(name) : headers[name]
+    if (!raw) continue
     try {
-      const u = JSON.parse(raw);
+      const u = JSON.parse(raw)
       const max = Math.max(
         Number(u.call_count) || 0,
         Number(u.total_time) || 0,
-        Number(u.total_cputime) || 0
-      );
+        Number(u.total_cputime) || 0,
+      )
       if (max >= 90) {
-        console.warn(`[meta-rate-limit-critical] ${name} reached ${max}% - throttling recommended`);
+        console.warn(
+          `[meta-rate-limit-critical] ${name} reached ${max}% - throttling recommended`,
+        )
       } else if (max >= 75) {
-        console.warn(`[meta-rate-limit-warning] ${name} reached ${max}%`);
+        console.warn(`[meta-rate-limit-warning] ${name} reached ${max}%`)
       }
     } catch {
       // Ignore JSON parse errors for non-standard rate limit header payloads
@@ -32,155 +39,187 @@ function checkRateLimitHeaders(headers) {
 /**
  * Returns the Facebook OAuth Dialog URL for linking Facebook Pages.
  */
-function getFacebookLoginUrl({ appId, redirectUri, state = 'mume_link' }) {
+function getFacebookLoginUrl({ appId, redirectUri, state = "mume_link" }) {
   const scopes = [
-    'pages_show_list',
-    'pages_manage_metadata',
-    'pages_read_engagement',
-    'pages_read_user_content',
-    'pages_messaging',
-    'public_profile',
-    'email',
-  ].join(',');
+    "pages_show_list",
+    "pages_manage_metadata",
+    "pages_read_engagement",
+    "pages_read_user_content",
+    "pages_messaging",
+    "public_profile",
+    "email",
+  ].join(",")
 
   const params = new URLSearchParams({
     client_id: appId,
     redirect_uri: redirectUri,
     state,
     scope: scopes,
-    response_type: 'code',
-  });
+    response_type: "code",
+  })
 
-  return `https://www.facebook.com/v21.0/dialog/oauth?${params.toString()}`;
+  return `https://www.facebook.com/v21.0/dialog/oauth?${params.toString()}`
 }
 
 /**
  * Exchanges authorization code for a User Access Token.
  */
-async function exchangeCodeForUserToken({ code, appId, appSecret, redirectUri }) {
+async function exchangeCodeForUserToken({
+  code,
+  appId,
+  appSecret,
+  redirectUri,
+}) {
   const params = new URLSearchParams({
     client_id: appId,
     client_secret: appSecret,
     redirect_uri: redirectUri,
     code,
-  });
+  })
 
-  const res = await fetch(`${GRAPH_BASE_URL}/oauth/access_token?${params.toString()}`);
-  checkRateLimitHeaders(res.headers);
-  const data = await res.json();
+  const res = await fetch(
+    `${GRAPH_BASE_URL}/oauth/access_token?${params.toString()}`,
+  )
+  checkRateLimitHeaders(res.headers)
+  const data = await res.json()
   if (!res.ok) {
-    throw new Error(data.error?.message || 'Failed to exchange code for user access token');
+    throw new Error(
+      data.error?.message || "Failed to exchange code for user access token",
+    )
   }
-  return data;
+  return data
 }
 
 /**
  * Retrieves the Facebook Pages managed by the user.
  */
 async function getUserPages(userAccessToken, appSecret) {
-  const proof = computeAppSecretProof(userAccessToken, appSecret);
-  const proofParam = proof ? `&appsecret_proof=${proof}` : '';
-  let url = `${GRAPH_BASE_URL}/me/accounts?fields=id,name,category,tasks,access_token${proofParam}`;
+  const proof = computeAppSecretProof(userAccessToken, appSecret)
+  const proofParam = proof ? `&appsecret_proof=${proof}` : ""
+  let url = `${GRAPH_BASE_URL}/me/accounts?fields=id,name,category,tasks,access_token${proofParam}`
 
   let res = await fetch(url, {
     headers: { Authorization: `Bearer ${userAccessToken}` },
-  });
-  checkRateLimitHeaders(res.headers);
-  let data = await res.json();
+  })
+  checkRateLimitHeaders(res.headers)
+  let data = await res.json()
 
-  if (!res.ok && data.error?.message?.includes('appsecret_proof')) {
-    url = `${GRAPH_BASE_URL}/me/accounts?fields=id,name,category,tasks,access_token`;
-    res = await fetch(url, { headers: { Authorization: `Bearer ${userAccessToken}` } });
-    checkRateLimitHeaders(res.headers);
-    data = await res.json();
+  if (!res.ok && data.error?.message?.includes("appsecret_proof")) {
+    url = `${GRAPH_BASE_URL}/me/accounts?fields=id,name,category,tasks,access_token`
+    res = await fetch(url, {
+      headers: { Authorization: `Bearer ${userAccessToken}` },
+    })
+    checkRateLimitHeaders(res.headers)
+    data = await res.json()
   }
 
   if (!res.ok) {
-    throw new Error(data.error?.message || 'Failed to fetch user pages');
+    throw new Error(data.error?.message || "Failed to fetch user pages")
   }
-  return data.data || [];
+  return data.data || []
 }
 
 /**
  * Subscribes a Facebook Page to the App's webhooks.
  */
 async function subscribePageToApp(pageId, pageAccessToken, appSecret) {
-  const proof = computeAppSecretProof(pageAccessToken, appSecret);
-  const proofParam = proof ? `&appsecret_proof=${proof}` : '';
-  let url = `${GRAPH_BASE_URL}/${encodeURIComponent(pageId)}/subscribed_apps?subscribed_fields=messages,messaging_postbacks,feed${proofParam}`;
+  const proof = computeAppSecretProof(pageAccessToken, appSecret)
+  const proofParam = proof ? `&appsecret_proof=${proof}` : ""
+  let url = `${GRAPH_BASE_URL}/${encodeURIComponent(pageId)}/subscribed_apps?subscribed_fields=messages,messaging_postbacks,feed${proofParam}`
 
   let res = await fetch(url, {
-    method: 'POST',
+    method: "POST",
     headers: { Authorization: `Bearer ${pageAccessToken}` },
-  });
-  checkRateLimitHeaders(res.headers);
-  let data = await res.json();
+  })
+  checkRateLimitHeaders(res.headers)
+  let data = await res.json()
 
-  if (!res.ok && data.error?.message?.includes('appsecret_proof')) {
-    url = `${GRAPH_BASE_URL}/${encodeURIComponent(pageId)}/subscribed_apps?subscribed_fields=messages,messaging_postbacks,feed`;
-    res = await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${pageAccessToken}` } });
-    checkRateLimitHeaders(res.headers);
-    data = await res.json();
+  if (!res.ok && data.error?.message?.includes("appsecret_proof")) {
+    url = `${GRAPH_BASE_URL}/${encodeURIComponent(pageId)}/subscribed_apps?subscribed_fields=messages,messaging_postbacks,feed`
+    res = await fetch(url, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${pageAccessToken}` },
+    })
+    checkRateLimitHeaders(res.headers)
+    data = await res.json()
   }
 
   if (!res.ok) {
-    throw new Error(data.error?.message || 'Failed to subscribe page to app webhooks');
+    throw new Error(
+      data.error?.message || "Failed to subscribe page to app webhooks",
+    )
   }
-  return data;
+  return data
 }
 
 /**
  * Fetches Page Conversations (inbox threads).
  */
-async function getPageConversations(pageId, pageAccessToken, appSecret, limit = 10) {
-  const proof = computeAppSecretProof(pageAccessToken, appSecret);
-  const proofParam = proof ? `&appsecret_proof=${proof}` : '';
-  let url = `${GRAPH_BASE_URL}/${encodeURIComponent(pageId)}/conversations?fields=id,link,updated_time,unread_count,senders&limit=${limit}${proofParam}`;
+async function getPageConversations(
+  pageId,
+  pageAccessToken,
+  appSecret,
+  limit = 10,
+) {
+  const proof = computeAppSecretProof(pageAccessToken, appSecret)
+  const proofParam = proof ? `&appsecret_proof=${proof}` : ""
+  let url = `${GRAPH_BASE_URL}/${encodeURIComponent(pageId)}/conversations?fields=id,link,updated_time,unread_count,senders&limit=${limit}${proofParam}`
 
   let res = await fetch(url, {
     headers: { Authorization: `Bearer ${pageAccessToken}` },
-  });
-  checkRateLimitHeaders(res.headers);
-  let data = await res.json();
+  })
+  checkRateLimitHeaders(res.headers)
+  let data = await res.json()
 
-  if (!res.ok && data.error?.message?.includes('appsecret_proof')) {
-    url = `${GRAPH_BASE_URL}/${encodeURIComponent(pageId)}/conversations?fields=id,link,updated_time,unread_count,senders&limit=${limit}`;
-    res = await fetch(url, { headers: { Authorization: `Bearer ${pageAccessToken}` } });
-    checkRateLimitHeaders(res.headers);
-    data = await res.json();
+  if (!res.ok && data.error?.message?.includes("appsecret_proof")) {
+    url = `${GRAPH_BASE_URL}/${encodeURIComponent(pageId)}/conversations?fields=id,link,updated_time,unread_count,senders&limit=${limit}`
+    res = await fetch(url, {
+      headers: { Authorization: `Bearer ${pageAccessToken}` },
+    })
+    checkRateLimitHeaders(res.headers)
+    data = await res.json()
   }
 
   if (!res.ok) {
-    throw new Error(data.error?.message || 'Failed to read page conversations');
+    throw new Error(data.error?.message || "Failed to read page conversations")
   }
-  return data.data || [];
+  return data.data || []
 }
 
 /**
  * Fetches messages for a specific conversation thread.
  */
-async function getPageMessages(conversationId, pageAccessToken, appSecret, limit = 20) {
-  const proof = computeAppSecretProof(pageAccessToken, appSecret);
-  const proofParam = proof ? `&appsecret_proof=${proof}` : '';
-  let url = `${GRAPH_BASE_URL}/${encodeURIComponent(conversationId)}/messages?fields=id,message,from,created_time&limit=${limit}${proofParam}`;
+async function getPageMessages(
+  conversationId,
+  pageAccessToken,
+  appSecret,
+  limit = 20,
+) {
+  const proof = computeAppSecretProof(pageAccessToken, appSecret)
+  const proofParam = proof ? `&appsecret_proof=${proof}` : ""
+  let url = `${GRAPH_BASE_URL}/${encodeURIComponent(conversationId)}/messages?fields=id,message,from,created_time&limit=${limit}${proofParam}`
 
   let res = await fetch(url, {
     headers: { Authorization: `Bearer ${pageAccessToken}` },
-  });
-  checkRateLimitHeaders(res.headers);
-  let data = await res.json();
+  })
+  checkRateLimitHeaders(res.headers)
+  let data = await res.json()
 
-  if (!res.ok && data.error?.message?.includes('appsecret_proof')) {
-    url = `${GRAPH_BASE_URL}/${encodeURIComponent(conversationId)}/messages?fields=id,message,from,created_time&limit=${limit}`;
-    res = await fetch(url, { headers: { Authorization: `Bearer ${pageAccessToken}` } });
-    checkRateLimitHeaders(res.headers);
-    data = await res.json();
+  if (!res.ok && data.error?.message?.includes("appsecret_proof")) {
+    url = `${GRAPH_BASE_URL}/${encodeURIComponent(conversationId)}/messages?fields=id,message,from,created_time&limit=${limit}`
+    res = await fetch(url, {
+      headers: { Authorization: `Bearer ${pageAccessToken}` },
+    })
+    checkRateLimitHeaders(res.headers)
+    data = await res.json()
   }
 
   if (!res.ok) {
-    throw new Error(data.error?.message || 'Failed to read conversation messages');
+    throw new Error(
+      data.error?.message || "Failed to read conversation messages",
+    )
   }
-  return data.data || [];
+  return data.data || []
 }
 
 /**
@@ -192,58 +231,70 @@ async function getPageMessages(conversationId, pageAccessToken, appSecret, limit
  * 4. Authorization: Bearer + appsecret_proof.
  * 5. Rate-limit header inspection.
  */
-async function sendPageReply({ pageId, pageAccessToken, appSecret, psid, text, lastCustomerMessageAt, approvalStatus }) {
-  if (approvalStatus !== 'approved') {
-    throw new Error('COMPLIANCE_BLOCK: Outbound message requires human approval');
+async function sendPageReply({
+  pageId,
+  pageAccessToken,
+  appSecret,
+  psid,
+  text,
+  lastCustomerMessageAt,
+  approvalStatus,
+}) {
+  if (approvalStatus !== "approved") {
+    throw new Error(
+      "COMPLIANCE_BLOCK: Outbound message requires human approval",
+    )
   }
   if (lastCustomerMessageAt) {
-    const ageMs = Date.now() - new Date(lastCustomerMessageAt).getTime();
+    const ageMs = Date.now() - new Date(lastCustomerMessageAt).getTime()
     if (Number.isFinite(ageMs) && ageMs > 24 * 60 * 60 * 1000) {
-      throw new Error('COMPLIANCE_BLOCK: Outside 24-hour Standard Messaging Window');
+      throw new Error(
+        "COMPLIANCE_BLOCK: Outside 24-hour Standard Messaging Window",
+      )
     }
   }
 
-  const proof = computeAppSecretProof(pageAccessToken, appSecret);
-  const proofParam = proof ? `?appsecret_proof=${proof}` : '';
-  let url = `${GRAPH_BASE_URL}/${encodeURIComponent(pageId)}/messages${proofParam}`;
+  const proof = computeAppSecretProof(pageAccessToken, appSecret)
+  const proofParam = proof ? `?appsecret_proof=${proof}` : ""
+  let url = `${GRAPH_BASE_URL}/${encodeURIComponent(pageId)}/messages${proofParam}`
 
   let res = await fetch(url, {
-    method: 'POST',
+    method: "POST",
     headers: {
       Authorization: `Bearer ${pageAccessToken}`,
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      messaging_type: 'RESPONSE',
+      messaging_type: "RESPONSE",
       recipient: { id: psid },
       message: { text },
     }),
-  });
+  })
 
-  checkRateLimitHeaders(res.headers);
-  let data = await res.json();
-  if (!res.ok && data.error?.message?.includes('appsecret_proof')) {
-    url = `${GRAPH_BASE_URL}/${encodeURIComponent(pageId)}/messages`;
+  checkRateLimitHeaders(res.headers)
+  let data = await res.json()
+  if (!res.ok && data.error?.message?.includes("appsecret_proof")) {
+    url = `${GRAPH_BASE_URL}/${encodeURIComponent(pageId)}/messages`
     res = await fetch(url, {
-      method: 'POST',
+      method: "POST",
       headers: {
         Authorization: `Bearer ${pageAccessToken}`,
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        messaging_type: 'RESPONSE',
+        messaging_type: "RESPONSE",
         recipient: { id: psid },
         message: { text },
       }),
-    });
-    checkRateLimitHeaders(res.headers);
-    data = await res.json();
+    })
+    checkRateLimitHeaders(res.headers)
+    data = await res.json()
   }
 
   if (!res.ok) {
-    throw new Error(data.error?.message || 'Failed to send Messenger message');
+    throw new Error(data.error?.message || "Failed to send Messenger message")
   }
-  return data;
+  return data
 }
 
 module.exports = {
@@ -256,4 +307,4 @@ module.exports = {
   getPageConversations,
   getPageMessages,
   sendPageReply,
-};
+}
