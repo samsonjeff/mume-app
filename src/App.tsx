@@ -607,7 +607,7 @@ interface ThreadMsg {
 
   // Live delivery receipt for merchant replies, mirrored to the customer thread.
 
-  status?: "sending" | "sent-live" | "seen"
+  status?: "sending" | "sent-live" | "seen" | "failed" | "demo"
 
   // How this merchant message entered the thread: typed manually or approved from Home.
 
@@ -871,6 +871,10 @@ function merchantDeliveryLabel(m: ThreadMsg): string {
   if (m.status === "seen") return "Seen · live"
 
   if (m.status === "sent-live") return "Sent · live"
+
+  if (m.status === "failed") return "Not delivered"
+
+  if (m.status === "demo") return "Demo thread"
 
   return `${m.time} · You`
 }
@@ -2386,31 +2390,70 @@ export default function App() {
     }))
     setThreadPreviews((prev) => ({ ...prev, [threadId]: trimmed }))
 
+    const threadName =
+      allConvos.find((c) => c.id === threadId)?.name || "Customer"
+
+    let failureReason: string | null = null
+
+    let isDemoDelivery = false
+
     try {
       const real = realInboxConvos.find((c) => c.id === threadId)
+
       if (linkedPageId && real?.psid) {
-        await api.replyToCustomer(linkedPageId, {
+        const sent: any = await api.replyToCustomer(linkedPageId, {
           psid: real.psid,
           text: trimmed,
           lastCustomerMessageAt: new Date().toISOString(),
         })
+
+        if (!(sent && sent.status === "sent")) {
+          throw new Error("Messenger dispatch did not confirm delivery.")
+        }
+      } else {
+        isDemoDelivery = true
       }
-    } catch {
-      // Local thread update above already shows the live change.
+    } catch (err) {
+      failureReason =
+        err instanceof Error ? err.message : "Message failed to send."
     }
 
-    setThreadMsgs((prev) => ({
-      ...prev,
-      [threadId]: (prev[threadId] || []).map((m) =>
-        m.id === merchantMsg.id ? { ...m, status: "sent-live" as const } : m,
-      ),
-    }))
+    if (failureReason) {
+      setThreadMsgs((prev) => ({
+        ...prev,
+        [threadId]: (prev[threadId] || []).map((m) =>
+          m.id === merchantMsg.id ? { ...m, status: "failed" as const } : m,
+        ),
+      }))
 
-    const threadName =
-      allConvos.find((c) => c.id === threadId)?.name || "Customer"
-    setSentLabel(`Sent to ${threadName} · live`)
+      setSentLabel(`NOT delivered to ${threadName}: ${failureReason}`)
+    } else if (isDemoDelivery) {
+      setThreadMsgs((prev) => ({
+        ...prev,
+        [threadId]: (prev[threadId] || []).map((m) =>
+          m.id === merchantMsg.id ? { ...m, status: "demo" as const } : m,
+        ),
+      }))
+
+      setSentLabel(
+        `Saved to ${threadName}'s demo thread — link a Page to message for real.`,
+      )
+    } else {
+      setThreadMsgs((prev) => ({
+        ...prev,
+        [threadId]: (prev[threadId] || []).map((m) =>
+          m.id === merchantMsg.id ? { ...m, status: "sent-live" as const } : m,
+        ),
+      }))
+
+      setSentLabel(`Sent to ${threadName} · live`)
+    }
+
     setSent(true)
+
     window.setTimeout(() => setSent(false), 3500)
+
+    if (failureReason) return
 
     if (customerReplyTimerRef.current !== null) {
       window.clearTimeout(customerReplyTimerRef.current)

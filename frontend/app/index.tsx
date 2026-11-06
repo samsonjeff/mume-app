@@ -46,7 +46,7 @@ import { MumeLogo } from "../components/MumeLogo"
 import { api, LinkedPage } from "../lib/api"
 
 import { supabase } from "../lib/supabase"
-import { extractSendToCustomerText } from "../lib/sendIntent"
+import { extractSendToCustomerText, parseSendToCustomer, findConvoByName } from "../lib/sendIntent"
 
 import { styles } from "./index.styles"
 
@@ -2254,6 +2254,16 @@ export default function HomeScreen() {
 
       if (!transcribedText) throw new Error("Couldn't hear that — try again.")
 
+      const backupParsed = parseSendToCustomer(transcribedText)
+
+      if (backupParsed && !backupParsed.body && !backupParsed.targetName) {
+        setChatInput(transcribedText)
+
+        showVoiceError("What should I send? Say e.g. send hello to Maria.")
+
+        return
+      }
+
       const customerText = extractSendToCustomerText(transcribedText)
       if (customerText && selectedInbox) {
         setActiveTab("inbox")
@@ -2267,6 +2277,8 @@ export default function HomeScreen() {
         )
         return
       }
+      if (await routeCapsuleText(transcribedText, voiceAudioUri)) return
+
       await handleSendMessage(transcribedText)
     } catch (err: any) {
       const msg = err?.message || "Voice transcription failed"
@@ -2300,6 +2312,10 @@ export default function HomeScreen() {
     const trimmed = (sendText ?? chatInput).trim()
 
     if (!trimmed || isAiThinking) return
+
+    // Send-to-customer commands route live to the thread, never to AI.
+
+    if (await routeCapsuleText(trimmed)) return
 
     // Sending restores the normal layout: blur fires onBlur, which brings
 
@@ -2732,10 +2748,16 @@ export default function HomeScreen() {
 
   // Delivers text (+ optional recorded voice note) to the open customer thread.
 
-  const deliverToOpenThread = async (rawText: string, audioUri?: string) => {
+  const deliverToOpenThread = async (
+    rawText: string,
+    audioUri?: string,
+    convoOverride?: { id: string; psid?: string } | null,
+  ) => {
     const trimmed = rawText.trim()
 
-    if (!trimmed || !selectedInbox || sendingInboxReply) return false
+    const inbox = convoOverride || selectedInbox
+
+    if (!trimmed || !inbox || sendingInboxReply) return false
 
     setSendingInboxReply(true)
 
@@ -2760,7 +2782,7 @@ export default function HomeScreen() {
     try {
       const pageId = pages[0]?.id
 
-      const psid = selectedInbox.psid
+      const psid = inbox?.psid
 
       if (pageId && psid) {
         // Tier 1: real dispatch — typing Send IS the human approval
@@ -2833,10 +2855,10 @@ export default function HomeScreen() {
           }
         }
 
-        return
+        return true
       }
 
-      if (UUID_RE.test(selectedInbox.id)) {
+      if (UUID_RE.test(inbox.id)) {
         // Tier 2: persist merchant reply for real conversation rows
 
         const { data, error } = await supabase
@@ -2844,7 +2866,7 @@ export default function HomeScreen() {
           .from("messages")
 
           .insert({
-            conversation_id: selectedInbox.id,
+            conversation_id: inbox.id,
 
             sender: "page",
 
@@ -2878,13 +2900,15 @@ export default function HomeScreen() {
             ),
           )
 
-          return
+          return true
         }
 
         throw new Error("Reply was not saved")
       }
 
       // Tier 3: demo mocks have no backend row — temp message stays in memory
+      return true
+
     } catch (err: any) {
       // Remote send attempted and failed: drop the optimistic bubble, log only
 
@@ -2893,9 +2917,86 @@ export default function HomeScreen() {
       setInboxReply(trimmed)
 
       console.warn("Inbox reply failed (kept as draft):", err?.message || err)
+      return false
+
     } finally {
       setSendingInboxReply(false)
     }
+  }
+
+  // "Send <message> to <name>" (typed or spoken) routes live to the
+  // matching customer thread — real convo first, demo thread after —
+  // through the same Tier 1/2/3 delivery pipeline as manual replies.
+  const routeCapsuleText = async (
+    raw: string,
+    audioUri?: string,
+  ): Promise<boolean> => {
+    const parsed = parseSendToCustomer(raw)
+
+    if (!parsed) return false
+
+    if (!parsed.body) {
+      setChatInput(raw)
+
+      showVoiceError(
+        parsed.targetName
+          ? `What should I send to ${parsed.targetName}?`
+          : "Say e.g. send hello to Maria.",
+      )
+
+      return true
+    }
+
+    const pool = [...realInboxConvos, ...DUMMY_CONVOS]
+
+    if (!parsed.targetName) {
+      if (!selectedInbox) {
+        setChatInput(raw)
+
+        showVoiceError("Open a customer conversation first.")
+
+        return true
+      }
+
+      const ok = await deliverToOpenThread(parsed.body, audioUri, {
+        id: selectedInbox.id,
+        psid: selectedInbox.psid,
+      })
+
+      if (!ok) showVoiceError("Message NOT sent — kept as draft in the thread.")
+
+      return true
+    }
+
+    const match = findConvoByName(pool, parsed.targetName)
+
+    if (!match) {
+      setChatInput(raw)
+
+      showVoiceError("No customer thread matches " + parsed.targetName + ".")
+
+      return true
+    }
+
+    setActiveTab("inbox")
+
+    await openInboxThread(match)
+
+    const ok = await deliverToOpenThread(parsed.body, audioUri, match)
+
+    if (ok) {
+      setSentToastText(`Sent to ${match.name}.`)
+
+      setSentToast(true)
+
+      setTimeout(() => {
+        setSentToast(false)
+      }, 3500)
+    } else {
+      showVoiceError("Message NOT sent — kept as draft in the thread.")
+    }
+
+    return true
   }
 
   const handleSendInboxReply = async () => {
