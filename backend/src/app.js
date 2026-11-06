@@ -108,6 +108,43 @@ function isOriginAllowed(origin, env) {
  * Builds the Express app.
  */
 
+/**
+ * Builds every database write an approval must produce. Approving an
+ * action always persists the reply (messages + conversation timestamp),
+ * whether or not Messenger dispatch succeeded, so the database reflects
+ * what the merchant approved. Pure helper: safe to unit test.
+ */
+function buildApprovalDbWrites({
+  actionId,
+  conversationId,
+  replyText,
+  graphResult,
+  dispatched,
+  now,
+}) {
+  const timestamp = now || new Date().toISOString()
+
+  return {
+    pendingUpdate: {
+      status: dispatched ? "sent" : "approved",
+      draft_reply: replyText,
+      updated_at: timestamp,
+    },
+    messageInsert: {
+      conversation_id: conversationId,
+      fb_message_id:
+        (graphResult && graphResult.message_id) ||
+        `approved-${actionId}-${Date.now()}`,
+      sender: "page",
+      text: replyText,
+      is_from_customer: false,
+    },
+    conversationUpdate: {
+      last_message_at: timestamp,
+    },
+  }
+}
+
 function createApp(env = process.env) {
   const app = express()
 
@@ -2059,25 +2096,33 @@ function createApp(env = process.env) {
       dispatchError = "Message approved but NOT sent to Messenger."
     }
 
+    const writes = buildApprovalDbWrites({
+      actionId,
+      conversationId: action.conversation_id,
+      replyText,
+      graphResult,
+      dispatched,
+    })
+
     const { data: updated } = await supabase
       .from("pending_actions")
-      .update({
-        status: dispatched ? "sent" : "approved",
-        draft_reply: replyText,
-        updated_at: new Date().toISOString(),
-      })
+      .update(writes.pendingUpdate)
       .eq("id", actionId)
       .select()
       .single()
 
-    if (dispatched) {
-      await supabase.from("messages").insert({
-        conversation_id: action.conversation_id,
-        fb_message_id: graphResult.message_id,
-        sender: "page",
-        text: replyText,
-        is_from_customer: false,
-      })
+    // The approval itself is the database update: the merchant-approved
+    // reply is persisted even when Messenger dispatch was not attempted
+    // or failed, so the thread history always reflects what was approved.
+    try {
+      await supabase.from("messages").insert(writes.messageInsert)
+
+      await supabase
+        .from("conversations")
+        .update(writes.conversationUpdate)
+        .eq("id", action.conversation_id)
+    } catch (dbErr) {
+      console.warn("[approve-persist] Warning:", dbErr.message)
     }
 
     return {
@@ -2139,4 +2184,4 @@ function createApp(env = process.env) {
   return app
 }
 
-module.exports = { createApp, escapeHtml }
+module.exports = { createApp, escapeHtml, buildApprovalDbWrites }
