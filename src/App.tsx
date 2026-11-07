@@ -1724,7 +1724,7 @@ export default function App() {
       () => {
         setShowSplash(false)
 
-        // Auto-show Pro upgrade modal on the home screen for 3 seconds right after the 3s splash
+        // Auto-show Pro upgrade modal on the home screen for 3 seconds right after the 5s splash
 
         setSubscriptionModalOpen(true)
 
@@ -1734,7 +1734,7 @@ export default function App() {
           proAutoCloseTimerRef.current = null
         }, 3000)
       },
-      3000,
+      5000,
     )
 
     return () => {
@@ -2809,7 +2809,7 @@ export default function App() {
   return (
     <div className="app-shell">
       <main className="phone-stage max-w-[412px] min-w-[360px] mx-auto border-x border-[var(--line)] shadow-2xl relative">
-        {/* Opening Splash Animation (0.8s) */}
+        {/* Opening Splash Animation (5s) */}
         {showSplash && (
           <div className="mume-splash-screen" aria-label="Mume">
             <div className="mume-splash-backdrop" />

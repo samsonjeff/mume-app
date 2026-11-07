@@ -2387,7 +2387,7 @@
   }
 }
 
-/* Opening App Splash Screen Animation (3s) using mume-black.svg and mume-white.svg */
+/* Opening App Splash Screen Animation (5s) using mume-black.svg and mume-white.svg */
 .mume-splash-screen {
   position: absolute;
   inset: 0;
@@ -2397,13 +2397,13 @@
   justify-content: center;
   overflow: hidden;
   pointer-events: none;
-  animation: splashFadeOut 3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: splashFadeOut 5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 .mume-splash-backdrop {
   position: absolute;
   inset: 0;
-  animation: splashBgTransition 3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: splashBgTransition 5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 .mume-splash-logo-container {
@@ -2413,7 +2413,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  animation: splashLogoScale 3s cubic-bezier(0.34, 1.2, 0.64, 1) forwards;
+  animation: splashLogoScale 5s cubic-bezier(0.34, 1.2, 0.64, 1) forwards;
 }
 
 .mume-splash-logo {
@@ -2425,11 +2425,11 @@
 }
 
 .mume-splash-logo-black {
-  animation: splashBlackLogo 3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: splashBlackLogo 5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 .mume-splash-logo-white {
-  animation: splashWhiteLogo 3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: splashWhiteLogo 5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 @keyframes splashBgTransition {

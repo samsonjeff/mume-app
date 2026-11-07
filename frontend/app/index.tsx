@@ -1257,7 +1257,7 @@ export default function HomeScreen() {
 
   const [linkMessage, setLinkMessage] = useState("")
 
-  // Opening splash screen animation (3.5s) using mume-black.svg and mume-white.svg
+  // Opening splash screen animation (5s) using mume-black.svg and mume-white.svg
 
   const [showSplash, setShowSplash] = useState(true)
 
@@ -1271,7 +1271,7 @@ export default function HomeScreen() {
     Animated.timing(splashAnim, {
       toValue: 1,
 
-      duration: 3500,
+      duration: 5000,
 
       useNativeDriver: false,
 
@@ -3092,7 +3092,7 @@ export default function HomeScreen() {
   return (
     <View style={styles.rootContainer}>
       <StatusBar style="light" />
-      {/* Opening Splash Animation (3.5s) using mume-black and mume-white */}
+      {/* Opening Splash Animation (5s) using mume-black and mume-white */}
       {showSplash && (
         <Animated.View
           pointerEvents="none"
